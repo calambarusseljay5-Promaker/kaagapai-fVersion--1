@@ -1,0 +1,8 @@
+- `[x]` Add `darkMode: 'class'` configuration to tailwind config
+- `[x]` Update `sidebarNavItems` and setup UI state variables in `UserDashboard.jsx`
+- `[x]` Create the **User Profile** page content (`activeNav === "profile"`)
+- `[x]` Create the **Personal Information** page content (`activeNav === "personal_info"`)
+- `[x]` Implement the **Password Confirmation Modal** for saving Personal Information updates
+- `[x]` Create the **Barangay Officials** page content (`activeNav === "officials"`)
+- `[x]` Restructure the **Settings** page content (`activeNav === "settings"`) with new sub-tabs
+- `[x]` Verify that changes build and run successfully
