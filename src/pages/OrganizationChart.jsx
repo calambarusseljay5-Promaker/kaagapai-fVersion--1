@@ -12,7 +12,7 @@ import {
   RotateCcw,
   X,
 } from "lucide-react";
-import Header from "../components/Header";
+import PageWrapper from "../components/PageWrapper";
 import FloatingModal from "../components/FloatingModal";
 import {
   DEFAULT_ORGANIZATION_OFFICIALS,
@@ -389,14 +389,11 @@ const OrganizationChart = () => {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-transparent">
-      <Header
-        title="Organizational Chart"
-        subtitle="Manage barangay official profiles, photos, and print-ready hierarchy"
-      />
-
-      <main className="flex-1 overflow-auto px-4 py-6 sm:px-6 lg:px-8">
-        <div className="glass-container mt-2 mx-auto max-w-[1360px] flex flex-col">
+    <PageWrapper
+      title="Organizational Chart"
+      description="Manage barangay official profiles, photos, and print-ready hierarchy"
+    >
+      <div className="glass-container mt-2 mx-auto max-w-[1360px] flex flex-col pb-20">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between p-6 border-b border-slate-200/50">
             <div className="max-w-2xl">
               <span className="inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">
@@ -505,7 +502,6 @@ const OrganizationChart = () => {
             )}
           </div>
         </div>
-      </main>
 
       {viewingOfficial && (
         <FloatingModal
@@ -773,7 +769,7 @@ const OrganizationChart = () => {
           </div>
         </FloatingModal>
       )}
-    </div>
+    </PageWrapper>
   );
 };
 

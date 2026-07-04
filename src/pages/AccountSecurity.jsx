@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { KeyRound, Loader2, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
-import Header from "../components/Header";
+import PageWrapper from "../components/PageWrapper";
 import { getCurrentUserWithProfile, resetPassword, updatePassword } from "../services/authService";
 
 const passwordChecks = [
@@ -110,11 +110,7 @@ const AccountSecurity = () => {
   const checks = getPasswordState(passwordForm.newPassword);
 
   return (
-    <div className="flex h-screen flex-col bg-[#eef3f8]">
-      <Header title="Account Security" subtitle="Update password and review sign-in protections" />
-
-      <div className="flex-1 overflow-auto px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-[1180px] space-y-5">
+    <PageWrapper title="Account Security" description="Update password and review sign-in protections">
           <section className="grid gap-4 md:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
@@ -229,9 +225,7 @@ const AccountSecurity = () => {
               {error}
             </div>
           ) : null}
-        </div>
-      </div>
-    </div>
+    </PageWrapper>
   );
 };
 

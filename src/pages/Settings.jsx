@@ -11,7 +11,8 @@ import {
   Sun,
   Upload,
 } from "lucide-react";
-import Header from "../components/Header";
+import PageWrapper from "../components/PageWrapper";
+import { useConfirm } from "../context/ConfirmContext";
 import {
   getSystemSettings,
   resetSystemSettings,
@@ -55,6 +56,7 @@ const themeOptions = [
 ];
 
 const Settings = () => {
+  const { confirm } = useConfirm();
   const [settings, setSettings] = useState(() => getSystemSettings());
   const [savedAt, setSavedAt] = useState("");
   const [backupStatus, setBackupStatus] = useState("");
@@ -68,14 +70,34 @@ const Settings = () => {
     }));
   };
 
-  const handleSave = (event) => {
-    event.preventDefault();
+  const handleSave = async (event) => {
+    event?.preventDefault();
+    const ok = await confirm({
+      title: "Save System Settings",
+      message: "Are you sure you want to update the system settings?",
+      confirmText: "Save Settings",
+      cancelText: "Cancel",
+      variant: "emerald",
+      icon: Save,
+    });
+    if (!ok) return;
+
     const saved = saveSystemSettings(settings);
     setSettings(saved);
     setSavedAt(new Date().toLocaleTimeString());
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    const ok = await confirm({
+      title: "Restore Settings Defaults",
+      message: "Are you sure you want to reset all system settings to their default values?",
+      confirmText: "Reset",
+      cancelText: "Cancel",
+      variant: "danger",
+      icon: RotateCcw,
+    });
+    if (!ok) return;
+
     const defaults = resetSystemSettings();
     setSettings(defaults);
     setSavedAt(new Date().toLocaleTimeString());
@@ -128,11 +150,8 @@ const Settings = () => {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-transparent">
-      <Header title="System Settings" subtitle="Configure system identity and module preferences" />
-
-      <div className="flex-1 overflow-auto custom-scrollbar px-4 py-6 sm:px-6 lg:px-8">
-        <form onSubmit={handleSave} className="mx-auto max-w-[1600px] space-y-6">
+    <PageWrapper title="System Settings" description="Configure system identity and module preferences">
+      <form onSubmit={handleSave} className="space-y-6 pb-20">
           <section className="glass-panel p-6">
             <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 md:flex-row md:items-start md:justify-between">
               <div className="flex items-start gap-3">
@@ -382,8 +401,7 @@ const Settings = () => {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </PageWrapper>
   );
 };
 

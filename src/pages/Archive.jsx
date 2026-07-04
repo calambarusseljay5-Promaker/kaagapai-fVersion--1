@@ -13,6 +13,7 @@ import PageWrapper from "../components/PageWrapper";
 import { DataGrid } from "@mui/x-data-grid";
 import { deleteResident, fetchResidents, restoreResident } from "../services/adminService";
 import { formatPurok, purokOptions, sexOptions } from "../utils/residentProfile";
+import { useConfirm } from "../context/ConfirmContext";
 
 const formatDate = (dateValue) => {
   if (!dateValue) return "-";
@@ -44,6 +45,7 @@ const isInsideDateRange = (resident, dateFrom, dateTo) => {
 };
 
 const Archive = () => {
+  const { confirm } = useConfirm();
   const [archivedResidents, setArchivedResidents] = useState([]);
   const [search, setSearch] = useState("");
   const [sexFilter, setSexFilter] = useState("");
@@ -79,6 +81,16 @@ const Archive = () => {
   }, [loadArchivedResidents]);
 
   const handleRestore = async (resident) => {
+    const ok = await confirm({
+      title: "Restore Record",
+      message: "Do you want to restore this record?",
+      confirmText: "Restore",
+      cancelText: "Cancel",
+      variant: "emerald",
+      icon: RotateCcw,
+    });
+    if (!ok) return;
+
     setActionResidentId(resident.id);
     setMessage(null);
 
@@ -94,9 +106,15 @@ const Archive = () => {
   };
 
   const handleDelete = async (resident) => {
-    if (!window.confirm("Permanently delete this archived resident? This action cannot be undone.")) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Permanently Delete Record",
+      message: "This action cannot be undone. This record will be permanently removed from the system.",
+      confirmText: "Delete Permanently",
+      cancelText: "Cancel",
+      variant: "danger",
+      icon: Trash2,
+    });
+    if (!ok) return;
 
     setActionResidentId(resident.id);
     setMessage(null);

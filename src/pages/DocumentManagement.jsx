@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import PageWrapper from "../components/PageWrapper";
 import FloatingModal from "../components/FloatingModal";
+import { useConfirm } from "../context/ConfirmContext";
 import { DataGrid } from "@mui/x-data-grid";
 const STATUS_OPTIONS = ["Pending", "Processing", "Approved", "Completed", "Released", "Rejected"];
 const TEMPLATE_UPLOAD_ACCEPT =
@@ -192,6 +193,7 @@ const getRequiredMissingFields = (fields, selectedTemplateId, selectedResidentId
 
 const DocumentManagement = () => {
   const navigate = useNavigate();
+  const { confirm } = useConfirm();
   const [requests, setRequests] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [residents, setResidents] = useState([]);
@@ -722,6 +724,30 @@ const DocumentManagement = () => {
 
 
   const handleStatusChange = async (id, newStatus) => {
+    let confirmTitle = `Mark Request as ${newStatus}`;
+    let confirmMessage = `Are you sure you want to update this document request status to ${newStatus}?`;
+    let variant = "emerald";
+
+    if (newStatus === "Approved" || newStatus === "Completed" || newStatus === "Released") {
+      confirmTitle = "Approve Document Request";
+      confirmMessage = "Are you sure you want to approve this document request?";
+      variant = "emerald";
+    } else if (newStatus === "Rejected") {
+      confirmTitle = "Reject Document Request";
+      confirmMessage = "Are you sure you want to reject this document request?";
+      variant = "danger";
+    }
+
+    const ok = await confirm({
+      title: confirmTitle,
+      message: confirmMessage,
+      confirmText: newStatus === "Rejected" ? "Reject" : "Approve",
+      cancelText: "Cancel",
+      variant: variant,
+      icon: newStatus === "Rejected" ? Trash2 : CheckCircle,
+    });
+    if (!ok) return;
+
     setUpdating(true);
 
     try {
@@ -756,7 +782,15 @@ const DocumentManagement = () => {
   };
 
   const handleDeleteRequest = async (id) => {
-    if (!window.confirm("Are you sure? This action cannot be undone.")) return;
+    const ok = await confirm({
+      title: "Delete Record",
+      message: "Are you sure you want to delete this record?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      variant: "danger",
+      icon: Trash2,
+    });
+    if (!ok) return;
 
     try {
       await deleteDocumentRequest(id);

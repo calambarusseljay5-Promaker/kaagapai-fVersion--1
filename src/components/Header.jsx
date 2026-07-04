@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
-import { Bell, User, ChevronDown, X, CheckCheck, Loader2, RefreshCw } from "lucide-react";
+import { Bell, User, ChevronDown, X, CheckCheck, Loader2, RefreshCw, LogOut } from "lucide-react";
+import { useConfirm } from "../context/ConfirmContext";
 import {
   getCurrentUserWithProfile,
   logoutUser,
@@ -61,6 +62,7 @@ const getNotificationAccent = (tone) => {
 
 const Header = ({ title, subtitle, middleContent = null, actions = null, className = "" }) => {
   const navigate = useNavigate();
+  const { confirm } = useConfirm();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -205,9 +207,18 @@ const Header = ({ title, subtitle, middleContent = null, actions = null, classNa
       });
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     if (isSigningOut) return;
-    setShowSignOutConfirm(true);
+    const ok = await confirm({
+      title: "Confirm Admin Logout",
+      message: "Are you sure you want to log out of the KaagapAI Administrative Portal?",
+      confirmText: "Logout",
+      cancelText: "Cancel",
+      variant: "danger",
+      icon: LogOut,
+    });
+    if (!ok) return;
+    confirmSignOut();
   };
 
   return (

@@ -58,8 +58,21 @@ export async function fetchResidentStats() {
     "Seniors (60+)": 0,
   };
 
+  const anonymousResidents = [];
+
   currentResidents.forEach((res) => {
     const age = getResidentAge(res);
+    
+    // Push anonymized data for AI complex queries
+    anonymousResidents.push({
+      age: age !== null ? age : "Unknown",
+      gender: normalizeGender(res),
+      purok: normalizeText(res.purok),
+      status: normalizeText(res.status),
+      isSenior: age !== null && age >= 60,
+      isPWD: Boolean(res.is_pwd)
+    });
+
     if (age === null || age < 0) return;
     if (age <= 12) ageDistribution["Children (0-12)"]++;
     else if (age <= 19) ageDistribution["Teens (13-19)"]++;
@@ -87,5 +100,6 @@ export async function fetchResidentStats() {
     purokHouseholdCounts,
     purokSummary,
     ageDistribution,
+    anonymousResidents,
   };
 }

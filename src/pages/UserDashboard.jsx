@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useConfirm } from "../context/ConfirmContext";
 import {
   ResponsiveContainer,
   LineChart,
@@ -124,6 +125,44 @@ const saveStoredReadIds = (key, ids) => {
   }
 };
 
+const CHART_COLORS = ["#0B5D3B", "#1FA971", "#157347", "#86efac", "#dcfce7", "#34d399", "#059669"];
+
+const RenderChatChart = ({ text }) => {
+  const match = text.match(/\[CHART:(PIE|BAR):(.*?)\]/);
+  if (!match) return <p className="whitespace-pre-line leading-relaxed font-medium">{text}</p>;
+
+  const cleanText = text.replace(match[0], "").trim();
+  const chartType = match[1];
+  let data = [];
+  try {
+    const rawData = JSON.parse(match[2]);
+    data = Object.keys(rawData).map(key => ({ name: key, value: rawData[key] }));
+  } catch (e) {
+    return <p className="whitespace-pre-line leading-relaxed font-medium">{text}</p>;
+  }
+
+  return (
+    <div className="w-full flex flex-col gap-2">
+      {cleanText && <p className="whitespace-pre-line leading-relaxed font-medium">{cleanText}</p>}
+      <div className="w-full sm:w-[300px] mt-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-2" style={{ height: `${Math.max(176, data.length * 35)}px` }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart layout="vertical" data={data} margin={{ top: 10, right: 20, left: 20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+            <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#64748b" }} />
+            <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#64748b" }} width={80} />
+            <Tooltip
+              cursor={{ fill: "#f1f5f9" }}
+              contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)", fontSize: "10px", fontWeight: "bold" }}
+            />
+            <Bar dataKey="value" fill="#0B5D3B" radius={[0, 4, 4, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
+
 
 
 
@@ -197,6 +236,7 @@ const AssistantAiIcon = () => (
 
 const UserDashboard = () => {
   const navigate = useNavigate();
+  const { confirm } = useConfirm();
   const shouldReduceMotion = useReducedMotion();
 
   // App Telemetry States
@@ -853,6 +893,16 @@ const UserDashboard = () => {
   };
 
   const handleLogout = async () => {
+    const ok = await confirm({
+      title: "Confirm Logout",
+      message: "Are you sure you want to log out of your KaagapAI Resident Account?",
+      confirmText: "Logout",
+      cancelText: "Cancel",
+      variant: "danger",
+      icon: LogOut,
+    });
+    if (!ok) return;
+
     const goodbyeName = displayName;
     clearResidentSession();
     await logoutUser();
@@ -3272,13 +3322,17 @@ const UserDashboard = () => {
                           </div>
                         )}
                         <div
-                          className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed font-semibold shadow-2xs ${
+                          className={`max-w-[90%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed font-semibold shadow-2xs ${
                             isUser
                               ? "bg-gradient-to-br from-[#0B5D3B] to-[#157347] text-white rounded-br-none"
                               : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 rounded-bl-none"
                           }`}
                         >
-                          <p className="whitespace-pre-line leading-relaxed font-medium">{chat.text}</p>
+                          {isUser ? (
+                            <p className="whitespace-pre-line leading-relaxed font-medium">{chat.text}</p>
+                          ) : (
+                            <RenderChatChart text={chat.text} />
+                          )}
                         </div>
                       </div>
                     );

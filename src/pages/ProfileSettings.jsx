@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Save, Trash2, Upload, UserRound } from "lucide-react";
-import Header from "../components/Header";
+import PageWrapper from "../components/PageWrapper";
 import {
   getCurrentUserWithProfile,
   notifyProfileUpdated,
@@ -344,11 +344,8 @@ const ProfileSettings = () => {
   const status = currentUser?.profile?.registration_status || "Active";
 
   return (
-    <div className="flex h-screen flex-col bg-[#eef3f8]">
-      <Header title="Profile Settings" subtitle="Manage your admin account details" />
-
-      <div className="flex-1 overflow-auto px-4 py-6 sm:px-6 lg:px-8">
-        <form onSubmit={handleSave} className="mx-auto max-w-[1180px] space-y-5">
+    <PageWrapper title="Profile Settings" description="Manage your admin account details">
+      <form onSubmit={handleSave} className="space-y-5 pb-20">
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 md:flex-row md:items-start md:justify-between">
               <div className="flex items-start gap-3">
@@ -495,8 +492,7 @@ const ProfileSettings = () => {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </PageWrapper>
   );
 };
 

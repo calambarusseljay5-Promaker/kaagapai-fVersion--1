@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Header from "../components/Header";
 import Drawer from "../components/Drawer";
+import { useConfirm } from "../context/ConfirmContext";
 import {
   createAnnouncement,
   deleteAnnouncement,
@@ -194,6 +195,7 @@ const formatBulkSmsFailureDetails = (failed = []) => {
 };
 
 const Announcements = () => {
+  const { confirm } = useConfirm();
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -364,6 +366,18 @@ const Announcements = () => {
   };
 
   const handleStatus = async (announcement, status) => {
+    if (status === "Published") {
+      const ok = await confirm({
+        title: "Publish Announcement",
+        message: "Are you sure you want to publish this announcement to all residents?",
+        confirmText: "Publish",
+        cancelText: "Cancel",
+        variant: "emerald",
+        icon: Megaphone,
+      });
+      if (!ok) return;
+    }
+
     setUpdatingStatusId(announcement.id);
     setMessage(null);
 
@@ -411,7 +425,15 @@ const Announcements = () => {
   };
 
   const handleDelete = async (announcement) => {
-    if (!window.confirm(`Delete "${announcement.title}"?`)) return;
+    const ok = await confirm({
+      title: "Delete Announcement",
+      message: "Are you sure you want to delete this announcement?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      variant: "danger",
+      icon: Trash2,
+    });
+    if (!ok) return;
 
     try {
       await deleteAnnouncement(announcement.id);

@@ -24,6 +24,7 @@ import Welcome from "./pages/Welcome";
 import Goodbye from "./pages/Goodbye";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { getSystemSettings } from "./services/adminActivityService";
+import { ConfirmProvider } from "./context/ConfirmContext";
 import "./App.css";
 
 const ResidentPortalGate = ({ children }) => {
@@ -36,8 +37,9 @@ const ResidentPortalGate = ({ children }) => {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <ConfirmProvider>
+      <BrowserRouter>
+        <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Login />} />
         <Route path="/reset-password" element={<ResetPassword />} />
@@ -95,6 +97,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+  </ConfirmProvider>
   );
 }
 

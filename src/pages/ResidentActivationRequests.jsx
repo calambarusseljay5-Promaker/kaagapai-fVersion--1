@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import PageWrapper from "../components/PageWrapper";
 import FloatingModal from "../components/FloatingModal";
+import { useConfirm } from "../context/ConfirmContext";
 import { DataGrid } from "@mui/x-data-grid";
 import {
   approveResidentActivationRequest,
@@ -57,6 +58,7 @@ const getStatusClass = (status) => {
 };
 
 const ResidentActivationRequests = () => {
+  const { confirm } = useConfirm();
   const [requests, setRequests] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Pending Approval");
@@ -155,6 +157,16 @@ const ResidentActivationRequests = () => {
       return;
     }
 
+    const ok = await confirm({
+      title: "Approve Registration",
+      message: "Are you sure you want to approve this resident's account activation?",
+      confirmText: "Approve",
+      cancelText: "Cancel",
+      variant: "emerald",
+      icon: UserCheck,
+    });
+    if (!ok) return;
+
     setActionId(request.request_id);
     setMessage(null);
     setError("");
@@ -212,6 +224,16 @@ const ResidentActivationRequests = () => {
   const handleReject = async (request) => {
     const reason = window.prompt("Reason for rejecting this registration request:");
     if (!reason) return;
+
+    const ok = await confirm({
+      title: "Reject Registration",
+      message: "Are you sure you want to reject this resident's account activation?",
+      confirmText: "Reject",
+      cancelText: "Cancel",
+      variant: "danger",
+      icon: XCircle,
+    });
+    if (!ok) return;
 
     setActionId(request.request_id);
     setMessage(null);

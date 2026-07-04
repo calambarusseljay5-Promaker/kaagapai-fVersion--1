@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import PageWrapper from "../components/PageWrapper";
 import FloatingModal from "../components/FloatingModal";
+import { useConfirm } from "../context/ConfirmContext";
 import { DataGrid } from "@mui/x-data-grid";
 import { getCurrentUserWithProfile } from "../services/authService";
 import {
@@ -616,6 +617,7 @@ const ResidentForm = memo(function ResidentForm({
 
 const ResidentsManagement = () => {
   const navigate = useNavigate();
+  const { confirm } = useConfirm();
   const [authorized, setAuthorized] = useState(false);
   const [residents, setResidents] = useState([]);
   const [pendingResidents, setPendingResidents] = useState([]);
@@ -861,6 +863,16 @@ const ResidentsManagement = () => {
   };
 
   const handleCreateResident = async (formValues) => {
+    const ok = await confirm({
+      title: "Create New Resident",
+      message: "Are you sure you want to save this resident's information?",
+      confirmText: "Save",
+      cancelText: "Cancel",
+      variant: "emerald",
+      icon: Save,
+    });
+    if (!ok) return;
+
     setSaving(true);
     setMessage(null);
 
@@ -897,6 +909,16 @@ const ResidentsManagement = () => {
   const handleUpdateResident = async (formValues) => {
     if (!editingResident?.id) return;
 
+    const ok = await confirm({
+      title: "Save Changes",
+      message: "Are you sure you want to save the changes you made?",
+      confirmText: "Save Changes",
+      cancelText: "Cancel",
+      variant: "emerald",
+      icon: Save,
+    });
+    if (!ok) return;
+
     setSaving(true);
     setMessage(null);
 
@@ -915,7 +937,15 @@ const ResidentsManagement = () => {
   };
 
   const handleArchiveResident = async (resident) => {
-    if (!window.confirm(`Archive ${getResidentDisplayName(resident)}?`)) return;
+    const ok = await confirm({
+      title: "Archive Record",
+      message: "Are you sure you want to archive this record? You can restore it later from the Archive section.",
+      confirmText: "Archive",
+      cancelText: "Cancel",
+      variant: "danger",
+      icon: ArchiveIcon,
+    });
+    if (!ok) return;
 
     setActionResidentId(resident.id);
     setMessage(null);
@@ -936,6 +966,16 @@ const ResidentsManagement = () => {
   };
 
   const handleRestoreResident = async (resident) => {
+    const ok = await confirm({
+      title: "Restore Record",
+      message: "Do you want to restore this record?",
+      confirmText: "Restore",
+      cancelText: "Cancel",
+      variant: "emerald",
+      icon: RotateCcw,
+    });
+    if (!ok) return;
+
     setActionResidentId(resident.id);
     setMessage(null);
 
@@ -952,6 +992,16 @@ const ResidentsManagement = () => {
   };
 
   const handleApproveResident = async (resident) => {
+    const ok = await confirm({
+      title: "Approve Registration",
+      message: "Are you sure you want to approve this resident registration?",
+      confirmText: "Approve",
+      cancelText: "Cancel",
+      variant: "emerald",
+      icon: CheckCircle,
+    });
+    if (!ok) return;
+
     setApprovingId(resident.id);
     setMessage(null);
 
