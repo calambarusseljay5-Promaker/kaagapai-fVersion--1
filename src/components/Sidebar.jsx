@@ -33,12 +33,6 @@ const navigationGroups = [
       { name: "Archive Management", icon: "Archive", path: "/archive" },
     ],
   },
-  {
-    label: "System",
-    items: [
-      { name: "System Settings", icon: "Settings", path: "/settings" },
-    ],
-  },
 ];
 
 const iconMap = {
@@ -98,12 +92,12 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
 
   return (
     <motion.aside
-      className="fixed left-1 top-1 z-50 flex h-[calc(100vh-0.5rem)] flex-col overflow-hidden rounded-xl border border-white/20 bg-primary-gradient text-slate-100 shadow-glass-lg backdrop-blur-xl sm:left-2 sm:top-2 sm:h-[calc(100vh-1rem)]"
+      className="fixed left-1 top-1 z-50 flex h-[calc(100vh-0.5rem)] flex-col overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-b from-[#14532D] via-[#0f3e21] to-[#0a2916] text-slate-100 shadow-2xl backdrop-blur-xl sm:left-2 sm:top-2 sm:h-[calc(100vh-1rem)]"
       variants={sidebarVariants}
       animate={isCollapsed ? "collapsed" : "expanded"}
       initial={false}
     >
-      <div className="border-b border-white/10 px-2.5 py-3">
+      <div className="border-b border-white/10 px-3 py-3.5">
         <div className="flex items-start justify-between gap-2">
           <AnimatePresence>
             {!isCollapsed && (
@@ -112,16 +106,16 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.85 }}
                 transition={{ duration: shouldReduceMotion ? 0 : 0.22, ease: "easeOut" }}
-                className="min-w-0 px-2"
+                className="min-w-0 px-1"
               >
-                <h1 className="text-xl font-extrabold leading-none text-white tracking-wide mt-2">
-                  Kaagap<span className="text-[#FFCC19]">AI</span>
+                <h1 className="text-xl font-extrabold leading-none text-white tracking-wide mt-1">
+                  Kaagap<span className="text-[#C8A14A]">AI</span>
                 </h1>
-                <div className="mt-4 flex items-center gap-3">
+                <div className="mt-3.5 flex items-center gap-3">
                   <AdminOrbitLogo />
                   <div className="min-w-0">
-                    <p className="text-xs font-bold leading-tight text-white">Barangay Upper Mingading</p>
-                    <p className="mt-1 text-xs font-medium text-emerald-100">Aleosan, Cotabato</p>
+                    <p className="text-xs font-extrabold leading-tight text-white">Barangay Upper Mingading</p>
+                    <p className="mt-0.5 text-xs font-semibold text-emerald-200/90">Aleosan, Cotabato</p>
                   </div>
                 </div>
               </motion.div>
@@ -132,7 +126,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/8 text-white transition hover:bg-white/15"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white transition hover:bg-white/20 mt-1"
             aria-label="Toggle sidebar"
           >
             {isCollapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
@@ -152,7 +146,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
             }}
           >
             {!isCollapsed && (
-              <p className="mb-3 px-2 text-xs font-bold uppercase tracking-wider text-emerald-100/80">
+              <p className="mb-2.5 px-2 text-[11px] font-extrabold uppercase tracking-widest text-[#C8A14A]">
                 {group.label}
               </p>
             )}
@@ -177,15 +171,15 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                     <NavLink
                       to={item.path}
                       title={isCollapsed ? item.name : undefined}
-                      className={`group relative flex items-center gap-3 rounded-[12px] px-3 py-3 text-[15px] font-semibold transition-all duration-200 ${active
-                          ? "bg-[#00B42A]/85 text-white shadow-md shadow-emerald-950/20"
-                          : "text-emerald-50/90 hover:bg-white/10 hover:text-white"
+                      className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all duration-200 ${active
+                          ? "bg-white/15 text-white shadow-md ring-1 ring-white/20"
+                          : "text-emerald-100/90 hover:bg-white/10 hover:text-white"
                         }`}
                     >
                       {active && (
                         <motion.span
                           layoutId="activeIndicator"
-                          className="absolute bottom-2 left-0 top-2 w-1.5 rounded-r-full bg-amber-300"
+                          className="absolute bottom-2 left-0 top-2 w-1.5 rounded-r-full bg-[#C8A14A]"
                           initial={false}
                           transition={{ type: "spring", stiffness: 500, damping: 30 }}
                         />

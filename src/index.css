@@ -19,17 +19,19 @@
 
 :root {
   --kaagap-page: #F8FAFC;
-  --kaagap-ink: #1F2937; /* Dark Gray for Normal Text */
-  --kaagap-muted: #6B7280; /* Gray for Subtitles */
+  --kaagap-ink: #1F2937;
+  --kaagap-muted: #6B7280;
   --kaagap-blue: #2563EB;
   --kaagap-cyan: #06B6D4;
-  --kaagap-emerald: #0F7A3A; /* Updated Primary Green */
-  --kaagap-surface: rgba(255, 255, 255, 0.75); /* Glass Cards */
-  --kaagap-surface-strong: rgba(255, 255, 255, 0.95);
-  --kaagap-border: rgba(255, 255, 255, 0.35); /* Subtle Borders */
-  --kaagap-border-dark: rgba(0, 0, 0, 0.05); 
-  --kaagap-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05); /* Soft floating shadows */
-  --kaagap-shadow-soft: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
+  --kaagap-emerald: #14532D; /* Modern Dark Green Branding */
+  --kaagap-dark-green: #14532D;
+  --kaagap-gold: #C8A14A; /* Gold Accent */
+  --kaagap-surface: rgba(255, 255, 255, 0.85);
+  --kaagap-surface-strong: rgba(255, 255, 255, 0.98);
+  --kaagap-border: rgba(226, 232, 240, 0.9);
+  --kaagap-border-dark: rgba(0, 0, 0, 0.08);
+  --kaagap-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
+  --kaagap-shadow-soft: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
   --kaagap-panel: rgba(255, 255, 255, 0.85);
   --kaagap-panel-strong: #ffffff;
   --kaagap-field: rgba(255, 255, 255, 0.9);
@@ -75,11 +77,20 @@
 }
 
 .admin-shell-bg {
-  background-image: linear-gradient(rgba(17, 24, 39, 0.6), rgba(17, 24, 39, 0.6)), url("/barangay/BARANGAYOFICE.PNG");
+  background-image: linear-gradient(135deg, rgba(20, 83, 45, 0.82) 0%, rgba(15, 23, 42, 0.88) 100%), url("/barangay/BARANGAYOFICE.PNG");
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
   background-repeat: no-repeat;
+}
+
+.gov-workspace-panel {
+  background-color: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 1rem;
+  box-shadow: 0 20px 45px -15px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .glass-container {
@@ -130,6 +141,25 @@ body {
   color: var(--kaagap-ink);
   font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* UI Polish & Micro-Interactions (Phase 7) */
+.gov-pulse-skeleton {
+  animation: pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  background-color: rgba(226, 232, 240, 0.7);
+  border-radius: 0.75rem;
+}
+
+.gov-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  border: 1px dashed rgba(203, 213, 225, 0.8);
+  border-radius: 1rem;
+  background-color: rgba(248, 250, 252, 0.6);
 }
 
 /* Resident/User portal responsive shell polish. Scoped to the resident dashboard only. */
@@ -2180,22 +2210,13 @@ div.rounded-lg.bg-white {
   --tw-ring-color: rgba(239, 68, 68, 0.16) !important;
 }
 
-.admin-shell-bg[data-admin-theme="favorite"] .system-page-area :is(
-  [class*="bg-[#1f63ca]"],
-  .bg-blue-600,
-  .bg-blue-700,
-  [class*="from-blue-600"]
-) {
-  background-color: #ff1e2d !important;
-  background-image: none !important;
-}
-
-.admin-shell-bg[data-admin-theme="favorite"] .system-page-area :is(
-  [class*="hover:bg-[#1854ad]"],
-  [class*="hover:bg-blue-700"],
-  [class*="hover:bg-blue-600"]
-):hover {
-  background-color: #ff6b6b !important;
+.glass-panel, .glass-container {
+  background: #ffffff !important;
+  border: 1px solid var(--border, #E5EFEA) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04) !important;
+  position: relative !important;
+  z-index: 1 !important;
 }
 
 .admin-shell-bg[data-admin-theme="favorite"] .system-page-area :is(.bg-emerald-600, [class*="hover:bg-emerald-700"]:hover) {
@@ -4859,128 +4880,12 @@ select {
       linear-gradient(180deg, rgba(255, 248, 225, 0.98), rgba(239, 230, 199, 0.96)) !important;
     box-shadow: 16px 0 38px rgba(40, 34, 16, 0.16) !important;
   }
-
-  .resident-indigo-shell.resident-home-active .resident-green-sidebar *,
-  .resident-indigo-shell.resident-home-active aside.resident-green-sidebar * {
-    color: #1b3d35 !important;
-  }
-
-  .resident-indigo-shell.resident-home-active .resident-green-sidebar nav button {
-    color: #31524a !important;
-  }
-
-  .resident-indigo-shell.resident-home-active .resident-green-sidebar nav button[class*="bg-blue-50"],
-  .resident-indigo-shell.resident-home-active .resident-green-sidebar nav button.resident-nav-active {
-    background:
-      linear-gradient(135deg, rgba(0, 102, 68, 0.98), rgba(0, 153, 204, 0.9)) !important;
-    color: #ffffff !important;
-  }
-
-  .resident-indigo-shell.resident-home-active .resident-green-sidebar nav button[class*="bg-blue-50"] *,
-  .resident-indigo-shell.resident-home-active .resident-green-sidebar nav button.resident-nav-active * {
-    color: #ffffff !important;
-  }
-
-  .resident-indigo-shell.resident-home-active .resident-green-sidebar > button:hover {
-    background: rgba(255, 122, 0, 0.13) !important;
-  }
-
-  .resident-laptop-home {
-    position: relative;
-    overflow: hidden;
-    border: 1px solid rgba(220, 235, 231, 0.38);
-    border-radius: 1.5rem;
-    background:
-      linear-gradient(135deg, rgba(222, 239, 235, 0.78), rgba(116, 151, 151, 0.5)),
-      rgba(255, 255, 255, 0.12);
-    padding: 1.25rem;
-    box-shadow:
-      0 28px 70px rgba(2, 24, 23, 0.24),
-      inset 0 1px 0 rgba(255, 255, 255, 0.4);
-    backdrop-filter: blur(18px) saturate(135%);
-    -webkit-backdrop-filter: blur(18px) saturate(135%);
-  }
-
-  .resident-laptop-home::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-      linear-gradient(0deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-    background-size: 34px 34px;
-    opacity: 0.45;
-  }
-
-  .resident-laptop-header,
-  .resident-laptop-grid {
-    position: relative;
-    z-index: 1;
-  }
-
-  .resident-laptop-header {
-    border: 1px solid rgba(255, 255, 255, 0.36);
-    background:
-      linear-gradient(135deg, rgba(238, 247, 244, 0.88), rgba(186, 214, 210, 0.72)) !important;
-    color: #163b35;
-    box-shadow: 0 16px 36px rgba(8, 45, 40, 0.12);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-
-  .resident-laptop-header h2 {
-    color: #163b35;
-    font-size: 1.35rem;
-    letter-spacing: 0.02em;
-  }
-
-  .resident-laptop-header p {
-    color: #315f5f;
-  }
-
-  .resident-laptop-header button {
-    background: rgba(255, 255, 255, 0.72);
-    color: #006644;
-  }
-
-  .resident-laptop-card {
-    border-color: rgba(255, 255, 255, 0.36);
-    background:
-      linear-gradient(135deg, rgba(255, 255, 247, 0.9), rgba(222, 238, 235, 0.8)) !important;
-    box-shadow:
-      0 20px 42px rgba(8, 45, 40, 0.13),
-      inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-  }
-
-  .resident-laptop-card .resident-combo-chart,
-  .resident-laptop-card .resident-pulse-bars {
-    background:
-      repeating-linear-gradient(to top, rgba(15, 73, 58, 0.12) 0 1px, transparent 1px 25%),
-      linear-gradient(180deg, rgba(245, 250, 246, 0.74), rgba(198, 221, 219, 0.66));
-  }
-
-  .resident-laptop-load {
-    border-color: rgba(255, 255, 255, 0.42);
-    background: rgba(255, 252, 239, 0.9);
-    box-shadow: 0 18px 40px rgba(8, 45, 40, 0.13);
-  }
 }
 
 /* ============================================================
-   PRINT REPORT STYLES Ã¢â‚¬â€ Official Barangay Report Document
-   Long Bond Paper (13in Ãƒâ€” 8.5in) Ã¢â‚¬â€ Landscape Orientation
-   Font: Arial / Calibri / Helvetica
-   Theme: Forest Green #1b4332 Ã‚Â· Gold #c5a059 Ã‚Â· Dark Gray #374151
+   PRINT REPORT STYLES — Official Barangay Report Document
+   Landscape Orientation — Font: Arial / Helvetica
    ============================================================ */
-
-/* ---- Page Setup: A4 Landscape ---- */
-@page {
-  size: A4 landscape;
-  margin: 10mm;
-}
 
 /* ---- Screen: Hide the printable document ---- */
 .print-report-document {
@@ -4988,26 +4893,22 @@ select {
   visibility: hidden;
 }
 
-/* ============================================================
-   @media print Ã¢â‚¬â€ Show only the official document
-   ============================================================ */
 @media print {
   @page {
     size: A4 landscape;
-    margin: 10mm;
+    margin: 5mm 6mm !important;
   }
 
   html,
   body {
-    width: auto !important;
+    width: 100% !important;
     height: auto !important;
     margin: 0 !important;
     padding: 0 !important;
     overflow: visible !important;
+    background: #ffffff !important;
   }
 
-
-  /* ---- Global Reset for Print ---- */
   .print-report-document,
   .print-report-document * {
     -webkit-print-color-adjust: exact !important;
@@ -5015,12 +4916,10 @@ select {
     box-sizing: border-box;
   }
 
-  /* Hide ALL elements on the page by default */
   body * {
     visibility: hidden;
   }
 
-  /* Explicitly hide the large layout elements to stop rendering loops */
   .sidebar,
   aside,
   header:not(.print-report-header),
@@ -5031,61 +4930,51 @@ select {
     display: none !important;
   }
 
-  /* Show the printable report document and its child elements */
   .print-report-document,
   .print-report-document * {
     visibility: visible !important;
   }
 
-  /* Position the print document correctly at top-left of printable area */
   .print-report-document {
     display: block !important;
-    position: absolute !important;
+    position: relative !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     background: #ffffff !important;
-    color: #242424 !important;
-    font-family: Arial, Calibri, Helvetica, sans-serif;
-    font-size: 8pt;
-    line-height: 1.18;
+    color: #111827 !important;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 7.5pt;
+    line-height: 1.15;
     overflow: visible !important;
   }
 
-  /* ============================================================
-     HEADER Ã¢â‚¬â€ Official Government Masthead
-     ============================================================ */
   .print-report-header {
     text-align: center;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     page-break-inside: avoid;
     page-break-after: avoid;
   }
 
   .print-report-masthead {
-    display: grid;
-    grid-template-columns: 64px minmax(270px, 3in) 64px;
+    display: flex;
     align-items: center;
     justify-content: center;
-    gap: 18px;
-    width: fit-content;
-    max-width: 6.8in;
+    gap: 20px;
+    width: 100%;
     margin: 0 auto 4px;
   }
 
-  /* Logos */
   .print-report-masthead img {
-    width: 58px;
-    height: 58px;
+    width: 54px;
+    height: 54px;
     object-fit: contain;
     flex-shrink: 0;
-    justify-self: center;
   }
 
-  /* Center text block */
   .print-report-masthead > div {
     text-align: center;
     line-height: 1.12;
@@ -5100,56 +4989,40 @@ select {
     letter-spacing: 0;
   }
 
-  .print-report-masthead > div > p.print-report-region {
-    font-size: 8pt;
-    font-weight: 500;
-    color: #6b7280;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
   .print-report-masthead > div > p.print-report-barangay {
-    font-size: 10pt;
+    font-size: 10.5pt;
     font-weight: 800;
-    color: #333333;
+    color: #111827;
     text-transform: uppercase;
     letter-spacing: 0;
     margin-top: 1px;
   }
 
-  /* Office subtitle */
   .print-report-office {
     font-size: 8.5pt;
     font-weight: 700;
-    color: #b44949;
+    color: #111827;
     text-transform: uppercase;
     letter-spacing: 0;
-    margin: 2px 0 3px !important;
+    margin: 2px 0 2px !important;
   }
 
-  /* ============================================================
-     DIVIDER Ã¢â‚¬â€ Double line: forest green with gold center
-     ============================================================ */
   .print-report-divider {
-    height: 3px;
+    height: 2.5px;
     border: none;
-    border-radius: 0;
-    margin: 3px auto 7px;
+    margin: 2px auto 6px;
     width: 100%;
-    background: linear-gradient(to bottom, #3e7d3f 0 1.5px, #7fac64 1.5px 3px);
+    background: #14532D;
   }
 
-  /* ============================================================
-     REPORT TITLE
-     ============================================================ */
   .print-report-title {
-    font-family: Arial, Calibri, Helvetica, sans-serif;
-    font-size: 12pt;
-    font-weight: 800;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11pt;
+    font-weight: 900;
     text-transform: uppercase;
     text-align: center;
-    color: #4a4a4a;
-    letter-spacing: 0;
+    color: #111827;
+    letter-spacing: 0.02em;
     margin: 2px 0 2px;
     padding: 0;
   }
@@ -5157,32 +5030,26 @@ select {
   .print-report-filter {
     margin: 0 0 4px;
     text-align: center;
-    font-family: Arial, Calibri, Helvetica, sans-serif;
+    font-family: Arial, Helvetica, sans-serif;
     font-size: 8pt;
     font-weight: 800;
-    color: #1b4332;
+    color: #14532D;
     text-transform: uppercase;
   }
 
-  /* ============================================================
-     META Ã¢â‚¬â€ Date, Time, Calendar Year
-     ============================================================ */
-  /* ============================================================
-     REPORT SECTIONS (each data block with title + table)
-     ============================================================ */
   .print-report-section {
-    margin-bottom: 5px;
+    margin-bottom: 6px;
     page-break-inside: auto;
   }
 
   .print-report-section h2 {
-    font-family: Arial, Calibri, Helvetica, sans-serif;
-    font-size: 8pt;
-    font-weight: 800;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8.5pt;
+    font-weight: 900;
     text-transform: uppercase;
-    color: #323232;
-    letter-spacing: 0;
-    border-bottom: 1px solid #3e7d3f;
+    color: #111827;
+    letter-spacing: 0.02em;
+    border-bottom: 1.5px solid #14532D;
     padding-bottom: 2px;
     margin: 0 0 3px;
   }
@@ -5194,154 +5061,119 @@ select {
     padding: 4px 0;
   }
 
-  /* ============================================================
-     TABLE DESIGN Ã¢â‚¬â€ Professional Government Style
-     ============================================================ */
   .print-report-section table {
     width: 100%;
     border-collapse: collapse;
-    font-family: Arial, Calibri, Helvetica, sans-serif;
-    font-size: 6.6pt;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 6.5pt;
     margin-top: 2px;
     table-layout: fixed;
-    border: 1px solid #222222;
+    border: 1px solid #111827;
   }
 
-  /* Table Header */
   .print-report-section thead tr {
-    background-color: #7da65d !important;
+    background-color: #557d42 !important;
   }
 
   .print-report-section thead th {
-    color: #202020 !important;
-    font-family: Arial, Calibri, Helvetica, sans-serif;
-    font-size: 6.4pt;
-    font-weight: 700;
+    color: #ffffff !important;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 6pt;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0;
-    padding: 2.4px 3px;
+    padding: 2.5px 1px;
     text-align: center;
-    border: 0.75px solid #222222;
-    white-space: normal;
-    overflow-wrap: anywhere;
+    border: 0.75px solid #111827;
+    white-space: nowrap !important;
     vertical-align: middle;
   }
 
-  /* First column left-aligned */
-  .print-report-section thead th:first-child {
-    text-align: left;
-    padding-left: 8px;
-  }
-
-  /* Table Body */
   .print-report-section tbody td {
-    font-family: Arial, Calibri, Helvetica, sans-serif;
-    font-size: 6.4pt;
-    padding: 2px 3px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 6pt;
+    padding: 1.8px 2px;
     text-align: center;
-    border: 0.75px solid #444444;
-    color: #242424;
+    border: 0.75px solid #333333;
+    color: #111827;
     vertical-align: middle;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
   }
 
-  /* First column: left-align names/labels */
   .print-report-section tbody td:first-child {
     text-align: left;
-    font-weight: 600;
+    font-weight: 700;
     padding-left: 4px;
+    white-space: nowrap !important;
   }
 
-  /* Zebra Striping Ã¢â‚¬â€ subtle green tint */
-  .print-report-section tbody tr:nth-child(odd) {
-    background-color: #ffffff !important;
-  }
-
-  .print-report-section tbody tr:nth-child(even) {
-    background-color: #f4f8ef !important;
-  }
-
-  /* Number cells class */
   .print-report-number {
     text-align: center !important;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
   }
 
-  /* Table Footer / Totals Row */
   .print-report-section tfoot td {
-    font-family: Arial, Calibri, Helvetica, sans-serif;
-    font-size: 6.5pt;
-    padding: 2.2px 3px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 6.2pt;
+    padding: 2px 2px;
     text-align: center;
-    border: 1px solid #222222;
+    border: 1px solid #111827;
     background-color: #d8cd2f !important;
-    color: #222222 !important;
-    font-weight: 800;
+    color: #111827 !important;
+    font-weight: 900;
     text-transform: uppercase;
-    letter-spacing: 0.02em;
   }
 
   .print-report-section tfoot td:first-child {
     text-align: left;
-    padding-left: 8px;
+    padding-left: 6px;
   }
 
-  /* ============================================================
-     FAMILY PROFILE MATRIX TABLE
-     (Guided by the reference image Ã¢â‚¬â€ purok-grouped columns)
-     ============================================================ */
   .print-family-profile table {
-    font-size: 5.8pt;
+    font-size: 6pt;
     table-layout: fixed;
-    border: 1px solid #222222;
+    width: 100%;
+    border: 1px solid #111827;
   }
 
-  .print-family-profile thead th {
-    font-size: 5.5pt;
-    padding: 2px 1px;
-    letter-spacing: 0;
-  }
-
-  /* Age Group column header */
   .print-family-age-heading {
-    background-color: #1b4332 !important;
+    background-color: #14532D !important;
     color: #ffffff !important;
     text-align: center !important;
-    padding: 1px !important;
-    min-width: 48px;
-    font-size: 5.8pt !important;
-    font-weight: 800 !important;
-    border: 0.75px solid #222222 !important;
-    border-bottom: 1px solid #222222 !important;
-  }
-
-  /* Purok group column headers */
-  .print-family-purok-group-heading {
-    color: #202020 !important;
-    text-align: center !important;
-    font-size: 5.9pt !important;
-    font-weight: 800 !important;
     padding: 2px 1px !important;
-    border: 0.75px solid #222222 !important;
-    border-bottom: 1px solid #222222 !important;
-    text-transform: uppercase;
-    letter-spacing: 0;
+    width: 62px !important;
+    font-size: 6pt !important;
+    font-weight: 900 !important;
+    border: 0.75px solid #111827 !important;
+    white-space: nowrap !important;
   }
 
-  /* Male / Female / Total sub-headings */
-  .print-family-sub-heading {
-    color: #202020 !important;
-    font-size: 5.4pt !important;
-    font-weight: 700 !important;
-    padding: 1.8px 1px !important;
+  .print-family-purok-group-heading {
+    color: #111827 !important;
     text-align: center !important;
-    border: 0.75px solid #222222 !important;
+    font-size: 6.2pt !important;
+    font-weight: 900 !important;
+    padding: 2.5px 1px !important;
+    border: 0.75px solid #111827 !important;
     text-transform: uppercase;
     letter-spacing: 0;
+    white-space: nowrap !important;
   }
 
-  .print-purok-color-0 { background-color: #c85a5a !important; }
+  .print-family-sub-heading {
+    color: #111827 !important;
+    font-size: 5.2pt !important;
+    font-weight: 800 !important;
+    padding: 1.5px 0.5px !important;
+    text-align: center !important;
+    border: 0.75px solid #111827 !important;
+    text-transform: uppercase;
+    letter-spacing: -0.2px;
+    white-space: nowrap !important;
+  }
+
+  .print-purok-color-0 { background-color: #c85a5a !important; color: #ffffff !important; }
   .print-purok-color-1 { background-color: #d8c34a !important; }
   .print-purok-color-2 { background-color: #86a85a !important; }
   .print-purok-color-3 { background-color: #c06a6a !important; color: #ffffff !important; }
@@ -5350,44 +5182,42 @@ select {
   .print-purok-color-6 { background-color: #ded260 !important; }
   .print-purok-color-7 { background-color: #80a66a !important; }
 
-  .print-purok-sub-color-0 { background-color: #ead0d0 !important; }
-  .print-purok-sub-color-1 { background-color: #f0e8b3 !important; }
-  .print-purok-sub-color-2 { background-color: #d9e4c4 !important; }
-  .print-purok-sub-color-3 { background-color: #ebcbcb !important; }
-  .print-purok-sub-color-4 { background-color: #d1e4e8 !important; }
-  .print-purok-sub-color-5 { background-color: #ddd5e5 !important; }
-  .print-purok-sub-color-6 { background-color: #f2edbd !important; }
-  .print-purok-sub-color-7 { background-color: #d9e5d0 !important; }
+  .print-purok-sub-color-0 { background-color: #f7e6e6 !important; }
+  .print-purok-sub-color-1 { background-color: #faf6d9 !important; }
+  .print-purok-sub-color-2 { background-color: #eaf1df !important; }
+  .print-purok-sub-color-3 { background-color: #f7e4e4 !important; }
+  .print-purok-sub-color-4 { background-color: #e5f0f3 !important; }
+  .print-purok-sub-color-5 { background-color: #ede8f2 !important; }
+  .print-purok-sub-color-6 { background-color: #faf8e0 !important; }
+  .print-purok-sub-color-7 { background-color: #e8f1e3 !important; }
 
-  /* Matrix body cells */
   .print-family-profile tbody td {
     padding: 1.5px 1px;
     text-align: center;
-    border: 0.75px solid #444444;
-    font-size: 5.7pt;
+    border: 0.75px solid #333333;
+    font-size: 5.8pt;
     font-variant-numeric: tabular-nums;
-    color: #1f2937;
+    color: #111827;
   }
 
-  /* Matrix footer (totals) */
   .print-family-profile tfoot td {
-    font-size: 5.8pt;
+    font-size: 6pt;
     padding: 2px 1px;
-    font-weight: 800;
+    font-weight: 900;
+    background-color: #d8cd2f !important;
+    color: #111827 !important;
   }
 
   .print-family-grand-total {
-    margin-top: 2px;
+    margin-top: 3px;
     text-align: right;
-    font-family: Arial, Calibri, Helvetica, sans-serif;
-    font-size: 7pt;
-    font-weight: 800;
-    color: #4a4a4a;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 7.5pt;
+    font-weight: 900;
+    color: #111827;
     text-transform: uppercase;
   }
 
-  /* Unclassified note */
-  /* Purok Summary Boxes (below the matrix, like the reference image) */
   .print-family-purok-summary-boxes {
     margin-top: 8px;
     page-break-inside: avoid;
@@ -5536,7 +5366,7 @@ select {
   }
 
   /* ============================================================
-     SUB-FOOTER Ã¢â‚¬â€ Date, KaagapAI credit, Page number
+     SUB-FOOTER Ã¢â‚¬â€  Date, KaagapAI credit, Page number
      ============================================================ */
   /* ============================================================
      PAGE BREAK HELPERS
@@ -5672,7 +5502,7 @@ select {
   --shadow-md:0 4px 12px rgba(14,107,58,.08);
   --shadow-hover:0 8px 24px rgba(14,107,58,.14);
   --radius:12px;
-  --header-h:56px;
+  --header-h:68px;
 }
 
 /* ---------- BASE ---------- */
@@ -5685,7 +5515,7 @@ body{background:var(--bg);color:var(--text);}
   position:sticky;top:0;z-index:50;
   height:var(--header-h);
   display:flex;align-items:center;justify-content:space-between;
-  padding:0 24px;
+  padding:0 28px;
   background:rgba(255,255,255,.88);
   backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   border-bottom:1px solid var(--border);

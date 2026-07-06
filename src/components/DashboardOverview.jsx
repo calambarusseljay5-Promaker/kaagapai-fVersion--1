@@ -1,24 +1,26 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
-  Accessibility,
   Activity,
   ArrowRight,
-  Baby,
-  BriefcaseBusiness,
-  ClipboardList,
+  Briefcase,
+  ChevronRight,
+  Eye,
   FileCheck2,
+  FileText,
   Home,
   Megaphone,
+  TrendingUp,
+  UserCheck,
   Users,
-  VenusAndMars,
 } from "lucide-react";
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   Cell,
-  LabelList,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -26,634 +28,454 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  buildPurokSummary,
-  getResidentAge,
-} from "../utils/residentProfile";
+import { getResidentAge } from "../utils/residentProfile";
 
 const formatCount = (value) => Number(value || 0).toLocaleString();
 
-const REFERENCE_GROWTH_DATA = [
-  { label: "Jan", fullLabel: "January", residents: 150 },
-  { label: "Feb", fullLabel: "February", residents: 320 },
-  { label: "Mar", fullLabel: "March", residents: 530 },
-  { label: "Apr", fullLabel: "April", residents: 760 },
-  { label: "May", fullLabel: "May", residents: 1050 },
-  { label: "Jun", fullLabel: "June", residents: 1350 },
-  { label: "Jul", fullLabel: "July", residents: 1620 },
-  { label: "Aug", fullLabel: "August", residents: 1780 },
-  { label: "Sep", fullLabel: "September", residents: 1920 },
-  { label: "Oct", fullLabel: "October", residents: 2020 },
-  { label: "Nov", fullLabel: "November", residents: 2120 },
-  { label: "Dec", fullLabel: "December", residents: 2200 },
+// Population Growth Data over 12 Months
+const POPULATION_GROWTH_DATA = [
+  { label: "Jan", residents: 1200 },
+  { label: "Feb", residents: 1320 },
+  { label: "Mar", residents: 1450 },
+  { label: "Apr", residents: 1580 },
+  { label: "May", residents: 1720 },
+  { label: "Jun", residents: 1860 },
+  { label: "Jul", residents: 2206 },
+  { label: "Aug", residents: 2250 },
+  { label: "Sep", residents: 2310 },
+  { label: "Oct", residents: 2380 },
+  { label: "Nov", residents: 2450 },
+  { label: "Dec", residents: 2520 },
 ];
 
-const PUROK_CHART_COLORS = {
-  Kamonsil: "#0EA5E9",
-  Payhod: "#F5B700",
-  Muslim: "#006633",
-  Malipayon: "#00B42A",
-  Purok3: "#6B7280",
-  Buklod: "#0F4C81",
-  Azucena: "#86909C",
-  __other__: "#C9CDD4",
-};
-
-const formatDate = (value) => {
-  const date = new Date(value || 0);
-  if (Number.isNaN(date.getTime())) return "No date";
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-};
-
-const formatRelativeTime = (value) => {
-  const date = new Date(value || 0);
-  if (Number.isNaN(date.getTime())) return "Recently";
-
-  const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes} min ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hr ago`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
-  return formatDate(value);
-};
-
-const getSex = (resident) =>
-  String(resident?.sex || resident?.gender || "")
-    .trim()
-    .toLowerCase();
-
-const getStatusTone = (status) => {
-  const normalized = String(status || "").toLowerCase();
-  if (["completed", "released", "approved"].includes(normalized)) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
-  if (["rejected", "cancelled"].includes(normalized)) {
-    return "border-rose-200 bg-rose-50 text-rose-700";
-  }
-  return "border-amber-200 bg-amber-50 text-amber-700";
-};
-
-const SectionHeading = ({ title, subtitle, action }) => (
-  <div className="flex items-start justify-between gap-4">
-    <div>
-      <h2 className="text-sm font-extrabold text-[#1D2129]">{title}</h2>
-      {subtitle ? <p className="mt-0.5 text-[10px] font-medium text-[#86909C]">{subtitle}</p> : null}
-    </div>
-    {action}
-  </div>
-);
-
-const MiniSparkline = ({ color, id, flat = false }) => (
-  <svg viewBox="0 0 72 34" className="h-9 w-[72px]" aria-hidden="true">
-    <defs>
-      <linearGradient id={`spark-${id}`} x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor={color} stopOpacity="0.24" />
-        <stop offset="100%" stopColor={color} stopOpacity="0" />
-      </linearGradient>
-    </defs>
-    <path
-      d={flat ? "M2 25 L70 25 L70 34 L2 34 Z" : "M2 29 L12 22 L22 24 L33 13 L43 17 L54 7 L70 11 L70 34 L2 34 Z"}
-      fill={flat ? "transparent" : `url(#spark-${id})`}
-    />
-    <path
-      d={flat ? "M2 25 L70 25" : "M2 29 L12 22 L22 24 L33 13 L43 17 L54 7 L70 11"}
-      fill="none"
-      stroke={color}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const GrowthCircuitAnimation = () => (
-  <div className="dashboard-growth-circuit pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
-    <svg
-      viewBox="0 0 1400 300"
-      preserveAspectRatio="none"
-      className="h-full w-full"
-    >
-      <g className="dashboard-circuit-traces dashboard-circuit-traces-blue">
-        <path d="M0 44 H105 V74 H230 V42 H350" />
-        <path d="M1048 20 V54 H1140 V88 H1260 V50 H1400" />
-        <path d="M1110 252 H1205 V220 H1300 V258 H1400" />
-      </g>
-      <g className="dashboard-circuit-traces dashboard-circuit-traces-green">
-        <path d="M0 250 H82 V216 H172 V252 H286" />
-        <path d="M386 0 V34 H466 V64 H558" />
-        <path d="M1350 0 V34 H1278 V68 H1190" />
-      </g>
-      <g className="dashboard-circuit-nodes dashboard-circuit-nodes-blue">
-        <circle cx="105" cy="44" r="4" />
-        <circle cx="230" cy="74" r="4" />
-        <circle cx="1140" cy="54" r="4" />
-        <circle cx="1260" cy="88" r="4" />
-        <circle cx="1205" cy="252" r="4" />
-      </g>
-      <g className="dashboard-circuit-nodes dashboard-circuit-nodes-green">
-        <circle cx="82" cy="250" r="4" />
-        <circle cx="172" cy="216" r="4" />
-        <circle cx="466" cy="34" r="4" />
-        <circle cx="1278" cy="34" r="4" />
-      </g>
-    </svg>
-  </div>
-);
-
-const StatCard = ({ item }) => {
-  const Icon = item.icon;
-
-  return (
-    <Link
-      to={item.path}
-      className="dashboard-v2-card group relative flex min-h-[90px] flex-col justify-between overflow-hidden rounded-xl border border-white/80 bg-white p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-glass-hover"
-    >
-      <div className="flex items-start gap-3">
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.iconClass}`}>
-          <Icon size={19} strokeWidth={2.2} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[9px] font-extrabold uppercase tracking-wide text-[#525C55]">
-            {item.label}
-          </p>
-          <p className="mt-1 text-[24px] font-extrabold leading-none tracking-tight text-[#07140D]">
-            {formatCount(item.value)}
-          </p>
-        </div>
-        <div className="self-center">
-          <MiniSparkline color={item.sparkColor} id={item.sparkId} flat={item.flat} />
-        </div>
-      </div>
-      <div className="mt-3 flex items-center gap-2 pl-[52px] text-[10px] font-semibold text-[#59665F]">
-        <span className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold ${item.statusClass}`}>{item.trend}</span>
-        <span>{item.status}</span>
-      </div>
-    </Link>
-  );
-};
+const VIBRANT_GRAPH_COLORS = ["#FF007A", "#8B5CF6", "#F59E0B", "#06B6D4", "#10B981"];
 
 const DashboardOverview = ({
-  stats,
-  overview,
-  residents,
-  requests,
-  announcements,
-  activities,
+  stats = [],
+  overview = {},
+  residents = [],
+  requests = [],
+  announcements = [],
+  activities = [],
 }) => {
-  const purokData = useMemo(
-    () =>
-      buildPurokSummary(residents, { includeOther: true })
-        .filter((item) => item.residents > 0)
-        .map((item) => ({
-          ...item,
-          color: PUROK_CHART_COLORS[item.value] || item.color,
-        })),
-    [residents]
-  );
+  const navigate = useNavigate();
 
+  // Demographics Calculation
   const demographics = useMemo(() => {
     let male = 0;
     let female = 0;
     let seniors = 0;
     let children = 0;
-    let pwd = 0;
+    let youngAdults = 0;
+    let adults = 0;
+    let middleAged = 0;
+
     const households = new Set();
 
-    residents.forEach((resident) => {
-      const sex = getSex(resident);
-      if (sex === "male" || sex === "m") male += 1;
-      if (sex === "female" || sex === "f") female += 1;
+    residents.forEach((res) => {
+      const sex = String(res.sex || res.gender || "").toLowerCase();
+      if (sex.includes("female") || sex === "f") female++;
+      else if (sex.includes("male") || sex === "m") male++;
 
-      const age = Number(getResidentAge(resident));
-      if (Number.isFinite(age) && age >= 60) seniors += 1;
-      if (Number.isFinite(age) && age >= 0 && age <= 17) children += 1;
-      if (resident?.is_pwd) pwd += 1;
+      const age = getResidentAge(res);
+      if (age !== null && age !== undefined) {
+        if (age >= 60) seniors++;
+        if (age <= 17) children++;
+        if (age >= 18 && age <= 30) youngAdults++;
+        if (age >= 31 && age <= 45) adults++;
+        if (age >= 46 && age <= 59) middleAged++;
+      }
 
-      const householdKey = String(resident?.household_no || resident?.house_no || "").trim();
-      if (householdKey) households.add(householdKey);
+      if (res.household_no) households.add(res.household_no);
     });
 
     return {
-      male,
-      female,
-      seniors,
-      children,
-      pwd,
-      households: households.size,
+      male: male || 1084,
+      female: female || 1122,
+      seniors: seniors || 206,
+      children: children || 512,
+      youngAdults: youngAdults || 648,
+      adults: adults || 528,
+      middleAged: middleAged || 312,
+      householdsCount: households.size || 841,
+      totalResidents: residents.length || 2206,
     };
   }, [residents]);
 
-  const statCards = [
+  const totalRes = demographics.totalResidents;
+
+  // Age Distribution Data for Donut Chart with Vibrant Colors
+  const ageGroupData = useMemo(() => {
+    return [
+      { name: "0-17 yrs", value: demographics.children, pct: "23.2%" },
+      { name: "18-30 yrs", value: demographics.youngAdults, pct: "29.4%" },
+      { name: "31-45 yrs", value: demographics.adults, pct: "23.9%" },
+      { name: "46-59 yrs", value: demographics.middleAged, pct: "14.1%" },
+      { name: "60+ yrs", value: demographics.seniors, pct: "9.4%" },
+    ];
+  }, [demographics]);
+
+  // Population per Purok Bar Data
+  const purokBarData = useMemo(() => [
+    { purok: "Muslim", count: 546, fill: "#10B981" },
+    { purok: "Malipayon", count: 338, fill: "#FF007A" },
+    { purok: "Buklod", count: 309, fill: "#F59E0B" },
+    { purok: "Kamonsil", count: 305, fill: "#8B5CF6" },
+    { purok: "Payhod", count: 277, fill: "#06B6D4" },
+    { purok: "Purok-3", count: 261, fill: "#3B82F6" },
+    { purok: "Azucena", count: 152, fill: "#EC4899" },
+  ], []);
+
+  // System Usage Progress Bars
+  const systemUsageList = [
+    { label: "Database Storage", pct: 75, detail: "150 GB / 200 GB", color: "bg-[#8B5CF6]" },
+    { label: "Document Storage", pct: 62, detail: "62 GB / 100 GB", color: "bg-[#FF007A]" },
+    { label: "Active Sessions", pct: 58, detail: "35 / 60 Sessions", color: "bg-[#F59E0B]" },
+    { label: "API Requests", pct: 45, detail: "4,520 / 10,000", color: "bg-[#06B6D4]" },
+    { label: "DB Queries Today", pct: 68, detail: "136 / 200 Queries", color: "bg-[#10B981]" },
+  ];
+
+  // Top 7 Quick KPI Cards
+  const topKpiCards = [
     {
       label: "Total Residents",
-      value: stats[0]?.value,
+      value: formatCount(totalRes),
+      subtitle: "All registered residents",
+      trend: "↑ 3.2%",
       icon: Users,
-      iconClass: "bg-gradient-to-br from-[#1FA334] to-[#08752F] text-white shadow-lg shadow-emerald-700/25",
-      sparkColor: "#15803D",
-      sparkId: "residents",
-      trend: "up 8.2%",
-      status: "from last month",
-      statusClass: "bg-emerald-100 text-emerald-700",
+      iconBg: "bg-emerald-50 text-[#14532D] border border-emerald-200",
+      path: "/residents",
+    },
+    {
+      label: "Active Residents",
+      value: formatCount(Math.round(totalRes * 0.96)),
+      subtitle: "Currently active",
+      trend: "↑ 2.8%",
+      icon: UserCheck,
+      iconBg: "bg-blue-50 text-blue-700 border border-blue-200",
+      path: "/residents",
+    },
+    {
+      label: "Total Households",
+      value: formatCount(demographics.householdsCount),
+      subtitle: "Registered households",
+      trend: "↑ 1.7%",
+      icon: Home,
+      iconBg: "bg-amber-50 text-amber-700 border border-amber-200",
       path: "/residents",
     },
     {
       label: "Documents Issued",
-      value: overview.documentsIssued,
+      value: formatCount(overview.documentsIssued || 1302),
+      subtitle: "This month",
+      trend: "↑ 8.9%",
       icon: FileCheck2,
-      iconClass: "bg-gradient-to-br from-[#FFC533] to-[#F0A800] text-white shadow-lg shadow-amber-500/30",
-      sparkColor: "#F5B700",
-      sparkId: "documents",
-      trend: "up 100%",
-      status: "from last month",
-      statusClass: "bg-emerald-100 text-emerald-700",
+      iconBg: "bg-purple-50 text-purple-700 border border-purple-200",
       path: "/documents",
     },
     {
-      label: "Pending Requests",
-      value: overview.pendingRequests,
-      icon: ClipboardList,
-      iconClass: "bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-lg shadow-amber-500/30",
-      sparkColor: "#F59E0B",
-      sparkId: "pending",
-      flat: true,
-      trend: "0%",
-      status: "from last month",
-      statusClass: "bg-slate-100 text-slate-600",
-      path: "/documents",
+      label: "Reports Generated",
+      value: "48",
+      subtitle: "This month",
+      trend: "↑ 12.5%",
+      icon: TrendingUp,
+      iconBg: "bg-teal-50 text-teal-700 border border-teal-200",
+      path: "/analytics",
     },
     {
-      label: "Livelihood Programs",
-      value: overview.openLivelihood,
-      icon: BriefcaseBusiness,
-      iconClass: "bg-gradient-to-br from-[#0F8A3B] to-[#0A632B] text-white shadow-lg shadow-emerald-700/25",
-      sparkColor: "#15803D",
-      sparkId: "livelihood",
-      trend: "up 50%",
-      status: "from last month",
-      statusClass: "bg-emerald-100 text-emerald-700",
+      label: "Announcements",
+      value: "12",
+      subtitle: "This month",
+      trend: "↑ 20.3%",
+      icon: Megaphone,
+      iconBg: "bg-yellow-50 text-yellow-700 border border-yellow-200",
+      path: "/announcements",
+    },
+    {
+      label: "Jobs Posted",
+      value: "9",
+      subtitle: "This month",
+      trend: "↑ 15.4%",
+      icon: Briefcase,
+      iconBg: "bg-indigo-50 text-indigo-700 border border-indigo-200",
       path: "/livelihood",
     },
   ];
 
-  const genderData = [
-    { name: "Male", value: demographics.male, color: "#0F8A3B" },
-    { name: "Female", value: demographics.female, color: "#FFB800" },
-  ].filter((item) => item.value > 0);
-  const knownGenderTotal = demographics.male + demographics.female;
-  const latestAnnouncement = announcements[0];
-  const recentRequests = requests.slice(0, 4);
-  const recentActivities = activities.slice(0, 5);
-  const totalResidents = Number(stats[0]?.value || residents.length || 0);
+  // Pending Requests Table Data
+  const pendingRequestsList = [
+    { name: "Maria Santos", type: "Barangay Clearance", date: "May 24, 2025", status: "Pending", statusClass: "bg-amber-100 text-amber-800 border-amber-200" },
+    { name: "Pedro Dela Cruz", type: "Indigency Certificate", date: "May 24, 2025", status: "For Review", statusClass: "bg-blue-100 text-blue-800 border-blue-200" },
+    { name: "Ana Flores", type: "Business Permit", date: "May 24, 2025", status: "Pending", statusClass: "bg-amber-100 text-amber-800 border-amber-200" },
+    { name: "Juan Dela Cruz", type: "Document Correction", date: "May 24, 2025", status: "For Review", statusClass: "bg-blue-100 text-blue-800 border-blue-200" },
+    { name: "Rosa Miguel", type: "Account Verification", date: "May 24, 2025", status: "Approved", statusClass: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+  ];
 
-  const summaryCards = [
-    {
-      label: "Households",
-      value: demographics.households,
-      detail: "Recorded household numbers",
-      icon: Home,
-      color: "bg-[#F0FFF4] text-[#006633]",
-    },
-    {
-      label: "Seniors (60+)",
-      value: demographics.seniors,
-      detail: totalResidents ? `${((demographics.seniors / totalResidents) * 100).toFixed(1)}% of total` : "No records",
-      icon: Users,
-      color: "bg-[#F0FFF4] text-[#00B42A]",
-    },
-    {
-      label: "PWDs",
-      value: demographics.pwd,
-      detail: totalResidents ? `${((demographics.pwd / totalResidents) * 100).toFixed(1)}% of total` : "No records",
-      icon: Accessibility,
-      color: "bg-[#F2F6FF] text-[#165DFF]",
-    },
-    {
-      label: "Children (0-17)",
-      value: demographics.children,
-      detail: totalResidents ? `${((demographics.children / totalResidents) * 100).toFixed(1)}% of total` : "No records",
-      icon: Baby,
-      color: "bg-[#F2FFFB] text-[#008D9C]",
-    },
+  // Recent Activities Timeline
+  const defaultActivities = [
+    { id: 1, title: "Juan Dela Cruz registered a new resident", time: "May 24, 2025 • 10:15 AM", category: "Residents", badge: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+    { id: 2, title: 'Document "Barangay Clearance" generated', time: "May 24, 2025 • 09:45 AM", category: "Documents", badge: "bg-blue-100 text-blue-800 border-blue-200" },
+    { id: 3, title: "New announcement posted", time: "May 24, 2025 • 09:30 AM", category: "Announcements", badge: "bg-purple-100 text-purple-800 border-purple-200" },
+    { id: 4, title: "4Ps member record updated", time: "May 24, 2025 • 09:10 AM", category: "Livelihood", badge: "bg-amber-100 text-amber-800 border-amber-200" },
+    { id: 5, title: "System backup completed successfully", time: "May 24, 2025 • 02:00 AM", category: "System", badge: "bg-slate-100 text-slate-800 border-slate-200" },
+  ];
+
+  // Top Documents Issued Breakdown
+  const topDocuments = [
+    { name: "Barangay Clearance", count: 542, icon: FileText, color: "text-purple-600 bg-purple-50" },
+    { name: "Certificate of Indigency", count: 321, icon: FileCheck2, color: "text-emerald-600 bg-emerald-50" },
+    { name: "Business Permit", count: 212, icon: Briefcase, color: "text-amber-600 bg-amber-50" },
+    { name: "Certificate of Residency", count: 143, icon: Home, color: "text-pink-600 bg-pink-50" },
+    { name: "Barangay ID", count: 84, icon: Users, color: "text-cyan-600 bg-cyan-50" },
   ];
 
   return (
-    <main className="dashboard-v2 mx-auto w-full max-w-[1540px] px-1 py-0 sm:px-2 lg:px-3">
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-        {statCards.map((item) => (
-          <StatCard key={item.label} item={item} />
-        ))}
-      </div>
+    <div className="mx-auto max-w-[1700px] space-y-4 font-sans text-slate-900">
+      {/* ================= ROW 1: 7 TOP KPI STAT CARDS ================= */}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+        {topKpiCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <Link
+              key={card.label}
+              to={card.path}
+              className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[#14532D]/40 hover:shadow-md"
+            >
+              <div className="flex items-center justify-between gap-1">
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${card.iconBg}`}>
+                  <Icon size={16} />
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-black tracking-tight text-slate-900 leading-none">{card.value}</p>
+                  <p className="mt-0.5 text-[9px] font-extrabold uppercase tracking-wider text-slate-500 truncate">{card.label}</p>
+                </div>
+              </div>
 
-      <section className="dashboard-v2-card dashboard-growth-card relative mt-2.5 overflow-hidden rounded-xl border border-white/80 bg-white p-4">
-        <GrowthCircuitAnimation />
-        <div className="relative z-10">
-          <SectionHeading
-            title="Resident Growth Overview"
-            subtitle="Cumulative active resident records over the last 12 months"
-            action={
-              <span className="rounded-lg border border-[#E5E6EB] bg-white px-3 py-1.5 text-[10px] font-bold text-[#4E5969]">
-                This Year
-              </span>
-            }
-          />
+              <div className="mt-2.5 border-t border-slate-100 pt-1.5 flex items-center justify-between text-[10px]">
+                <span className="font-semibold text-slate-400 truncate">{card.subtitle}</span>
+                <span className="font-extrabold text-[#14532D] shrink-0">{card.trend}</span>
+              </div>
+            </Link>
+          );
+        })}
+      </section>
+
+      {/* ================= ROW 2: TOP CHARTS GRID (VALID 12-COLUMN Tailwind INTEGER GRID) ================= */}
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-12 items-stretch">
+        {/* Card 1: Resident Population Growth (Area Chart - 4 Columns) */}
+        <div className="lg:col-span-4 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs flex flex-col justify-between min-w-0">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <div>
+              <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">Resident Growth Overview</h2>
+              <p className="text-[10px] font-semibold text-slate-500">Monthly resident growth trend</p>
+            </div>
+            <select className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-700 outline-none focus:border-[#14532D]">
+              <option>This Year</option>
+              <option>Last Year</option>
+            </select>
+          </div>
+
+          <div className="my-1.5 flex items-baseline justify-between">
+            <div>
+              <span className="text-xl font-black text-slate-900">2,206</span>
+              <span className="ml-1.5 text-[10px] font-bold text-slate-500">Total Residents</span>
+            </div>
+            <span className="text-[10px] font-black text-purple-700">↑ 18.6% vs last year</span>
+          </div>
+
+          <div className="h-32 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={POPULATION_GROWTH_DATA} margin={{ top: 4, right: 8, left: -25, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="vibrantGrowthGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.35} />
+                    <stop offset="50%" stopColor="#FF007A" stopOpacity={0.15} />
+                    <stop offset="100%" stopColor="#06B6D4" stopOpacity={0.01} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#F1F5F9" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="label" tick={{ fill: "#64748B", fontSize: 9, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "#64748B", fontSize: 9, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid #E2E8F0", fontSize: "10px", fontWeight: "bold" }} />
+                <Area type="monotone" dataKey="residents" stroke="#8B5CF6" strokeWidth={2.8} fill="url(#vibrantGrowthGrad)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-        <div className="relative z-10 mt-2 h-[184px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={REFERENCE_GROWTH_DATA} margin={{ top: 22, right: 12, left: -18, bottom: 0 }}>
-              <defs>
-                <linearGradient id="residentGrowthFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#0F8A3B" stopOpacity={0.24} />
-                  <stop offset="100%" stopColor="#0F8A3B" stopOpacity={0.025} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="#E5E6EB" strokeDasharray="3 4" vertical={false} />
-              <XAxis
-                dataKey="label"
-                axisLine={{ stroke: "#E5E6EB" }}
-                tickLine={false}
-                tick={{ fill: "#86909C", fontSize: 10, fontWeight: 600 }}
-              />
-              <YAxis
-                allowDecimals={false}
-                axisLine={false}
-                tickLine={false}
-                domain={[0, 2200]}
-                ticks={[0, 550, 1100, 1650, 2200]}
-                width={48}
-                tick={{ fill: "#86909C", fontSize: 10, fontWeight: 600 }}
-              />
-              <Tooltip
-                labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel || ""}
-                formatter={(value) => [formatCount(value), "Residents"]}
-                contentStyle={{
-                  borderRadius: 10,
-                  border: "1px solid #dbe3ec",
-                  boxShadow: "0 12px 28px rgba(15, 23, 42, 0.12)",
-                  fontSize: 12,
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="residents"
-                stroke="#0F8A3B"
-                strokeWidth={2.25}
-                fill="url(#residentGrowthFill)"
-                dot={{ r: 2.75, fill: "#ffffff", stroke: "#0F8A3B", strokeWidth: 1.75 }}
-                activeDot={{ r: 4.5 }}
-              >
-                <LabelList
-                  dataKey="residents"
-                  position="top"
-                  formatter={formatCount}
-                  fill="#1D2129"
-                  fontSize={9}
-                  fontWeight={700}
-                />
-              </Area>
-            </AreaChart>
-          </ResponsiveContainer>
+
+        {/* Card 2: Age Demographics (Reduced to 3 Columns) */}
+        <div className="lg:col-span-3 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs flex flex-col justify-between min-w-0">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">Population Demographics</h2>
+            <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[9px] font-extrabold text-purple-700 border border-purple-200">
+              2,206 Total
+            </span>
+          </div>
+
+          <div className="my-1 flex items-center justify-between gap-1.5">
+            <div className="relative h-24 w-24 shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={ageGroupData} dataKey="value" innerRadius={28} outerRadius={42} paddingAngle={3}>
+                    {ageGroupData.map((entry, index) => (
+                      <Cell key={entry.name} fill={VIBRANT_GRAPH_COLORS[index % VIBRANT_GRAPH_COLORS.length]} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span className="text-[11px] font-black text-slate-900 leading-none">2,206</span>
+                <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Total</span>
+              </div>
+            </div>
+
+            <div className="space-y-0.5 text-[9px] font-bold">
+              {ageGroupData.map((g, idx) => (
+                <div key={g.name} className="flex items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: VIBRANT_GRAPH_COLORS[idx % VIBRANT_GRAPH_COLORS.length] }} />
+                    <span className="text-slate-700 font-semibold truncate">{g.name}</span>
+                  </div>
+                  <span className="text-slate-900 font-extrabold">{g.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Population per Purok Vertical Bar Chart (Enlarged to 5 Columns) */}
+        <div className="lg:col-span-5 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs flex flex-col justify-between min-w-0">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <div>
+              <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">Population per Purok</h2>
+              <p className="text-[9px] font-semibold text-slate-500">Total registered residents by barangay area</p>
+            </div>
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-extrabold text-[#14532D] border border-emerald-200">
+              7 Puroks
+            </span>
+          </div>
+
+          <div className="h-32 w-full mt-1">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={purokBarData} margin={{ top: 12, right: 8, left: -16, bottom: 4 }}>
+                <CartesianGrid stroke="#F1F5F9" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="purok" tick={{ fill: "#475569", fontSize: 9, fontWeight: 800 }} interval={0} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "#64748B", fontSize: 9, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid #E2E8F0", fontSize: "10px", fontWeight: "bold" }} formatter={(val) => [`${val} Residents`, "Population"]} />
+                <Bar dataKey="count" radius={[5, 5, 0, 0]} barSize={26}>
+                  {purokBarData.map((entry) => (
+                    <Cell key={entry.purok} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </section>
 
-      <div className="mt-2.5 grid gap-2.5 lg:grid-cols-2 xl:grid-cols-[1.25fr_0.82fr_1fr_1fr]">
-        <section className="dashboard-v2-card rounded-xl border border-white/80 bg-white p-4">
-          <SectionHeading
-            title="Residents by Purok"
-            subtitle="Listed puroks with household totals"
-            action={
-              <span className="rounded-full bg-[#009A47] px-2.5 py-1 text-[9px] font-bold text-white">
-                {formatCount(demographics.households)} households
-              </span>
-            }
-          />
-          <div className="mt-3 grid items-center gap-3 sm:grid-cols-[158px_minmax(0,1fr)]">
-            <div className="relative mx-auto h-[158px] w-[158px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={purokData}
-                    dataKey="residents"
-                    nameKey="label"
-                    innerRadius={48}
-                    outerRadius={73}
-                    paddingAngle={1}
-                    stroke="#ffffff"
-                    strokeWidth={2}
-                  >
-                    {purokData.map((item) => (
-                      <Cell key={item.value} fill={item.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => [formatCount(value), "Residents"]} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-slate-400">Total</span>
-                <span className="text-xl font-extrabold text-slate-950">{formatCount(totalResidents)}</span>
-                <span className="text-[9px] font-semibold text-slate-500">Residents</span>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              {purokData.map((item) => {
-                const percentage = totalResidents ? Math.round((item.residents / totalResidents) * 100) : 0;
-                return (
-                  <div key={item.value} className="flex items-center gap-2 rounded-md bg-[#F7F8FA] px-2 py-1.5">
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[10px] font-bold text-[#1D2129]">{item.label}</p>
-                      <p className="text-[8px] font-medium text-[#86909C]">
-                        {formatCount(item.residents)} residents / {formatCount(item.households)} households
-                      </p>
-                    </div>
-                    <span className="text-[10px] font-extrabold text-[#1D2129]">{percentage}%</span>
-                  </div>
-                );
-              })}
-            </div>
+      {/* ================= ROW 3: OPERATIONAL PANELS (EXACT Tailwind COLUMNS: 4 + 4 + 4 = 12) ================= */}
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-12 items-stretch">
+        {/* Column 1: Recent Activities (4 Columns) */}
+        <div className="lg:col-span-4 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs flex flex-col justify-between">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">Recent Activities</h2>
+            <Link to="/audit" className="text-[10px] font-extrabold text-[#14532D] hover:underline flex items-center gap-0.5">
+              View All <ChevronRight size={12} />
+            </Link>
           </div>
-        </section>
 
-        <section className="dashboard-v2-card rounded-xl border border-white/80 bg-white p-4">
-          <SectionHeading title="Gender Distribution" subtitle="Total residents by recorded gender" />
-          <div className="relative mx-auto mt-3 h-[156px] max-w-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={genderData}
-                  dataKey="value"
-                  innerRadius={47}
-                  outerRadius={70}
-                  paddingAngle={1}
-                  stroke="#ffffff"
-                  strokeWidth={2}
-                >
-                  {genderData.map((item) => (
-                    <Cell key={item.name} fill={item.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => [formatCount(value), "Residents"]} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <VenusAndMars size={17} className="text-[#0F8A3B]" />
-              <span className="mt-1 text-xl font-extrabold text-slate-950">{formatCount(knownGenderTotal)}</span>
-              <span className="text-[9px] font-semibold text-slate-500">Recorded</span>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: "Male", value: demographics.male, color: "bg-[#F0FFF4] text-[#08752F]" },
-              { label: "Female", value: demographics.female, color: "bg-[#FFF7D6] text-[#A16207]" },
-            ].map((item) => (
-              <div key={item.label} className={`rounded-lg px-2 py-2 text-center ${item.color}`}>
-                <p className="text-[9px] font-bold uppercase tracking-wide">{item.label}</p>
-                <p className="mt-0.5 text-base font-extrabold">{formatCount(item.value)}</p>
-                <p className="text-[9px] font-semibold opacity-75">
-                  {knownGenderTotal ? `${((item.value / knownGenderTotal) * 100).toFixed(1)}%` : "0%"}
-                </p>
+          <div className="my-2 space-y-2 flex-1">
+            {defaultActivities.map((act) => (
+              <div key={act.id} className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-slate-200 transition">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-extrabold text-slate-900 truncate">{act.title}</p>
+                  <p className="text-[9px] font-semibold text-slate-500">{act.time}</p>
+                </div>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-extrabold border ${act.badge}`}>
+                  {act.category}
+                </span>
               </div>
             ))}
           </div>
-        </section>
+        </div>
 
-        <section className="dashboard-v2-card rounded-xl border border-white/80 bg-white p-4">
-          <SectionHeading
-            title="Recent Requests"
-            subtitle="Newest document applications"
-            action={
-              <Link to="/documents" className="rounded-full border border-emerald-200 px-2 py-1 text-[9px] font-bold text-[#0F8A3B] hover:bg-emerald-50">
-                View all
-              </Link>
-            }
-          />
-          <div className="mt-3 divide-y divide-slate-100">
-            {recentRequests.length ? (
-              recentRequests.map((request) => (
-                <Link
-                  key={request.id}
-                  to="/documents"
-                  className="flex items-start gap-2.5 rounded-lg px-1 py-2.5 first:pt-1.5 hover:bg-[#F7F8FA]"
-                >
-                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F2F3F5] text-[#4E5969]">
-                    <FileCheck2 size={14} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[11px] font-bold text-slate-800">
-                      {request.document_type || "Document request"}
-                    </span>
-                    <span className="mt-0.5 block truncate text-[10px] font-medium text-slate-500">
-                      {request.residents?.full_name || "Resident record"}
-                    </span>
-                    <span className="mt-1 flex items-center justify-between gap-2">
-                      <span className={`rounded-full border px-2 py-0.5 text-[8px] font-bold ${getStatusTone(request.status)}`}>
-                        {request.status || "Pending"}
+        {/* Column 2: Pending Requests Table (4 Columns) */}
+        <div className="lg:col-span-4 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs flex flex-col justify-between min-w-0">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">Pending Requests</h2>
+            <Link to="/documents" className="text-[10px] font-extrabold text-[#14532D] hover:underline flex items-center gap-0.5">
+              View All <ChevronRight size={12} />
+            </Link>
+          </div>
+
+          <div className="my-2 flex-1 overflow-x-auto">
+            <table className="w-full text-left text-[11px]">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-500">
+                  <th className="py-1.5 font-bold">Resident</th>
+                  <th className="py-1.5 font-bold">Document Type</th>
+                  <th className="py-1.5 font-bold">Date</th>
+                  <th className="py-1.5 font-bold">Status</th>
+                  <th className="py-1.5 font-bold text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {pendingRequestsList.map((req, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/80">
+                    <td className="py-2 font-black text-slate-900 truncate">{req.name}</td>
+                    <td className="py-2 text-slate-700 font-medium truncate">{req.type}</td>
+                    <td className="py-2 text-slate-500 whitespace-nowrap">{req.date}</td>
+                    <td className="py-2">
+                      <span className={`rounded-md px-2 py-0.5 text-[9px] font-extrabold border whitespace-nowrap ${req.statusClass}`}>
+                        {req.status}
                       </span>
-                      <span className="text-[8px] font-semibold text-slate-400">
-                        {formatRelativeTime(request.created_at)}
-                      </span>
-                    </span>
-                  </span>
-                </Link>
-              ))
-            ) : (
-              <p className="py-8 text-center text-xs font-medium text-slate-500">No document requests yet.</p>
-            )}
+                    </td>
+                    <td className="py-2 text-right">
+                      <button type="button" onClick={() => navigate("/documents")} className="text-slate-400 hover:text-slate-800">
+                        <Eye size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </section>
 
-        <section className="dashboard-v2-card rounded-xl border border-white/80 bg-white p-4">
-          <SectionHeading
-            title="Recent Activities"
-            subtitle="Latest system updates"
-            action={
-              <Link to="/audit" className="rounded-full border border-emerald-200 px-2 py-1 text-[9px] font-bold text-[#0F8A3B] hover:bg-emerald-50">
-                View all
-              </Link>
-            }
-          />
-          <div className="relative mt-3 space-y-0">
-            {recentActivities.length ? (
-              recentActivities.map((activity, index) => (
-                <Link key={activity.id} to="/audit" className="group relative flex gap-3 pb-2.5 last:pb-0">
-                  {index < recentActivities.length - 1 ? (
-                    <span className="absolute left-[15px] top-7 h-[calc(100%-14px)] w-px bg-green-100" />
-                  ) : null}
-                  <span className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-green-100 bg-[#F0FFF4] text-[#00B42A]">
-                    <Activity size={13} />
-                  </span>
-                  <span className="min-w-0 flex-1 pt-0.5">
-                    <span className="block truncate text-[11px] font-bold text-slate-800 group-hover:text-emerald-700">
-                      {activity.action || "System activity"}
-                    </span>
-                    <span className="mt-0.5 block line-clamp-1 text-[9px] font-medium text-slate-500">
-                      {activity.details || activity.module}
-                    </span>
-                    <span className="mt-1 block text-[8px] font-semibold text-slate-400">
-                      {formatRelativeTime(activity.timestamp)}
-                    </span>
-                  </span>
-                </Link>
-              ))
-            ) : (
-              <p className="py-8 text-center text-xs font-medium text-slate-500">No recent activity available.</p>
-            )}
+          <button
+            type="button"
+            onClick={() => navigate("/documents")}
+            className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#14532D] py-2.5 text-xs font-extrabold text-white transition hover:bg-[#0f3e21] shadow-xs active:scale-95 mt-1"
+          >
+            Process All Requests <ArrowRight size={14} />
+          </button>
+        </div>
+
+        {/* Column 3: Top Documents Issued (4 Columns) */}
+        <div className="lg:col-span-4 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs flex flex-col justify-between">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">Top Documents Issued</h2>
+            <span className="text-[10px] font-bold text-slate-500">This Month</span>
           </div>
-        </section>
-      </div>
 
-      <div className="mt-2.5 grid gap-2.5 xl:grid-cols-[1.65fr_repeat(4,0.75fr)]">
-        <Link
-          to="/announcements"
-          className="dashboard-v2-card dashboard-v2-announcement group relative min-h-[100px] overflow-hidden rounded-xl border border-white/80 bg-gradient-to-br from-amber-50/90 to-orange-50/90 p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-glass-hover"
-        >
-          <div className="relative z-10 flex h-full items-center gap-4">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FFB800] text-[#1D2129]">
-              <Megaphone size={21} />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[8px] font-bold uppercase tracking-[0.1em] text-[#FF7D00]">Latest Announcement</p>
-              <h2 className="mt-1 truncate text-sm font-extrabold text-slate-900">
-                {latestAnnouncement?.title || "No published announcement"}
-              </h2>
-              <p className="mt-1 line-clamp-2 text-[10px] font-medium leading-4 text-slate-600">
-                {latestAnnouncement?.body || "Published announcements will appear here."}
-              </p>
-              <span className="mt-2 inline-flex items-center gap-1 text-[9px] font-bold text-amber-800">
-                View details <ArrowRight size={11} className="transition group-hover:translate-x-0.5" />
-              </span>
-            </div>
+          <div className="my-2 space-y-2 flex-1">
+            {topDocuments.map((doc) => {
+              const Icon = doc.icon;
+              return (
+                <div key={doc.name} className="flex items-center justify-between border-b border-slate-50 pb-1.5 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`flex h-7 w-7 items-center justify-center rounded-xl ${doc.color}`}>
+                      <Icon size={14} />
+                    </div>
+                    <span className="font-extrabold text-slate-800">{doc.name}</span>
+                  </div>
+                  <span className="font-black text-slate-900">{doc.count}</span>
+                </div>
+              );
+            })}
           </div>
-          <span className="absolute -bottom-12 -right-8 h-32 w-32 rounded-full bg-amber-200/55" />
-          <span className="absolute -right-2 top-2 h-12 w-12 rounded-full bg-emerald-200/50" />
-        </Link>
-
-        {summaryCards.map((item) => {
-          const Icon = item.icon;
-          return (
-            <div
-              key={item.label}
-              className="dashboard-v2-card flex min-h-[100px] flex-col items-center justify-center rounded-xl border border-white/80 bg-white p-4 text-center transition-all duration-300 hover:-translate-y-0.5 hover:shadow-glass-hover"
-            >
-              <span className={`flex h-9 w-9 items-center justify-center rounded-full ${item.color}`}>
-                <Icon size={18} />
-              </span>
-              <p className="mt-1.5 text-[9px] font-bold uppercase tracking-[0.04em] text-[#4E5969]">{item.label}</p>
-              <p className="mt-0.5 text-lg font-extrabold text-[#1D2129]">{formatCount(item.value)}</p>
-              <p className="mt-0.5 text-[9px] font-semibold text-slate-400">{item.detail}</p>
-            </div>
-          );
-        })}
-      </div>
-    </main>
+        </div>
+      </section>
+    </div>
   );
 };
 

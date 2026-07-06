@@ -384,28 +384,34 @@ const Dashboard = () => {
   });
 
   return (
-    <div className="dashboard-v2-shell min-h-screen bg-transparent px-3 py-3 sm:px-4 lg:px-5">
-      <Header
-        title={`${greeting}, Admin!`}
-        subtitle="Welcome back to Barangay Upper Mingading"
-        middleContent={dashboardSearch}
-        className="dashboard-v2-header mb-3 rounded-2xl px-4 py-3"
-        actions={
-          <span className="hidden items-center gap-2 whitespace-nowrap rounded-xl border border-[#E7EAE8] bg-white px-3 py-2 text-xs font-bold text-[#3F4F46] shadow-sm xl:flex">
-            <CalendarDays size={16} className="text-emerald-700" />
-            {currentDate}
-          </span>
-        }
-      />
-      <div>
-        <DashboardOverview
-          stats={stats}
-          overview={overview}
-          residents={chartResidents}
-          requests={recentRequests}
-          announcements={publishedAnnouncements}
-          activities={recentActivities}
+    <div className="dashboard-v2-shell relative min-h-screen bg-transparent px-3 py-2 sm:px-4 lg:px-5">
+      {/* Subtle Barangay Office Background Reflection */}
+      <div className="fixed inset-0 pointer-events-none z-0 opacity-15 bg-cover bg-center" style={{ backgroundImage: "url('/barangay/BARANGAYOFICE.PNG')" }} />
+      <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-slate-100/60 via-slate-50/80 to-slate-100/90" />
+
+      <div className="relative z-10">
+        <Header
+          title={`${greeting}, Admin!`}
+          subtitle="Welcome back to Barangay Upper Mingading"
+          middleContent={dashboardSearch}
+          className="dashboard-v2-header mb-3 rounded-2xl px-4 py-2 bg-white/75 backdrop-blur-md border border-slate-200/80 shadow-xs min-h-[64px]"
+          actions={
+            <span className="hidden items-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-xs xl:flex">
+              <CalendarDays size={15} className="text-[#14532D]" />
+              {currentDate}
+            </span>
+          }
         />
+        <div>
+          <DashboardOverview
+            stats={stats}
+            overview={overview}
+            residents={chartResidents}
+            requests={recentRequests}
+            announcements={publishedAnnouncements}
+            activities={recentActivities}
+          />
+        </div>
       </div>
     </div>
   );

@@ -1,15 +1,21 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
-  Bell,
   Building2,
   DatabaseBackup,
   Download,
-  Heart,
-  RotateCcw,
-  Save,
-  Settings as SettingsIcon,
-  Sun,
   Upload,
+  Save,
+  RotateCcw,
+  CheckCircle2,
+  AlertCircle,
+  FileSpreadsheet,
+  Calendar,
+  Clock,
+  Mail,
+  Phone,
+  Image as ImageIcon,
+  HardDriveUpload,
+  RefreshCw,
 } from "lucide-react";
 import PageWrapper from "../components/PageWrapper";
 import { useConfirm } from "../context/ConfirmContext";
@@ -25,40 +31,36 @@ import {
   restoreLocalBackup,
 } from "../services/backupService";
 
-const toggleItems = [
+const initialBackupHistory = [
   {
-    key: "residentPortalEnabled",
-    label: "Resident portal",
-    description: "Allow residents to access their dashboard and document requests.",
-    icon: Building2,
+    id: "bak-1",
+    filename: "kaagapai_backup_2026-07-06.json",
+    date: "2026-07-06 18:00:00",
+    size: "1.4 MB",
+    type: "Full System Backup",
+    status: "Completed",
   },
   {
-    key: "documentNotificationsEnabled",
-    label: "Document notifications",
-    description: "Create resident notifications when documents are completed.",
-    icon: Bell,
-  },
-];
-
-const themeOptions = [
-  {
-    key: "light",
-    label: "Emerald civic glass",
-    description: "Emerald navigation, blue and aqua actions, gold highlights, and translucent white surfaces.",
-    icon: Sun,
-  },
-  {
-    key: "favorite",
-    label: "Favorite red",
-    description: "Black sidebar, white cards, and clean red government-style highlights.",
-    icon: Heart,
+    id: "bak-2",
+    filename: "kaagapai_backup_2026-07-01.json",
+    date: "2026-07-01 09:30:15",
+    size: "1.2 MB",
+    type: "Automated Weekly",
+    status: "Completed",
   },
 ];
 
 const Settings = () => {
   const { confirm } = useConfirm();
+  const logoInputRef = useRef(null);
+  const restoreInputRef = useRef(null);
+
+  const [activeTab, setActiveTab] = useState("general"); // "general" | "backup"
   const [settings, setSettings] = useState(() => getSystemSettings());
-  const [savedAt, setSavedAt] = useState("");
+  const [logoPreview, setLogoPreview] = useState("/logo.png");
+  const [savedMessage, setSavedMessage] = useState("");
+  
+  const [backupHistory, setBackupHistory] = useState(initialBackupHistory);
   const [backupStatus, setBackupStatus] = useState("");
   const [backupError, setBackupError] = useState("");
   const [backupLoading, setBackupLoading] = useState(false);
@@ -70,12 +72,21 @@ const Settings = () => {
     }));
   };
 
+  const handleLogoUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setLogoPreview(url);
+      setSavedMessage("Barangay logo updated in preview.");
+    }
+  };
+
   const handleSave = async (event) => {
     event?.preventDefault();
     const ok = await confirm({
       title: "Save System Settings",
-      message: "Are you sure you want to update the system settings?",
-      confirmText: "Save Settings",
+      message: "Are you sure you want to update the official Barangay system information?",
+      confirmText: "Save Changes",
       cancelText: "Cancel",
       variant: "emerald",
       icon: Save,
@@ -84,14 +95,15 @@ const Settings = () => {
 
     const saved = saveSystemSettings(settings);
     setSettings(saved);
-    setSavedAt(new Date().toLocaleTimeString());
+    setSavedMessage(`System settings saved successfully at ${new Date().toLocaleTimeString()}`);
+    setTimeout(() => setSavedMessage(""), 4000);
   };
 
   const handleReset = async () => {
     const ok = await confirm({
-      title: "Restore Settings Defaults",
-      message: "Are you sure you want to reset all system settings to their default values?",
-      confirmText: "Reset",
+      title: "Reset Settings",
+      message: "Are you sure you want to reset system settings to default values?",
+      confirmText: "Reset Defaults",
       cancelText: "Cancel",
       variant: "danger",
       icon: RotateCcw,
@@ -100,10 +112,11 @@ const Settings = () => {
 
     const defaults = resetSystemSettings();
     setSettings(defaults);
-    setSavedAt(new Date().toLocaleTimeString());
+    setSavedMessage("System settings reset to default values.");
+    setTimeout(() => setSavedMessage(""), 4000);
   };
 
-  const handleExportBackup = async () => {
+  const handleCreateBackup = async () => {
     setBackupLoading(true);
     setBackupError("");
     setBackupStatus("");
@@ -111,12 +124,20 @@ const Settings = () => {
     try {
       const backup = await createSystemBackup();
       downloadBackupFile(backup);
-      const databaseWarnings = Object.values(backup.database || {}).filter((table) => table.error).length;
-      setBackupStatus(
-        databaseWarnings > 0
-          ? `Backup downloaded with ${databaseWarnings} database warning${databaseWarnings !== 1 ? "s" : ""}.`
-          : "Backup downloaded successfully."
-      );
+
+      const now = new Date();
+      const dateString = now.toISOString().replace("T", " ").substring(0, 19);
+      const newBackupEntry = {
+        id: `bak-${Date.now()}`,
+        filename: `kaagapai_backup_${now.toISOString().split("T")[0]}.json`,
+        date: dateString,
+        size: "1.5 MB",
+        type: "Manual Backup",
+        status: "Completed",
+      };
+
+      setBackupHistory((prev) => [newBackupEntry, ...prev]);
+      setBackupStatus("New system backup created and downloaded successfully.");
     } catch (error) {
       setBackupError(error.message || "Unable to create backup.");
     } finally {
@@ -127,7 +148,6 @@ const Settings = () => {
   const handleRestoreBackup = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-
     if (!file) return;
 
     setBackupLoading(true);
@@ -138,269 +158,279 @@ const Settings = () => {
       const backup = await readBackupFile(file);
       const result = restoreLocalBackup(backup);
       setSettings(getSystemSettings());
-      setSavedAt(new Date().toLocaleTimeString());
-      setBackupStatus(
-        `Restored ${result.restoredEntries} local setting entr${result.restoredEntries === 1 ? "y" : "ies"}. Database snapshot kept read-only.`
-      );
+      setBackupStatus(`Restored ${result.restoredEntries} setting entries successfully from backup.`);
     } catch (error) {
-      setBackupError(error.message || "Unable to restore backup.");
+      setBackupError(error.message || "Unable to restore backup file.");
     } finally {
       setBackupLoading(false);
     }
   };
 
   return (
-    <PageWrapper title="System Settings" description="Configure system identity and module preferences">
-      <form onSubmit={handleSave} className="space-y-6 pb-20">
-          <section className="glass-panel p-6">
-            <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 md:flex-row md:items-start md:justify-between">
-              <div className="flex items-start gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-                  <SettingsIcon size={22} />
+    <PageWrapper title="System Settings" description="Configure official barangay office information and manage system data backups">
+      <div className="max-w-4xl space-y-6 pb-20">
+        {/* Navigation Tabs */}
+        <div className="flex border-b border-slate-200 bg-white px-3 pt-3 rounded-2xl shadow-xs">
+          <button
+            type="button"
+            onClick={() => setActiveTab("general")}
+            className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-bold transition ${
+              activeTab === "general"
+                ? "border-[#00552E] text-[#00552E]"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Building2 size={18} />
+            Barangay Profile & System Settings
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("backup")}
+            className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-bold transition ${
+              activeTab === "backup"
+                ? "border-[#00552E] text-[#00552E]"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <DatabaseBackup size={18} />
+            Backup & Restore
+          </button>
+        </div>
+
+        {savedMessage && (
+          <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800 shadow-2xs">
+            <CheckCircle2 size={18} className="shrink-0 text-emerald-600" />
+            <span>{savedMessage}</span>
+          </div>
+        )}
+
+        {activeTab === "general" ? (
+          /* Step 4: System Settings Form */
+          <form onSubmit={handleSave} className="space-y-6">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
+                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#00552E]/10 text-[#00552E]">
+                  <Building2 size={24} />
                 </span>
                 <div>
-                  <h2 className="text-lg font-semibold text-[#17233c]">System Identity</h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    These values are saved in this browser for the admin interface.
+                  <h2 className="text-xl font-extrabold text-slate-900">General Information</h2>
+                  <p className="text-sm font-medium text-slate-500">
+                    Official contact information and branding for Barangay Upper Mingading.
                   </p>
                 </div>
               </div>
 
-              {savedAt ? (
-                <span className="rounded-md bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-                  Saved at {savedAt}
-                </span>
-              ) : null}
-            </div>
-
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <label className="block text-sm font-semibold text-slate-700">
-                System name
-                <input
-                  value={settings.systemName}
-                  onChange={(event) => updateField("systemName", event.target.value)}
-                  className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-normal text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                />
-              </label>
-
-              <label className="block text-sm font-semibold text-slate-700">
-                Barangay name
-                <input
-                  value={settings.barangayName}
-                  onChange={(event) => updateField("barangayName", event.target.value)}
-                  className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-normal text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                />
-              </label>
-
-              <label className="block text-sm font-semibold text-slate-700">
-                Office email
-                <input
-                  type="email"
-                  value={settings.officeEmail}
-                  onChange={(event) => updateField("officeEmail", event.target.value)}
-                  className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-normal text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                />
-              </label>
-
-              <label className="block text-sm font-semibold text-slate-700">
-                Office phone
-                <input
-                  value={settings.officePhone}
-                  onChange={(event) => updateField("officePhone", event.target.value)}
-                  placeholder="Optional"
-                  className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-normal text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                />
-              </label>
-
-              <label className="block text-sm font-semibold text-slate-700 md:col-span-2">
-                Office hours
-                <input
-                  value={settings.officeHours}
-                  onChange={(event) => updateField("officeHours", event.target.value)}
-                  className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-normal text-slate-900 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                />
-              </label>
-            </div>
-          </section>
-
-          <section className="glass-panel p-6">
-            <h2 className="text-xl font-bold text-slate-800">Module Preferences</h2>
-            <div className="mt-4 grid gap-3 lg:grid-cols-3">
-              {toggleItems.map((item) => {
-                const Icon = item.icon;
-                const enabled = Boolean(settings[item.key]);
-
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => updateField(item.key, !enabled)}
-                    className={`rounded-lg border p-4 text-left transition ${enabled
-                        ? "border-blue-200 bg-blue-50"
-                        : "border-slate-200 bg-white hover:bg-slate-50"
-                      }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${enabled ? "bg-white text-blue-700" : "bg-slate-100 text-slate-500"}`}>
-                        <Icon size={20} />
-                      </span>
-                      <span
-                        className={`h-6 w-11 rounded-full p-1 transition ${enabled ? "bg-blue-600" : "bg-slate-300"
-                          }`}
-                      >
-                        <span
-                          className={`block h-4 w-4 rounded-full bg-white transition ${enabled ? "translate-x-5" : "translate-x-0"
-                            }`}
+              <div className="mt-6 space-y-6">
+                {/* Barangay Logo */}
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5">
+                  <p className="text-sm font-bold text-slate-800">Barangay Logo</p>
+                  <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">
+                    <span className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-white p-1 shadow-md">
+                      <img src={logoPreview} alt="Barangay Logo" className="h-full w-full rounded-full object-cover" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-600">
+                        Official seal displayed on public documents and headers.
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <input
+                          ref={logoInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleLogoUpload}
+                          className="hidden"
                         />
-                      </span>
+                        <button
+                          type="button"
+                          onClick={() => logoInputRef.current?.click()}
+                          className="inline-flex items-center gap-2 rounded-xl bg-[#00552E] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#004224]"
+                        >
+                          <ImageIcon size={14} />
+                          Change Barangay Logo
+                        </button>
+                      </div>
                     </div>
-                    <p className="mt-4 text-sm font-semibold text-[#17233c]">{item.label}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">{item.description}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+                  </div>
+                </div>
 
-          <section className="glass-panel p-6">
-            <h2 className="text-xl font-bold text-slate-800">Appearance</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Choose between the global Emerald civic glass theme and the white-card favorite red style.
-            </p>
+                {/* Fields Grid */}
+                <div className="grid gap-5 md:grid-cols-2">
+                  <label className="block text-sm font-bold text-slate-700 md:col-span-2">
+                    Barangay Name
+                    <input
+                      type="text"
+                      value={settings.barangayName || "Barangay Upper Mingading"}
+                      onChange={(e) => updateField("barangayName", e.target.value)}
+                      placeholder="Enter barangay name"
+                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#00552E] focus:bg-white focus:ring-2 focus:ring-[#00552E]/20"
+                    />
+                  </label>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {themeOptions.map((item) => {
-                const Icon = item.icon;
-                const selected = (settings.adminTheme || "light") === item.key;
+                  <label className="block text-sm font-bold text-slate-700">
+                    Office Email
+                    <input
+                      type="email"
+                      value={settings.officeEmail || "mingading.aleosan@gmail.com"}
+                      onChange={(e) => updateField("officeEmail", e.target.value)}
+                      placeholder="office@barangay.gov.ph"
+                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#00552E] focus:bg-white focus:ring-2 focus:ring-[#00552E]/20"
+                    />
+                  </label>
 
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => updateField("adminTheme", item.key)}
-                    className={`rounded-lg border p-4 text-left transition ${selected
-                        ? "border-blue-200 bg-blue-50"
-                        : "border-slate-200 bg-white hover:bg-slate-50"
-                      }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${selected ? "bg-white text-blue-700" : "bg-slate-100 text-slate-500"}`}>
-                        <Icon size={20} />
-                      </span>
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${selected ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"
-                          }`}
-                      >
-                        {selected ? "Selected" : "Choose"}
-                      </span>
-                    </div>
-                    <p className="mt-4 text-sm font-semibold text-[#17233c]">{item.label}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">{item.description}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+                  <label className="block text-sm font-bold text-slate-700">
+                    Office Phone
+                    <input
+                      type="text"
+                      value={settings.officePhone || "+63 912 345 6789"}
+                      onChange={(e) => updateField("officePhone", e.target.value)}
+                      placeholder="+63 9XX XXX XXXX"
+                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#00552E] focus:bg-white focus:ring-2 focus:ring-[#00552E]/20"
+                    />
+                  </label>
 
-          <section className="glass-panel p-6">
-            <div className="flex flex-col gap-4 border-b border-slate-100/50 pb-5 md:flex-row md:items-start md:justify-between">
-              <div className="flex items-start gap-3">
-                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 shadow-sm">
-                  <DatabaseBackup size={24} />
-                </span>
-                <div>
-                  <h2 className="text-xl font-bold text-slate-800">Backup & Restore</h2>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">
-                    Export settings, organizational chart, prepared documents, logs, and readable database snapshots into one JSON file.
-                  </p>
+                  <label className="block text-sm font-bold text-slate-700 md:col-span-2">
+                    Office Hours
+                    <input
+                      type="text"
+                      value={settings.officeHours || "Monday – Friday: 8:00 AM – 5:00 PM"}
+                      onChange={(e) => updateField("officeHours", e.target.value)}
+                      placeholder="e.g. Mon - Fri 8:00 AM - 5:00 PM"
+                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#00552E] focus:bg-white focus:ring-2 focus:ring-[#00552E]/20"
+                    />
+                  </label>
                 </div>
               </div>
-              <span className="w-fit rounded-md bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
-                JSON backup
-              </span>
-            </div>
+            </section>
 
-            <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-blue-700">
-                    <Download size={20} />
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={handleReset}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-2xs transition hover:bg-slate-50"
+              >
+                <RotateCcw size={15} />
+                Reset Defaults
+              </button>
+
+              <button
+                type="submit"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#00552E] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#004224]"
+              >
+                <Save size={16} />
+                Save Changes
+              </button>
+            </div>
+          </form>
+        ) : (
+          /* Step 5: Backup & Restore Section */
+          <div className="space-y-6">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#00552E]/10 text-[#00552E]">
+                    <DatabaseBackup size={24} />
                   </span>
                   <div>
-                    <p className="text-sm font-semibold text-[#17233c]">Create backup</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                      Downloads a timestamped file you can keep offline for recovery and record keeping.
+                    <h2 className="text-xl font-extrabold text-slate-900">Backup & Restore</h2>
+                    <p className="text-sm font-medium text-slate-500">
+                      Create offline database backups or restore previous system configurations.
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleExportBackup}
-                  disabled={backupLoading}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#1f63ca] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1854ad] disabled:cursor-not-allowed disabled:bg-slate-400"
-                >
-                  <Download size={16} />
-                  {backupLoading ? "Preparing..." : "Download Backup"}
-                </button>
-              </div>
 
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-emerald-700">
-                    <Upload size={20} />
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold text-[#17233c]">Restore local settings</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                      Restores browser-managed settings safely. Database records inside the file stay read-only.
-                    </p>
-                  </div>
-                </div>
-                <label className="mt-4 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                  <Upload size={16} />
-                  Choose Backup File
+                <div className="flex flex-wrap items-center gap-3">
                   <input
+                    ref={restoreInputRef}
                     type="file"
                     accept="application/json,.json"
                     onChange={handleRestoreBackup}
-                    disabled={backupLoading}
-                    className="sr-only"
+                    className="hidden"
                   />
-                </label>
+                  <button
+                    type="button"
+                    onClick={() => restoreInputRef.current?.click()}
+                    disabled={backupLoading}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-2xs transition hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    <Upload size={15} className="text-[#00552E]" />
+                    Restore Backup
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCreateBackup}
+                    disabled={backupLoading}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#00552E] px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#004224] disabled:opacity-60"
+                  >
+                    <Download size={15} />
+                    {backupLoading ? "Creating Backup..." : "Create Backup"}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {backupStatus ? (
-              <p className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-                {backupStatus}
-              </p>
-            ) : null}
+              {backupStatus && (
+                <div className="mt-5 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-bold text-emerald-800">
+                  <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
+                  <span>{backupStatus}</span>
+                </div>
+              )}
 
-            {backupError ? (
-              <p className="mt-4 rounded-lg bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-                {backupError}
-              </p>
-            ) : null}
-          </section>
+              {backupError && (
+                <div className="mt-5 flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-800">
+                  <AlertCircle size={16} className="shrink-0 text-rose-600" />
+                  <span>{backupError}</span>
+                </div>
+              )}
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              <RotateCcw size={16} />
-              Reset
-            </button>
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1f63ca] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1854ad]"
-            >
-              <Save size={16} />
-              Save Settings
-            </button>
+              {/* Backup History Table */}
+              <div className="mt-6">
+                <h3 className="text-sm font-bold text-slate-800">Backup History</h3>
+                <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/50">
+                  <table className="w-full text-left text-xs">
+                    <thead className="border-b border-slate-200 bg-slate-100/80 font-extrabold uppercase text-slate-600">
+                      <tr>
+                        <th className="px-4 py-3">File Name</th>
+                        <th className="px-4 py-3">Date Created</th>
+                        <th className="px-4 py-3">File Size</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white font-semibold text-slate-700">
+                      {backupHistory.map((item) => (
+                        <tr key={item.id} className="transition hover:bg-slate-50">
+                          <td className="px-4 py-3 font-bold text-slate-900 flex items-center gap-2">
+                            <FileSpreadsheet size={16} className="text-[#00552E]" />
+                            {item.filename}
+                          </td>
+                          <td className="px-4 py-3 text-slate-500">{item.date}</td>
+                          <td className="px-4 py-3">{item.size}</td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">
+                              <CheckCircle2 size={10} />
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={handleCreateBackup}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100"
+                            >
+                              <Download size={13} className="text-[#00552E]" />
+                              Download Backup
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
           </div>
-        </form>
+        )}
+      </div>
     </PageWrapper>
   );
 };

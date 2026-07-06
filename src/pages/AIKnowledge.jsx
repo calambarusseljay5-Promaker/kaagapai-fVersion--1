@@ -241,7 +241,7 @@ const AIKnowledge = () => {
               <button
                 type="button"
                 onClick={openCreate}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1f63ca] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1854ad]"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#14532D] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#0f3e21] shadow-sm hover:shadow active:scale-95"
               >
                 <Plus size={18} />
                 New Knowledge

@@ -68,7 +68,9 @@ function App() {
             <Route path="/organization" element={<OrganizationChart />} />
             <Route path="/users" element={<Users />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/system-settings" element={<Settings />} />
             <Route path="/profile-settings" element={<ProfileSettings />} />
+            <Route path="/my-account" element={<ProfileSettings />} />
             <Route path="/account-security" element={<AccountSecurity />} />
             <Route path="/audit" element={<AuditLogs />} />
           </Route>

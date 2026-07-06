@@ -254,31 +254,32 @@ export async function updateDocumentRequestStatus(id, status) {
     .from(DOCUMENT_REQUESTS_TABLE)
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id)
-    .select(DOCUMENT_REQUEST_WITH_RESIDENT_COLUMNS)
-    .single();
+    .select();
 
   if (error) throw error;
+  const updatedRow = Array.isArray(data) ? data[0] : data;
+  if (!updatedRow) return null;
 
   const notificationByStatus = {
     Processing: {
       title: "Document request is being processed",
-      message: `Your ${data.document_type} request is now being processed by the barangay office.`,
+      message: `Your ${updatedRow.document_type || "document"} request is now being processed by the barangay office.`,
     },
     Approved: {
       title: "Document request approved",
-      message: `Your ${data.document_type} request has been approved and is being prepared by the barangay office.`,
+      message: `Your ${updatedRow.document_type || "document"} request has been approved and is being prepared by the barangay office.`,
     },
     Completed: {
       title: "Document ready for pickup",
-      message: `Your ${data.document_type} request is completed and ready for pickup at the barangay office.`,
+      message: `Your ${updatedRow.document_type || "document"} request is completed and ready for pickup at the barangay office.`,
     },
     Released: {
       title: "Document ready for pickup",
-      message: `Your ${data.document_type} request is released and ready for pickup at the barangay office.`,
+      message: `Your ${updatedRow.document_type || "document"} request is released and ready for pickup at the barangay office.`,
     },
     Rejected: {
       title: "Document request update",
-      message: `Your ${data.document_type} request was not approved. Please contact the barangay office for details.`,
+      message: `Your ${updatedRow.document_type || "document"} request was not approved. Please contact the barangay office for details.`,
     },
   };
 
@@ -287,8 +288,8 @@ export async function updateDocumentRequestStatus(id, status) {
   if (notification && getSystemSettings().documentNotificationsEnabled !== false) {
     try {
       await createResidentNotification({
-        resident_id: data.resident_id,
-        document_request_id: data.id,
+        resident_id: updatedRow.resident_id,
+        document_request_id: updatedRow.id,
         title: notification.title,
         message: notification.message,
       });
@@ -297,7 +298,7 @@ export async function updateDocumentRequestStatus(id, status) {
     }
   }
 
-  return data;
+  return updatedRow;
 }
 
 /**
@@ -307,8 +308,79 @@ export async function createDocumentRequest({ resident_id, document_type, status
   const { data, error } = await supabase
     .from(DOCUMENT_REQUESTS_TABLE)
     .insert([{ resident_id, document_type, status }])
-    .select(DOCUMENT_REQUEST_WITH_RESIDENT_COLUMNS)
-    .single();
+    .select();
+
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] : data;
+}
+
+/**
+ * Cancel a pending document request
+ */
+export async function cancelDocumentRequest(id) {
+  const { data, error } = await supabase
+    .from(DOCUMENT_REQUESTS_TABLE)
+    .update({ status: "Cancelled", updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select();
+
+  if (error) throw error;
+  const item = Array.isArray(data) ? data[0] : data;
+
+  if (item && getSystemSettings().documentNotificationsEnabled !== false) {
+    try {
+      await createResidentNotification({
+        resident_id: item.resident_id,
+        document_request_id: item.id,
+        title: "Document request cancelled",
+        message: `Your ${item.document_type || "document"} request has been cancelled as requested.`,
+      });
+    } catch (notificationError) {
+      console.warn("Cancelled status updated, but notification failed:", notificationError.message);
+    }
+  }
+
+  return item;
+}
+
+/**
+ * Update document request type while pending
+ */
+export async function updateDocumentRequestType(id, document_type) {
+  const { data, error } = await supabase
+    .from(DOCUMENT_REQUESTS_TABLE)
+    .update({ document_type, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select();
+
+  if (error) throw error;
+  const item = Array.isArray(data) ? data[0] : data;
+
+  if (item && getSystemSettings().documentNotificationsEnabled !== false) {
+    try {
+      await createResidentNotification({
+        resident_id: item.resident_id,
+        document_request_id: item.id,
+        title: "Document request updated",
+        message: `Your document request was successfully updated to ${document_type}.`,
+      });
+    } catch (notificationError) {
+      console.warn("Request updated, but notification failed:", notificationError.message);
+    }
+  }
+
+  return item;
+}
+
+/**
+ * Delete a document request record
+ */
+export async function deleteDocumentRequest(id) {
+  const { data, error } = await supabase
+    .from(DOCUMENT_REQUESTS_TABLE)
+    .delete()
+    .eq("id", id)
+    .select();
 
   if (error) throw error;
   return data;
@@ -361,19 +433,6 @@ export async function markResidentNotificationRead(id) {
 
   if (error) throw error;
   return data;
-}
-
-/**
- * Delete a document request
- */
-export async function deleteDocumentRequest(id) {
-  const { error } = await supabase
-    .from(DOCUMENT_REQUESTS_TABLE)
-    .delete()
-    .eq("id", id);
-
-  if (error) throw error;
-  return true;
 }
 
 /**

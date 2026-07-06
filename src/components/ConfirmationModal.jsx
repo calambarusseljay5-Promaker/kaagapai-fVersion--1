@@ -157,7 +157,7 @@ const ConfirmationModal = ({
                     ? "bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-700 shadow-rose-900/20"
                     : isWarning
                     ? "bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-800 shadow-amber-900/20"
-                    : "bg-gradient-to-r from-[#0B5D3B] to-emerald-600 hover:from-[#08482d] hover:to-emerald-700 shadow-emerald-900/20"
+                    : "bg-gradient-to-r from-[#14532D] to-emerald-700 hover:from-[#0f3e21] hover:to-emerald-800 shadow-emerald-900/20"
                 }`}
               >
                 {loading ? <Loader2 size={16} className="animate-spin" /> : null}

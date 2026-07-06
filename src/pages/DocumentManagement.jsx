@@ -335,29 +335,31 @@ const DocumentManagement = () => {
 
   const stats = useMemo(
     () => ({
-      total: requests.length,
+      total: requests.filter((request) => request.status !== "Cancelled").length,
       pending: requests.filter((request) => request.status === "Pending").length,
       processing: requests.filter((request) => ["Processing", "Approved"].includes(request.status)).length,
       completed: requests.filter((request) => ["Completed", "Released"].includes(request.status)).length,
+      cancelled: requests.filter((request) => request.status === "Cancelled").length,
     }),
     [requests]
   );
 
-  const getStatusColor = (status) => {
+  const getStatusBadgeStyle = (status) => {
     switch (status) {
       case "Pending":
-        return "bg-amber-500 text-white border border-amber-600 shadow-[0_0_10px_rgba(245,158,11,0.3)]";
+        return { backgroundColor: "#f59e0b", color: "#ffffff", border: "1px solid #d97706", boxShadow: "0 0 10px rgba(245,158,11,0.4)" };
       case "Processing":
-        return "bg-blue-700 text-white border border-blue-800 shadow-[0_0_10px_rgba(29,78,216,0.4)]";
+        return { backgroundColor: "#2563eb", color: "#ffffff", border: "1px solid #1d4ed8", boxShadow: "0 0 10px rgba(37,99,235,0.4)" };
       case "Approved":
-        return "bg-sky-500 text-white border border-sky-600 shadow-[0_0_10px_rgba(14,165,233,0.3)]";
       case "Completed":
       case "Released":
-        return "bg-emerald-600 text-white border border-emerald-700 shadow-[0_0_10px_rgba(5,150,105,0.3)]";
+        return { backgroundColor: "#10b981", color: "#ffffff", border: "1px solid #059669", boxShadow: "0 0 10px rgba(16,185,129,0.4)" };
+      case "Cancelled":
+        return { backgroundColor: "#64748b", color: "#ffffff", border: "1px solid #475569" };
       case "Rejected":
-        return "bg-rose-600 text-white border border-rose-700 shadow-[0_0_10px_rgba(225,29,72,0.3)]";
+        return { backgroundColor: "#e11d48", color: "#ffffff", border: "1px solid #be123c", boxShadow: "0 0 10px rgba(225,29,72,0.4)" };
       default:
-        return "bg-slate-500 text-white border border-slate-600 shadow-sm";
+        return { backgroundColor: "#64748b", color: "#ffffff", border: "1px solid #475569" };
     }
   };
 
@@ -971,7 +973,7 @@ const DocumentManagement = () => {
       renderCell: (params) => {
         const request = params.row;
         return (
-          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${getStatusColor(request.status)}`}>
+          <span className="inline-flex rounded-full px-3 py-1 text-xs font-bold" style={getStatusBadgeStyle(request.status)}>
             {request.status}
           </span>
         );
@@ -1520,9 +1522,8 @@ const DocumentManagement = () => {
                       </p>
                     </div>
                     <span
-                      className={`w-fit rounded-full px-4 py-1.5 text-xs font-bold ${getStatusColor(
-                        selectedRequest.status
-                      )}`}
+                      className="w-fit rounded-full px-4 py-1.5 text-xs font-bold"
+                      style={getStatusBadgeStyle(selectedRequest.status)}
                     >
                       {selectedRequest.status}
                     </span>

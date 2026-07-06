@@ -1278,12 +1278,12 @@ const ResidentsManagement = () => {
           </section>
         ) : null}
 
-        <section className="glass-panel mb-6 p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <section className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-slate-100 pb-5">
             <div>
-              <h2 className="text-xl font-semibold text-slate-900">Residents</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                {displayedResidents.length} of {residents.length} record
+              <h2 className="text-xl font-extrabold text-slate-900">Resident Records</h2>
+              <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                {displayedResidents.length} of {residents.length} total resident record
                 {residents.length === 1 ? "" : "s"} shown
               </p>
             </div>
@@ -1291,7 +1291,7 @@ const ResidentsManagement = () => {
             <button
               type="button"
               onClick={openCreateModal}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1b4332] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#112a1f] shadow-md hover:shadow-lg"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#14532D] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#0f3e21] shadow-sm hover:shadow active:scale-95"
             >
               <Plus size={18} />
               Add Resident
@@ -1300,7 +1300,7 @@ const ResidentsManagement = () => {
 
           <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             <div className="relative min-w-0 sm:col-span-2 xl:col-span-1 2xl:col-span-2">
-              <Search className="absolute left-3 top-3 text-slate-400" size={18} />
+              <Search className="absolute left-3.5 top-3 text-slate-400" size={18} />
               <input
                 type="text"
                 value={searchTerm}
@@ -1309,7 +1309,7 @@ const ResidentsManagement = () => {
                   setResidentPage(1);
                 }}
                 placeholder="Search name, username, household, occupation..."
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-10 pr-3.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#14532D] focus:bg-white focus:ring-2 focus:ring-[#14532D]/20"
               />
             </div>
 
@@ -1319,7 +1319,7 @@ const ResidentsManagement = () => {
                 setStatusFilter(event.target.value);
                 setResidentPage(1);
               }}
-              className="w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              className="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#14532D] focus:bg-white focus:ring-2 focus:ring-[#14532D]/20"
             >
               {statusFilters.map((status) => (
                 <option key={status.label} value={status.value}>
@@ -1334,7 +1334,7 @@ const ResidentsManagement = () => {
                 setSexFilter(event.target.value);
                 setResidentPage(1);
               }}
-              className="w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              className="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#14532D] focus:bg-white focus:ring-2 focus:ring-[#14532D]/20"
             >
               <option value="">All sex</option>
               {sexOptions.map((sex) => (
@@ -1350,7 +1350,7 @@ const ResidentsManagement = () => {
                 setPurokFilter(event.target.value);
                 setResidentPage(1);
               }}
-              className="w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              className="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#14532D] focus:bg-white focus:ring-2 focus:ring-[#14532D]/20"
             >
               <option value="">All puroks</option>
               {purokOptions.map((purok) => (
@@ -1366,28 +1366,12 @@ const ResidentsManagement = () => {
                 setHouseholdFilter(event.target.value);
                 setResidentPage(1);
               }}
-              className="w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              className="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#14532D] focus:bg-white focus:ring-2 focus:ring-[#14532D]/20"
             >
               <option value="">All households</option>
               {householdOptions.map((household) => (
                 <option key={household} value={household}>
                   {household}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={relationshipFilter}
-              onChange={(event) => {
-                setRelationshipFilter(event.target.value);
-                setResidentPage(1);
-              }}
-              className="w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="">All family roles</option>
-              {relationshipOptions.map((relationship) => (
-                <option key={relationship} value={relationship}>
-                  {relationship}
                 </option>
               ))}
             </select>
@@ -1400,7 +1384,7 @@ const ResidentsManagement = () => {
                 setCategoryFilter(event.target.value);
                 setResidentPage(1);
               }}
-              className="w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              className="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#14532D] focus:bg-white focus:ring-2 focus:ring-[#14532D]/20"
             >
               {categoryFilterOptions.map((category) => (
                 <option key={category.value || "all"} value={category.value}>
@@ -1411,10 +1395,10 @@ const ResidentsManagement = () => {
             <button
               type="button"
               onClick={clearFilters}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:w-auto sm:justify-self-start"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 active:scale-95 sm:w-auto sm:justify-self-start"
             >
               <Filter size={16} />
-              Reset
+              Reset Filters
             </button>
           </div>
         </section>

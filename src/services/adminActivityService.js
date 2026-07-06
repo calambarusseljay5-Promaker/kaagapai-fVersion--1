@@ -8,8 +8,8 @@ const MAX_LOCAL_LOGS = 200;
 export const DEFAULT_SYSTEM_SETTINGS = {
   systemName: "KaagapAI",
   barangayName: "Barangay Upper Mingading",
-  officeEmail: "admin@kaagapai.gov",
-  officePhone: "",
+  officeEmail: "calambarusseljay5@gmail.com",
+  officePhone: "09306259795",
   officeHours: "Monday to Friday, 8:00 AM - 5:00 PM",
   adminTheme: "light",
   residentPortalEnabled: true,

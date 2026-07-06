@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
-import { Bell, User, ChevronDown, X, CheckCheck, Loader2, RefreshCw, LogOut } from "lucide-react";
+import { Bell, User, ChevronDown, X, CheckCheck, Loader2, RefreshCw, LogOut, Shield, Settings } from "lucide-react";
 import { useConfirm } from "../context/ConfirmContext";
 import {
   getCurrentUserWithProfile,
@@ -74,7 +74,7 @@ const Header = ({ title, subtitle, middleContent = null, actions = null, classNa
 
   const unreadCount = notifications.filter((notification) => !notification.is_read).length;
   const displayName = getDisplayName(account?.user);
-  const displayEmail = account?.user?.email || "admin@kaagapai.gov";
+  const displayEmail = account?.user?.email || "calambarusseljay5@gmail.com";
   const displayRole = account?.profile?.role || "Administrator";
   const profilePhotoUrl = account?.profile?.profile_photo_url;
 
@@ -223,13 +223,13 @@ const Header = ({ title, subtitle, middleContent = null, actions = null, classNa
 
   return (
     <header
-      className={`sticky top-0 z-30 border-b border-white/70 bg-white/82 shadow-sm backdrop-blur-xl ${className}`}
+      className={`sticky top-0 z-30 border-b border-slate-200/80 bg-white/92 shadow-xs backdrop-blur-xl ${className}`}
     >
-      <div className="mx-auto flex min-h-[90px] max-w-[1180px] flex-wrap items-center justify-between gap-4 px-6 py-4 lg:flex-nowrap lg:px-8">
+      <div className="mx-auto flex min-h-[72px] max-w-[1600px] flex-wrap items-center justify-between gap-3 px-6 py-3 lg:flex-nowrap lg:px-8">
         <div className="min-w-0 flex-1 lg:flex-none">
-          <h1 className="truncate text-3xl font-extrabold tracking-tight text-[#111827]">{title}</h1>
+          <h1 className="truncate text-xl font-extrabold tracking-tight text-slate-900">{title}</h1>
           {subtitle && (
-            <p className="mt-1 truncate text-lg font-medium text-slate-500">{subtitle}</p>
+            <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">{subtitle}</p>
           )}
         </div>
 
@@ -289,7 +289,6 @@ const Header = ({ title, subtitle, middleContent = null, actions = null, classNa
 
             <button
               onClick={toggleNotifications}
-
               className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-emerald-300 hover:text-emerald-700 hover:shadow-md"
               aria-label="Notifications"
             >
@@ -441,9 +440,9 @@ const Header = ({ title, subtitle, middleContent = null, actions = null, classNa
             </button>
 
             {showProfile && (
-              <div className="dashboard-v2-popup hd-surface-strong absolute right-0 top-full z-50 mt-3 w-64 rounded-lg p-4">
-                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+              <div className="absolute right-0 top-full z-50 mt-3 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-xl backdrop-blur-xl">
+                <div className="flex items-center gap-3 border-b border-slate-100 px-2 pb-3 pt-1">
+                  <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#00552E]/10 text-[#00552E] ring-2 ring-[#00552E]/20">
                     {profilePhotoUrl ? (
                       <img src={profilePhotoUrl} alt="" className="h-full w-full rounded-full object-cover" />
                     ) : (
@@ -451,32 +450,44 @@ const Header = ({ title, subtitle, middleContent = null, actions = null, classNa
                     )}
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate font-semibold text-slate-900">{displayName}</p>
-                    <p className="truncate text-sm text-slate-500">{displayEmail}</p>
+                    <p className="truncate text-sm font-extrabold text-slate-900">{displayName}</p>
+                    <p className="truncate text-xs font-semibold text-emerald-700">{displayRole}</p>
                   </div>
                 </div>
-                <div className="mt-3 space-y-1">
+                <div className="mt-2 space-y-1">
                   <Link
-                    to="/profile-settings"
+                    to="/my-account"
                     onClick={() => setShowProfile(false)}
-                    className="block w-full rounded-md px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                    className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-[#00552E]/10 hover:text-[#00552E]"
                   >
-                    Profile Settings
+                    <User size={17} className="text-[#00552E]" />
+                    <span>My Account</span>
                   </Link>
                   <Link
                     to="/account-security"
                     onClick={() => setShowProfile(false)}
-                    className="block w-full rounded-md px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                    className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-[#00552E]/10 hover:text-[#00552E]"
                   >
-                    Account Security
+                    <Shield size={17} className="text-[#00552E]" />
+                    <span>Account Security</span>
                   </Link>
+                  <Link
+                    to="/system-settings"
+                    onClick={() => setShowProfile(false)}
+                    className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-[#00552E]/10 hover:text-[#00552E]"
+                  >
+                    <Settings size={17} className="text-[#00552E]" />
+                    <span>System Settings</span>
+                  </Link>
+                  <div className="my-1.5 border-t border-slate-100" />
                   <button
                     type="button"
                     onClick={handleSignOut}
                     disabled={isSigningOut}
-                    className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isSigningOut ? "Signing out..." : "Sign Out"}
+                    <LogOut size={17} className="text-rose-600" />
+                    <span>{isSigningOut ? "Signing out..." : "Sign Out"}</span>
                   </button>
                 </div>
               </div>

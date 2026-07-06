@@ -102,19 +102,76 @@ const buildRespectfulAnswer = (question) =>
     ? "Pakiusap po, panatilihin nating magalang ang usapan. Nandito ako para tumulong sa barangay documents, announcements, livelihood/jobs, office info, profile, at iba pang resident services."
     : "Please keep our conversation respectful. I can help with barangay documents, announcements, livelihood/jobs, office info, profile, and other resident services.";
 
+const CLOSING_STATEMENTS_EN = [
+  "For the most accurate and updated information, please visit the Barangay Upper Mingading Office.",
+  "You may also contact the Barangay Office for official confirmation.",
+  "If you need further assistance, our Barangay Office staff will be happy to assist you during office hours.",
+  "Please coordinate with the Barangay Office for the latest requirements and schedules.",
+  "For complete details, please inquire directly at the Barangay Upper Mingading Office."
+];
+
+const CLOSING_STATEMENTS_TL = [
+  "Para sa pinakabagong impormasyon at opisyal na gabay, pakiusap bisitahin ang Barangay Upper Mingading Office.",
+  "Maaari rin kayong makipag-ugnayan sa Barangay Office para sa opisyal na kumpirmasyon.",
+  "Kung kailangan ninyo ng karagdagang tulong, nakahandang tumulong ang ating Barangay Office staff sa oras ng opisina.",
+  "Mangyaring makipag-ugnayan sa Barangay Office para sa pinakahuling requirements at iskedyul.",
+  "Para sa kumpletong detalye, pakiusap mag-inquire nang direkta sa ating Barangay Upper Mingading Office."
+];
+
+const getDynamicClosingStatement = (language = "english") => {
+  const list = language === "tagalog" ? CLOSING_STATEMENTS_TL : CLOSING_STATEMENTS_EN;
+  return list[Math.floor(Math.random() * list.length)];
+};
+
+const BARANGAY_SCOPE_KEYWORDS = [
+  "barangay", "office", "hall", "document", "dokumento", "clearance", "cedula",
+  "certificate", "permit", "request", "announcement", "anunsyo", "livelihood",
+  "trabaho", "job", "health", "kalusugan", "disaster", "bagyo", "baha",
+  "complaint", "reklamo", "waste", "basura", "senior", "pwd", "solo parent",
+  "women", "babae", "sk", "youth", "official", "officials", "kapitan", "kagawad",
+  "purok", "resident", "assistance", "tulong", "educational", "burial", "medical",
+  "financial", "rabies", "vaccine", "vaccination", "scholarship", "event", "court",
+  "edukasyon", "libing", "burol", "gamot", "ospital", "hospital", "ayuda", "tulong",
+  "how", "can", "what", "where", "when", "who", "paano", "saan", "kailan", "sino"
+];
+
+const isOutsideBarangayScope = (question) => {
+  const normalized = normalizeText(question);
+  const words = normalized.split(" ").filter(Boolean);
+  if (words.length <= 4) return false;
+  return !includesAny(normalized, BARANGAY_SCOPE_KEYWORDS);
+};
+
 const isGratitudeMessage = (question) => {
   const normalized = normalizeText(question);
   const words = normalized.split(" ").filter(Boolean);
   return (
-    words.length <= 6 &&
-    includesAny(normalized, ["thank you", "thanks", "salamat", "ty", "tnx"])
+    words.length <= 8 &&
+    (
+      includesAny(normalized, [
+        "thank you",
+        "thanks",
+        "salamat",
+        "maraming salamat",
+        "salamat po",
+        "maraming salamat po",
+        "ty",
+        "tnx",
+        "thank u"
+      ]) ||
+      normalized.includes("salamat") ||
+      normalized.includes("thank")
+    )
   );
 };
 
-const buildGratitudeAnswer = (question) =>
-  isTagalogQuestion(question)
-    ? "Walang anuman! Nandito ako para tumulong sa barangay documents, announcements, livelihood/jobs, at iba pang resident assistance."
-    : "You're welcome! I'm here to help with barangay documents, announcements, livelihood/jobs, and other resident assistance.";
+const buildGratitudeAnswer = (question) => {
+  const normalized = normalizeText(question);
+  if (includesAny(normalized, ["salamat", "maraming salamat"])) {
+    return "Walang anuman! Masaya akong makatulong. Kung may iba pa kayong katanungan tungkol sa barangay services, nandito lang ako.";
+  }
+  return "You're welcome! If you need anything else about barangay services or documents, feel free to ask. Have a great day!";
+};
 
 const SERVICE_TERMS = [
   "account",
@@ -425,21 +482,16 @@ const buildOfficeInfoAnswer = (question) => {
   const settings = getSystemSettings();
   const barangayName = settings.barangayName || "Barangay Upper Mingading";
   const officeHours = settings.officeHours || "Monday to Friday, 8:00 AM - 5:00 PM";
-  const officeEmail = settings.officeEmail || "";
-  const officePhone = settings.officePhone || "";
+  const officeEmail = settings.officeEmail || "calambarusseljay5@gmail.com";
+  const officePhone = settings.officePhone || "09306259795";
 
   const lines =
     language === "tagalog"
       ? [`Ang office hours ng ${barangayName} ay ${officeHours}.`]
       : [`${barangayName} office hours are ${officeHours}.`];
 
-  if (officePhone) {
-    lines.push(language === "tagalog" ? `Telepono: ${officePhone}` : `Phone: ${officePhone}`);
-  }
-
-  if (officeEmail) {
-    lines.push(language === "tagalog" ? `Email: ${officeEmail}` : `Email: ${officeEmail}`);
-  }
+  lines.push(`Phone: ${officePhone}`);
+  lines.push(`Email: ${officeEmail}`);
 
   return lines.join("\n");
 };
@@ -1486,6 +1538,116 @@ async function buildLocalAnswer(question, context = {}) {
 
   const lines = [];
 
+  // Intent detection helper for explicit dashboard requests ONLY
+  const isExplicitDashboardRequest = includesAny(normalizeText(question), [
+    "dashboard",
+    "dashboard summary",
+    "my dashboard",
+    "statistics",
+    "summary",
+    "overview",
+    "system status",
+    "system summary",
+  ]);
+
+  // Handle explicit dashboard requests
+  if (isExplicitDashboardRequest) {
+    lines.push(
+      language === "tagalog"
+        ? `Hello ${resident?.full_name || "Resident"}, ito ang current dashboard summary mo:`
+        : `Hello ${resident?.full_name || "Resident"}, here is your current dashboard summary:`
+    );
+    lines.push(`• Document requests: ${requests.length}`);
+    lines.push(`• Published announcements: ${announcements.length}`);
+    lines.push(`• Livelihood programs: ${opportunities.length}`);
+    lines.push(`• Available document types: ${documentTemplates.length}`);
+    lines.push(`• AI knowledge items: ${knowledgeItems.length}`);
+    return stripSuggestedQuestions(lines.join("\n"));
+  }
+
+  // Gratitude Intent (Check FIRST before greetings)
+  if (isGratitudeMessage(question)) {
+    return buildGratitudeAnswer(question);
+  }
+
+  // Greetings Intent
+  if (isGreetingMessage(question)) {
+    return "Hello! I'm KaagapAI, your Barangay Assistant. How can I help you today? You can ask about document requests, barangay services, complaints, announcements, livelihood programs, health services, and more.";
+  }
+
+  // Complaints Intent
+  const normalizedQ = normalizeText(question);
+  const isComplaint = includesAny(normalizedQ, [
+    "complaint", "reklamo", "report", "noisy", "ingay", "dumping", "basura",
+    "violence", "streetlight", "drainage", "kanal", "neighbor", "kapitbahay",
+    "disturbance", "public disturbance", "anonymous"
+  ]);
+  if (isComplaint) {
+    if (normalizedQ.includes("anonymous")) {
+      return "Residents may contact or visit the Barangay Office to inquire about anonymous complaint filing procedures or call us at 09306259795.";
+    }
+    return "Residents may submit complaints through the Complaint section of the Resident Portal or directly at the Barangay Office.\n\nFor emergencies, advise contacting the appropriate emergency authorities or call us at 09306259795.";
+  }
+
+  // Disaster Preparedness Intent
+  const isDisaster = includesAny(normalizedQ, [
+    "disaster", "typhoon", "bagyo", "baha", "flood", "evacuation", "calamity", "emergency", "relief"
+  ]);
+  if (isDisaster) {
+    return "I cannot verify current disaster alerts at the moment. For emergencies, please stay tuned to official government weather broadcasts or contact local disaster management and the Barangay Office.";
+  }
+
+  // Waste Management Intent
+  const isWaste = includesAny(normalizedQ, [
+    "garbage", "waste", "hakot", "mrf", "recycling", "recyclables", "collection"
+  ]);
+  if (isWaste) {
+    return "Please contact the Barangay Office for updated garbage collection schedules and waste management policies.";
+  }
+
+  // Health Services Intent
+  const isHealth = includesAny(normalizedQ, [
+    "health", "kalusugan", "doctor", "doktor", "bakuna", "vaccine", "medicine", "gamot", "clinic", "health center", "health services"
+  ]);
+  if (isHealth) {
+    return language === "tagalog"
+      ? "Ang serbisyo ng Barangay Health Center ay bukas mula Lunes hanggang Biyernes, 8:30 AM hanggang 4:00 PM. Pakiusap bumisita sa Barangay Health Center para sa inyong konsultasyon at pangkalusugang kailangan.\n\nPara sa mga emerhensya, mangyaring tumawag sa ating opisyal na numero: 09306259795."
+      : "Barangay Health Center services are available from Monday to Friday, 8:30 AM - 4:00 PM. Please visit the Barangay Health Center for check-ups and medical services.\n\nFor emergencies, please call our official Barangay hotline at 09306259795.";
+  }
+
+  // Senior Citizen Services Intent
+  const isSenior = includesAny(normalizedQ, [
+    "senior", "senior citizen", "pension", "elderly"
+  ]);
+  if (isSenior) {
+    return "Please visit or contact the Barangay Office for assistance regarding Senior Citizen registration, benefits, and pension inquiries.";
+  }
+
+  // SK Youth Services Intent
+  const isSK = includesAny(normalizedQ, [
+    "sk", "sangguniang kabataan", "youth", "sports", "liga", "scholarship"
+  ]);
+  if (isSK) {
+    return "Please contact the Sangguniang Kabataan (SK) officials or visit the Barangay Office for information on sports, youth programs, and scholarships.";
+  }
+
+  // PWD / Solo Parent / Women Services Intent
+  const isSpecialGroup = includesAny(normalizedQ, [
+    "pwd", "solo parent", "vawc", "women", "babae"
+  ]);
+  if (isSpecialGroup) {
+    return "Please visit or contact the Barangay Office for inquiries regarding PWD ID, Solo Parent benefits, and Women's assistance (VAWC).";
+  }
+
+  // Reservations Intent
+  const isReservation = includesAny(normalizedQ, [
+    "reservation", "reserve", "book", "booking", "rent", "court", "hall", "covered court", "venue"
+  ]);
+  if (isReservation) {
+    return "Please visit or contact the Barangay Office to check availability and book barangay venues like the Covered Court or Barangay Hall.";
+  }
+
+  // Cedula Intent
   if (wantsCedula) {
     return buildCedulaAnswer(question);
   } else if (wantsAnniversary) {
@@ -1510,6 +1672,18 @@ async function buildLocalAnswer(question, context = {}) {
     const wantsHowTo = isDocumentHowToQuestion(question) && !wantsStatus;
     const wantsDetails = isDocumentDetailQuestion(question);
 
+    if (normalizedQ.includes("online")) {
+      return "Yes. Residents can submit document requests through the Resident Portal. After approval, you will receive a notification when your document is ready for pickup.";
+    }
+
+    if (normalizedQ.includes("processing time")) {
+      return "Processing time depends on the document type and barangay approval. Please monitor your request status in the Resident Portal.";
+    }
+
+    if (normalizedQ.includes("someone else") || normalizedQ.includes("representative") || normalizedQ.includes("claim")) {
+      return "Yes, if permitted by barangay policy. The representative may be required to present an authorization letter and valid identification.";
+    }
+
     if (documentFocus) {
       if (wantsStatus && !wantsDetails) {
         lines.push(
@@ -1523,50 +1697,24 @@ async function buildLocalAnswer(question, context = {}) {
         );
         lines.push(
           statusFilteredRequests.slice(0, 6).map((request, index) => formatRequest(request, index, language)).join("\n") ||
-            (language === "tagalog"
-              ? `Wala ka pang ${documentFocus.label} request${requestedStatuses.length ? ` na may ${requestedStatuses.join("/")} status` : ""}.`
-              : `You have no ${documentFocus.label} request${requestedStatuses.length ? ` with ${requestedStatuses.join("/")} status` : ""} yet.`)
+            `I can't check your request status at the moment. Please open **My Document Requests** in your account.`
         );
       } else if (wantsHowTo || wantsDetails) {
-        if (language === "tagalog") {
-          lines.push(`Para mag-request ng ${documentFocus.label}:`);
-          lines.push(`1. Buksan ang Document Requests sa resident dashboard.`);
-          lines.push(`2. Piliin ang ${documentFocus.label} sa Document type.`);
-          lines.push(`3. I-click ang Request. Magsisimula ang request bilang Pending.`);
-        } else {
-          lines.push(`To request ${documentFocus.label}:`);
-          lines.push(`1. Open Document Requests in your resident dashboard.`);
-          lines.push(`2. Select ${documentFocus.label} from Document type.`);
-          lines.push(`3. Click Request. Your request will start as Pending.`);
-        }
+        return `You can request a ${documentFocus.label} through the Resident Portal.\n\nSteps:\n1. Log in to your account.\n2. Open **Document Requests**.\n3. Select **${documentFocus.label}**.\n4. Fill out the required information.\n5. Submit your request.\n6. Wait for approval.\n7. You will receive a notification once your document is ready for pickup.`;
       } else {
-        lines.push(
-          language === "tagalog"
-            ? `Impormasyon para sa ${documentFocus.label}:`
-            : `${documentFocus.label} information:`
-        );
+        lines.push(`${documentFocus.label} information:`);
       }
 
       if (!(wantsStatus && !wantsDetails)) {
         lines.push("");
-        lines.push(language === "tagalog" ? "Requirements at fees:" : "Requirements and fees:");
+        lines.push("Requirements and fees:");
         lines.push(
           filteredTemplates.slice(0, 3).map(formatTemplate).join("\n") ||
-            (language === "tagalog"
-              ? `Wala pang template details para sa ${documentFocus.label}.`
-              : `No ${documentFocus.label} template details are available yet.`)
+            "Please visit or contact the Barangay Office to confirm the current requirements and processing fee."
         );
         if (statusFilteredRequests.length > 0) {
           lines.push("");
-          lines.push(
-            requestedStatuses.length
-              ? language === "tagalog"
-                ? `Iyong ${requestedStatuses.join("/")} ${documentFocus.label} request(s):`
-                : `Your ${requestedStatuses.join("/")} ${documentFocus.label} request(s):`
-              : language === "tagalog"
-                ? `Status ng iyong ${documentFocus.label} request:`
-                : `Your ${documentFocus.label} request status:`
-          );
+          lines.push(`Your ${documentFocus.label} request status:`);
           lines.push(
             statusFilteredRequests.slice(0, 4).map((request, index) => formatRequest(request, index, language)).join("\n")
           );
@@ -1576,91 +1724,88 @@ async function buildLocalAnswer(question, context = {}) {
       if (wantsStatus) {
         lines.push(
           requestedStatuses.length
-            ? language === "tagalog"
-              ? `Mayroon kang ${statusFilteredRequests.length} ${requestedStatuses.join("/")} document request(s).`
-              : `You have ${statusFilteredRequests.length} ${requestedStatuses.join("/")} document request(s).`
-            : language === "tagalog"
-              ? `Mayroon kang ${requests.length} document request(s).`
-              : `You have ${requests.length} document request(s).`
+            ? `You have ${statusFilteredRequests.length} ${requestedStatuses.join("/")} document request(s).`
+            : `You have ${requests.length} document request(s).`
         );
         lines.push(
           statusFilteredRequests.slice(0, 6).map((request, index) => formatRequest(request, index, language)).join("\n") ||
-            (language === "tagalog"
-              ? "Wala ka pang tugmang document request."
-              : "You have no matching document requests yet.")
+            "I can't check your request status at the moment. Please open **My Document Requests** in your account."
         );
         lines.push("");
-      } else if (wantsHowTo) {
-        return stripSuggestedQuestions(buildGenericDocumentHowToAnswer(uniqueTemplates, language));
-      }
-
-      if (!wantsStatus && !wantsHowTo) {
-        lines.push(language === "tagalog" ? "Available document types:" : "Available document types:");
-        lines.push(
-          uniqueTemplates.slice(0, 6).map(formatTemplate).join("\n") ||
-            (language === "tagalog"
-              ? "Wala pang available document templates."
-              : "No document templates are available yet.")
-        );
+      } else {
+        return `You can request documents through the Resident Portal.\n\nSteps:\n1. Log in to your account.\n2. Open **Document Requests**.\n3. Select your document.\n4. Fill out the required information.\n5. Submit your request.\n6. Wait for approval.\n7. You will receive a notification once your document is ready for pickup.`;
       }
     }
+
+    return stripSuggestedQuestions(lines.join("\n"));
   } else if (wantsLivelihood) {
-    lines.push(
-      language === "tagalog"
-        ? `May ${opportunities.length} open livelihood/job opportunity record(s).`
-        : `There are ${opportunities.length} open livelihood/job opportunity record(s).`
-    );
-    lines.push(
-      opportunities.slice(0, 8).map((post, index) => formatOpportunity(post, index, language)).join("\n") ||
-        (language === "tagalog"
-          ? "Walang open livelihood o job opportunities ngayon."
-          : "No open livelihood or job opportunities are posted right now.")
-    );
+    if (opportunities.length > 0) {
+      lines.push(`There are ${opportunities.length} open livelihood/job opportunity record(s):`);
+      lines.push(opportunities.slice(0, 8).map((post, index) => formatOpportunity(post, index, language)).join("\n"));
+      return stripSuggestedQuestions(lines.join("\n"));
+    }
+    return "There are currently no available livelihood programs.";
   } else if (wantsAnnouncements) {
-    lines.push(
-      language === "tagalog"
-        ? `May ${announcements.length} published announcement(s).`
-        : `There are ${announcements.length} published announcement(s).`
-    );
-    lines.push(
-      announcements.slice(0, 8).map((announcement, index) => formatAnnouncement(announcement, index, language)).join("\n") ||
-        (language === "tagalog"
-          ? "Walang published announcements ngayon."
-          : "No published announcements right now.")
-    );
+    if (announcements.length > 0) {
+      lines.push(`There are ${announcements.length} published announcement(s):`);
+      lines.push(announcements.slice(0, 8).map((announcement, index) => formatAnnouncement(announcement, index, language)).join("\n"));
+      return stripSuggestedQuestions(lines.join("\n"));
+    }
+    return "There are currently no announcements available.";
   } else if (wantsProfile) {
-    lines.push(
-      language === "tagalog"
-        ? `Profile summary para kay ${resident?.full_name || "Resident"}:`
-        : `Profile summary for ${resident?.full_name || "Resident"}:`
-    );
+    lines.push(`Profile summary for ${resident?.full_name || "Resident"}:`);
     lines.push(`Purok: ${resident?.purok || "Not set"}`);
     lines.push(`Username: ${resident?.username || resident?.portal_username || "Not set"}`);
-    lines.push(`${language === "tagalog" ? "Address" : "Address"}: ${resident?.address || "Not set"}`);
+    lines.push(`Address: ${resident?.address || "Not set"}`);
     lines.push(`Status: ${resident?.status || "Not set"}`);
+    return stripSuggestedQuestions(lines.join("\n"));
   } else if (wantsKnowledge) {
     return buildMissingKnowledgeAnswer(question, language);
-  } else {
-    lines.push(
-      language === "tagalog"
-        ? `Hello ${resident?.full_name || "Resident"}, ito ang current dashboard summary mo:`
-        : `Hello ${resident?.full_name || "Resident"}, here is your current dashboard summary:`
-    );
-    lines.push(`Document requests: ${requests.length}`);
-    lines.push(`${language === "tagalog" ? "Published announcements" : "Published announcements"}: ${announcements.length}`);
-    lines.push(`Open livelihood/jobs: ${opportunities.length}`);
-    lines.push(`Available document types: ${documentTemplates.length}`);
-    lines.push(`AI knowledge items: ${knowledgeItems.length}`);
   }
 
-  return stripSuggestedQuestions(lines.join("\n"));
+  // Outside Scope Check
+  if (isOutsideBarangayScope(question)) {
+    return language === "tagalog"
+      ? "Nakatutok ako sa pagtulong sa mga residente para sa Barangay Upper Mingading services, community programs, dokumento, anunsyo, at iba pang katanungang pampamahalaan. Kung may kinalaman po sa barangay ang inyong tanong, ikalulugod ko kayong tulungan."
+      : "I specialize in assisting residents with Barangay Upper Mingading services, community programs, documents, announcements, and local government concerns. If your question is related to barangay services, I'd be happy to help.";
+  }
+
+  // Government Assistance Intents (Educational, Burial, Medical)
+  const isEducationalAssistance = includesAny(normalizedQ, ["educational", "edukasyon", "aral", "pa-aral", "school assistance", "tuition", "aaral"]);
+  if (isEducationalAssistance) {
+    const closing = getDynamicClosingStatement(language);
+    return language === "tagalog"
+      ? `Ang educational assistance programs ay maaaring magkaroon ng iba't ibang requirements depende sa sponsoring government agency o barangay program. Karaniwang humihingi ng valid ID at supporting documents. Ang eligibility at panahon ng pag-apply ay nag-iiba.\n\n${closing}`
+      : `Educational assistance programs may have different requirements depending on the sponsoring government agency or barangay program. Applicants are typically required to submit valid identification and supporting documents. Eligibility and application periods may vary.\n\n${closing}`;
+  }
+
+  const isBurialAssistance = includesAny(normalizedQ, ["burial", "libing", "burol", "funeral assistance"]);
+  if (isBurialAssistance) {
+    const closing = getDynamicClosingStatement(language);
+    return language === "tagalog"
+      ? `Nagmumula sa local government unit o barangay ang tulong para sa burol/libing ng kwalipikadong residente. Nag-iiba ang requirements at eligibility depende sa lokal na polisiya at available na programa.\n\n${closing}`
+      : `Some local government units provide burial assistance to qualified residents. Requirements and eligibility vary depending on local policies and available programs.\n\n${closing}`;
+  }
+
+  const isMedicalAssistance = includesAny(normalizedQ, ["medical assistance", "tulong sa gamot", "ospital", "hospital assistance", "pagpapagamot"]);
+  if (isMedicalAssistance) {
+    const closing = getDynamicClosingStatement(language);
+    return language === "tagalog"
+      ? `Ang medical assistance programs ay karaniwang nangangailangan ng valid identification at supporting medical documents (katulad ng medical abstract o reseta). Ang availability nito ay nakadepende sa kasalukuyang programa ng barangay o pamahalaan.\n\n${closing}`
+      : `Medical assistance programs may require valid identification and supporting medical documents. The availability of assistance depends on current barangay or government programs.\n\n${closing}`;
+  }
+
+  // Default Fallback for Unknown / General Questions (NEVER return dashboard summary!)
+  const defaultClosing = getDynamicClosingStatement(language);
+  return language === "tagalog"
+    ? `Para sa mga partikular na katanungan tungkol sa barangay o pampamahalaang serbisyo, inirerekomenda ang pag-inquire sa ating opisina.\n\n${defaultClosing}`
+    : `For specific questions regarding barangay or local government services, inquiring directly with our office is recommended.\n\n${defaultClosing}`;
 }
 
 export async function askResidentAssistant(question, context) {
   const trimmedQuestion = question.trim();
   if (!trimmedQuestion) return "";
 
-  // Make sure we always have the absolute latest resident stats so counts are perfectly accurate!
   try {
     const freshStats = await fetchResidentStats();
     context.residentStats = freshStats;
@@ -1668,7 +1813,6 @@ export async function askResidentAssistant(question, context) {
     console.error("Failed to dynamically fetch fresh stats for AI prompt:", error);
   }
 
-  // Let Gemini AI handle everything so the response is natural and intelligent.
   return queryGeminiWithRichContext(trimmedQuestion, context);
 }
 
@@ -1685,7 +1829,6 @@ async function queryGeminiWithRichContext(question, context = {}) {
       residentStats,
     } = context;
 
-    // Formatting statistics
     const statsStr = residentStats?.loaded
       ? `Total Residents: ${residentStats.currentResidents}
 Seniors: ${residentStats.seniorCitizens}
@@ -1695,41 +1838,104 @@ Female: ${residentStats.femaleResidents}
 By Purok: ${formatCounts(residentStats.purokCounts)}`
       : "Not Loaded";
 
-    // Formatting officials
     const activeOfficials = getActiveOrganizationOfficials(organizationOfficials);
     const officialsStr = activeOfficials
       .map(o => `- Name: ${o.name}, Position: ${o.position}, Committee: ${o.committee || 'None'}`)
       .join("\n") || "No officials loaded.";
 
-    // Formatting templates
     const templatesStr = dedupeDocumentTemplates(documentTemplates)
-      .map(t => `- Document: ${t.template_name || t.document_type}, Requirements: ${t.requirements || 'Valid ID'}, Processing Time: ${t.processing_time || '1 day'}, Fee: 50 pesos (Note: All document requests require a valid ID and Cedula before claiming. Cedula is acquired from the Treasurer.)`)
+      .map(t => `- Document: ${t.template_name || t.document_type}, Requirements: ${t.requirements || 'Valid ID'}, Processing Time: ${t.processing_time || '1 day'}, Fee: ${t.fee || '50 pesos'}`)
       .join("\n") || "No templates loaded.";
 
-    // Formatting resident requests
     const requestsStr = requests
       .map((r, i) => `- ${r.document_type} (Status: ${r.status}, Requested: ${formatDate(r.created_at)})`)
       .join("\n") || "No requests submitted yet.";
 
-    // Formatting custom knowledge
     const knowledgeStr = knowledgeItems
       .map((k, i) => `- Title: ${k.title}\n  Content: ${k.content}`)
       .join("\n\n") || "No custom knowledge items.";
 
-    // Settings (Office hours, email, phone)
     const settings = getSystemSettings();
     const officeHours = settings.officeHours || "Monday to Friday, 8:00 AM - 5:00 PM";
     const contactEmail = settings.officeEmail || "not set";
     const contactPhone = settings.officePhone || "not set";
-    
-    // Anonymized Raw Data for Complex Filtering
+
     const rawDataStr = residentStats?.anonymousResidents 
       ? JSON.stringify(residentStats.anonymousResidents) 
       : "[]";
 
+    const systemInstructionText = `You are KaagapAI, the official AI Assistant of the Barangay Upper Mingading Resident Management System.
+You serve as the Upper Mingading Virtual Assistant. Your purpose is to assist residents with questions related to barangay services, local government programs, public assistance, community concerns, and resident information.
+
+PRIMARY RULE:
+Your first task is to determine the user's intent before answering.
+NEVER answer with the dashboard summary unless the user explicitly asks about:
+- dashboard
+- dashboard summary
+- my dashboard
+- statistics
+- summary
+- overview
+- system status
+
+GENERAL KNOWLEDGE AND RESPONSE RULES:
+1. Scope of Assistance:
+   Assist residents with questions related to:
+   - Barangay documents & certificates (Clearance, Indigency, Residency, Permits)
+   - Barangay services, office hours, & contact details
+   - Government assistance programs (Educational, Burial, Medical, Financial aid)
+   - Community programs, livelihood, & jobs
+   - Complaints, public safety, & emergencies
+   - Health services, clinics, & vaccinations (e.g., anti-rabies, health center schedules)
+   - Disaster preparedness, evacuation, & relief
+   - Taxes, fees, & reservations (Covered Court, Barangay Hall)
+   - Senior Citizen, PWD, Solo Parent, & Women's services (VAWC)
+   - Youth & SK services (sports, scholarships)
+   - Announcements, events, waste management, & barangay officials
+
+2. Absolute Data Integrity Rule:
+   - If exact database information is available in context, provide an accurate, helpful answer.
+   - If exact database information is NOT available (e.g., specific educational assistance details, burial aid, medical aid, anti-rabies vaccination dates), DO NOT INVENT names, dates, schedules, fees, requirements, or policies.
+   - Instead, explain the general process and typical requirements (e.g., valid IDs, supporting documents, eligibility checks), and end your response with a natural, varied closing statement.
+
+3. Dynamic & Natural Closing Statements:
+   Vary your closing statement naturally using one of the following depending on context and language:
+   - "For the most accurate and updated information, please visit the Barangay Upper Mingading Office."
+   - "You may also contact the Barangay Office for official confirmation."
+   - "If you need further assistance, our Barangay Office staff will be happy to assist you during office hours."
+   - "Please coordinate with the Barangay Office for the latest requirements and schedules."
+   - "For complete details, please inquire directly at the Barangay Upper Mingading Office."
+   (Translate naturally to Tagalog when answering in Tagalog).
+
+4. Questions Outside Barangay Scope:
+   If a question is completely unrelated to barangay services or local government concerns (e.g. general trivia, cooking recipes, sports scores), politely respond:
+   "I specialize in assisting residents with Barangay Upper Mingading services, community programs, documents, announcements, and local government concerns. If your question is related to barangay services, I'd be happy to help."
+
+5. Specific Intent Examples & Guidelines:
+   - Greetings:
+     * Hello/Hi/Good morning: "Hello! I'm KaagapAI, your Barangay Assistant. How can I help you today? You can ask about document requests, barangay services, complaints, announcements, livelihood programs, health services, and more."
+     * Thank you: "You're welcome! If you need anything else about barangay services or documents, feel free to ask. Have a great day!"
+     * Salamat / Maraming salamat po: "Walang anuman! Masaya akong makatulong. Kung may iba pa kayong katanungan tungkol sa barangay services, nandito lang ako."
+
+   - Document Requests & Certificates:
+     * Steps for requesting Barangay Clearance: Log in -> Document Requests -> Select Barangay Clearance -> Fill out details -> Submit -> Wait for approval -> Receive notification for pickup.
+     * Cedula requirement: Mention Cedula is obtained from Barangay Treasurer before document issuance.
+     * Fees: If fee exists in context, state exact amount. If not: "Please contact the Barangay Office for the latest processing fee." Never invent prices.
+
+   - Complaints & Public Disturbance:
+     * "Residents may submit complaints through the Complaint section of the Resident Portal or directly at the Barangay Office. For emergencies, advise contacting the appropriate emergency authorities or call us at 09306259795."
+
+   - Government Assistance Examples (Educational, Burial, Medical):
+     * Educational Assistance: Explain that programs vary by sponsoring agency or barangay program. Applicants usually submit valid IDs and supporting academic documents. End with a dynamic closing statement.
+     * Burial Assistance: Explain that LGUs or barangays provide burial assistance to qualified residents depending on local policy and available funds. End with a dynamic closing statement.
+     * Medical Assistance: Explain that medical assistance requires valid ID and medical documents/abstracts. End with a dynamic closing statement.
+     * Health Services & Health Center: "Barangay Health Center services are available from Monday to Friday, 8:30 AM - 4:00 PM. Please visit the Barangay Health Center for check-ups and medical services. For emergencies, please call our official Barangay hotline at 09306259795."
+
+   - Statistics & Purok Totals Requests (charts):
+     * When user asks for statistics, total residents, or breakdown by purok: ALWAYS provide a friendly, bright text explanation detailing the totals in a bulleted list (e.g., "• Muslim: 548 residents") BEFORE writing "Here is the visual breakdown chart below:" and appending [CHART:BAR:JSON_DATA].`;
+
     const prompt = `System Settings:
 - Barangay Name: Barangay Upper Mingading
-- Barangay Anniversary: December 18
 - Office Hours: ${officeHours}
 - Contact Email: ${contactEmail}
 - Contact Phone: ${contactPhone}
@@ -1737,8 +1943,6 @@ By Purok: ${formatCounts(residentStats.purokCounts)}`
 Current Resident Profile:
 - Name: ${resident?.full_name || "Resident"}
 - Purok: ${resident?.purok || "Not set"}
-- Address: ${resident?.address || "Not set"}
-- Status: ${resident?.status || "Not set"}
 
 Barangay Statistics:
 ${statsStr}
@@ -1764,49 +1968,25 @@ ${knowledgeStr}
 Anonymized Raw Data for Analytics:
 ${rawDataStr}
 
-Resident's Question:
+User Question:
 ${question}
 
-Instructions:
-1. You are KaagapAI, the highly intelligent and professional AI Chatbot Assistant for the residents of Barangay Upper Mingading.
-2. Answer the resident's question directly, intelligently, and step-by-step. Do not provide a generic dump of all data.
-3. CRITICAL: If the user asks about document or certificate requirements/requests, you MUST explicitly state that a Cedula is required before they can get any document/certificate.
-4. If they ask about Cedula: It is obtained from the Barangay Treasurer.
-5. Only answer questions related to the barangay, its services, documents, officials, or announcements. Do not answer general knowledge questions outside this scope.
-6. If the user asks a bad question or uses rude/abusive language, reply with a respectful warning or polite advice. Provide guidance calmly.
-7. Do not use phrases like "Based on the admin editable roster..." or output unstructured dumps. Speak like a real human assistant.
-8. STRICT LANGUAGE MATCHING: You MUST match the exact language of the resident's question! If the resident asks in English (e.g., "how many...", "what is...", "tell me..."), respond STRICTLY in English! If they ask in Tagalog (e.g., "ilan...", "ano..."), respond in Tagalog.
-9. ADVANCED ANALYTICS: If the user asks for specific totals with complex filters (e.g., "total male in purok buklod", "how many senior citizens are female"), calculate the exact total by analyzing the 'Anonymized Raw Data for Analytics' JSON array. NEVER refuse to answer a statistics question, just calculate it! NEVER output personal info.
-10. WHEN ASKED FOR STATISTICS OR TOTALS: You MUST output a short explanation message FIRST before the chart.
-- If asked for total or overall residents: output the total as 2,206 residents alongside demographic category filters (Male, Female, Seniors, Youth, PWD).
-- If asked for a single Purok total (e.g. Purok Kamonsil, Payhod, Muslim, Malipayon, Purok-3, Buklod, Azucena): output the exact total for that Purok FIRST, followed by a BAR CHART displaying the category breakdown for that specific Purok using categories: "Senior citizens", "Adults", "Youth", "Children", "4Ps members", "Solo parents", "PWD".
-CRITICAL OVERRIDE FOR PUROK TOTALS:
-- Kamonsil: 307
-- Payhod: 277
-- Muslim: 548
-- Malipayon: 339
-- Purok-3: 263
-- Buklod / Purok Buklod: 315
-- Azucena / Purok Azucena: 157
-- Overall Total: 2,206
-CHART FORMAT RULE: ALWAYS output charts as BAR charts. NEVER USE PIE OR DONUT CHARTS!
-Use this EXACT format to output a chart: [CHART:BAR:JSON_DATA]
-Example 1: "Ang kabuuang residente sa Purok Kamonsil ay 307. Narito ang category breakdown:\n[CHART:BAR:{\"Senior citizens\": 37, \"Adults\": 138, \"Youth\": 68, \"Children\": 43, \"4Ps members\": 46, \"Solo parents\": 25, \"PWD\": 12}]"
-Example 2: "Mayroong 2,206 na kabuuang residente sa Barangay Upper Mingading. Narito ang breakdown:\n[CHART:BAR:{\"Male\": 1120, \"Female\": 1086, \"Seniors\": 245, \"Youth\": 612, \"PWD\": 84}]"`;
+Follow the System Instructions strictly. Determine intent first. Never return dashboard summary unless explicitly requested.`;
 
     const result = await generateText(prompt, {
-      systemInstruction: "You are KaagapAI, a highly intelligent and pro resident assistant. Answer directly, step-by-step, and strictly enforce the rule that Cedula is required for ALL certificates. Only answer barangay-related queries. If the user is rude, give polite advice.",
-      temperature: 0.3,
+      systemInstruction: systemInstructionText,
+      temperature: 0.2,
       maxOutputTokens: 800,
     });
 
     const ans = extractGeminiText(result);
     if (ans) return ans;
-    
-    // fallback if response is empty
+
     return buildLocalAnswer(question, context);
   } catch (error) {
     console.error("Gemini AI query failed, falling back to local heuristic mapping:", error);
     return buildLocalAnswer(question, context);
   }
 }
+
+

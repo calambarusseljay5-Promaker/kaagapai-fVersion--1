@@ -658,9 +658,9 @@ const PopulationMatrixSection = ({ familyProfile, puroks }) => {
           </tr>
           <tr>
             {puroks.flatMap((purok, index) => [
-              <th key={`${purok.value}-male`} className={`print-family-sub-heading print-purok-sub-color-${index % 8}`}>Male</th>,
-              <th key={`${purok.value}-female`} className={`print-family-sub-heading print-purok-sub-color-${index % 8}`}>Female</th>,
-              <th key={`${purok.value}-total`} className={`print-family-sub-heading print-purok-sub-color-${index % 8}`}>Total</th>,
+              <th key={`${purok.value}-male`} className={`print-family-sub-heading print-purok-sub-color-${index % 8}`}>MALE</th>,
+              <th key={`${purok.value}-female`} className={`print-family-sub-heading print-purok-sub-color-${index % 8}`}>FEMALE</th>,
+              <th key={`${purok.value}-total`} className={`print-family-sub-heading print-purok-sub-color-${index % 8}`}>TOTAL</th>,
             ])}
           </tr>
         </thead>

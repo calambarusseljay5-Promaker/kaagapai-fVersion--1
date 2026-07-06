@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useConfirm } from "../context/ConfirmContext";
+import SettingsDrawer from "../components/SettingsDrawer";
 import {
   ResponsiveContainer,
   LineChart,
@@ -34,6 +35,9 @@ import {
   Megaphone,
   Menu,
   PlusCircle,
+  Plus,
+  MessageSquare,
+  History,
   RefreshCw,
   Send,
   Settings,
@@ -57,6 +61,8 @@ import {
   Shield,
   Moon,
   Monitor,
+  Pencil,
+  XCircle,
   Eye,
   EyeOff
 } from "lucide-react";
@@ -65,12 +71,15 @@ import { getCurrentUserWithProfile, logoutUser, uploadProfilePhoto } from "../se
 import { getResidentById } from "../services/adminService";
 import { fetchPublishedAnnouncements } from "../services/announcementService";
 import {
+  cancelDocumentRequest,
   createDocumentRequest,
+  deleteDocumentRequest,
   fetchDocumentRequests,
   fetchDocumentTemplates,
   fetchResidentNotifications,
   getResidentDocumentRequests,
   markResidentNotificationRead,
+  updateDocumentRequestType,
 } from "../services/documentRequestService";
 import { fetchLivelihoodPosts, applyForLivelihood, fetchResidentLivelihoodApplications } from "../services/livelihoodService";
 import { fetchResidentKnowledge } from "../services/knowledgeService";
@@ -106,7 +115,7 @@ const RESIDENT_KNOWLEDGE_LIMIT = 100;
 const DEFAULT_ASSISTANT_MESSAGE = {
   id: "welcome",
   role: "assistant",
-  text: "Hello! I can answer questions about your clearance status, council news, setting records, or other municipal details.",
+  text: "Hello! I'm KaagapAI, your Barangay Assistant. How can I help you today? You can ask about document requests, barangay services, complaints, announcements, livelihood programs, health services, and more.",
 };
 
 const getStoredReadIds = (key) => {
@@ -132,29 +141,71 @@ const RenderChatChart = ({ text }) => {
   if (!match) return <p className="whitespace-pre-line leading-relaxed font-medium">{text}</p>;
 
   const cleanText = text.replace(match[0], "").trim();
-  const chartType = match[1];
   let data = [];
   try {
     const rawData = JSON.parse(match[2]);
-    data = Object.keys(rawData).map(key => ({ name: key, value: rawData[key] }));
+    data = Object.keys(rawData).map((key) => ({ name: key, value: rawData[key] }));
   } catch (e) {
     return <p className="whitespace-pre-line leading-relaxed font-medium">{text}</p>;
   }
 
+  const totalValue = data.reduce((acc, curr) => acc + (typeof curr.value === "number" ? curr.value : 0), 0);
+  const hasBullets = cleanText.includes("•") || cleanText.includes("- ") || cleanText.includes("* ");
+
+  let introLines = [];
+  if (hasBullets) {
+    introLines = cleanText.split("\n");
+  } else {
+    const totalFormatted = totalValue > 0 ? totalValue.toLocaleString() : "";
+    if (totalFormatted) {
+      introLines.push(`Barangay Upper Mingading has a total of ${totalFormatted} residents distributed across ${data.length} Puroks:`);
+    } else {
+      introLines.push(`Here is the breakdown by Purok:`);
+    }
+    data.forEach((item) => {
+      introLines.push(`• ${item.name}: ${Number(item.value).toLocaleString()} residents`);
+    });
+    introLines.push(`Here is the visual breakdown chart below:`);
+  }
+
   return (
     <div className="w-full flex flex-col gap-2">
-      {cleanText && <p className="whitespace-pre-line leading-relaxed font-medium">{cleanText}</p>}
-      <div className="w-full sm:w-[300px] mt-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-2" style={{ height: `${Math.max(176, data.length * 35)}px` }}>
+      <div className="space-y-1 text-slate-800 dark:text-slate-100 font-medium">
+        {introLines.map((line, idx) => {
+          if (line.startsWith("• ")) {
+            const rawItem = line.replace("• ", "");
+            const colonIndex = rawItem.indexOf(":");
+            if (colonIndex > -1) {
+              const label = rawItem.slice(0, colonIndex).replace(/\*\*/g, "");
+              const val = rawItem.slice(colonIndex + 1);
+              return (
+                <div key={idx} className="flex items-center gap-2 py-0.5 pl-1 text-xs">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#0B5D3B] dark:bg-emerald-400 shrink-0" />
+                  <span className="font-bold text-slate-900 dark:text-slate-100">{label}:</span>
+                  <span className="font-bold text-[#0B5D3B] dark:text-emerald-400">{val}</span>
+                </div>
+              );
+            }
+          }
+          if (!line.trim()) return <div key={idx} className="h-1" />;
+          return <p key={idx} className="whitespace-pre-line leading-relaxed">{line.replace(/\*\*/g, "")}</p>;
+        })}
+      </div>
+
+      <div
+        className="w-full sm:w-[320px] mt-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-3 shadow-xs"
+        style={{ height: `${Math.max(180, data.length * 36)}px` }}
+      >
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart layout="vertical" data={data} margin={{ top: 10, right: 20, left: 20, bottom: 0 }}>
+          <BarChart layout="vertical" data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
             <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#64748b" }} />
-            <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#64748b" }} width={80} />
+            <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#334155", fontWeight: "bold" }} width={80} />
             <Tooltip
               cursor={{ fill: "#f1f5f9" }}
-              contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)", fontSize: "10px", fontWeight: "bold" }}
+              contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)", fontSize: "11px", fontWeight: "bold" }}
             />
-            <Bar dataKey="value" fill="#0B5D3B" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="value" fill="#0B5D3B" radius={[0, 6, 6, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -392,12 +443,117 @@ const UserDashboard = () => {
   const [documentModalOpen, setDocumentModalOpen] = useState(false);
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [isSettingsDrawerOpen, setIsSettingsDrawerOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantInput, setAssistantInput] = useState("");
   const [assistantLoading, setAssistantLoading] = useState(false);
+  const [chatNavOpen, setChatNavOpen] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState(() => `session-${Date.now()}`);
+  const [chatSessions, setChatSessions] = useState(() => {
+    try {
+      const raw = localStorage.getItem("kaagapai_resident_chat_sessions_guest");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
   const [assistantMessages, setAssistantMessages] = useState(() => [
     { ...DEFAULT_ASSISTANT_MESSAGE },
   ]);
+
+  useEffect(() => {
+    if (!resident?.id) return;
+    try {
+      const key = `kaagapai_resident_chat_sessions_${resident.id}`;
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        setChatSessions(JSON.parse(raw));
+      }
+    } catch (e) {
+      console.warn("Failed to load chat sessions:", e);
+    }
+  }, [resident?.id]);
+
+  const saveChatSession = (messagesList) => {
+    const userMsgs = messagesList.filter((m) => m.role === "user");
+    if (userMsgs.length === 0) return;
+
+    const firstUserText = userMsgs[0].text;
+    const title = firstUserText.length > 28 ? firstUserText.slice(0, 28) + "..." : firstUserText;
+
+    setChatSessions((prevSessions) => {
+      const existingIndex = prevSessions.findIndex((s) => s.id === currentSessionId);
+      let updated;
+      if (existingIndex >= 0) {
+        updated = [...prevSessions];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          title,
+          updatedAt: new Date().toISOString(),
+          messages: messagesList,
+        };
+      } else {
+        updated = [
+          {
+            id: currentSessionId,
+            title,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            messages: messagesList,
+          },
+          ...prevSessions,
+        ];
+      }
+      try {
+        const key = `kaagapai_resident_chat_sessions_${resident?.id || "guest"}`;
+        localStorage.setItem(key, JSON.stringify(updated));
+      } catch (e) {
+        console.warn("Failed to save chat session:", e);
+      }
+      return updated;
+    });
+  };
+
+  const handleNewChat = () => {
+    const newId = `session-${Date.now()}`;
+    setCurrentSessionId(newId);
+    setAssistantMessages([{ ...DEFAULT_ASSISTANT_MESSAGE }]);
+    setAssistantInput("");
+    setChatNavOpen(false);
+  };
+
+  const handleSelectSession = (session) => {
+    setCurrentSessionId(session.id);
+    setAssistantMessages(session.messages || [{ ...DEFAULT_ASSISTANT_MESSAGE }]);
+    setAssistantInput("");
+    setChatNavOpen(false);
+  };
+
+  const handleDeleteSession = (sessionId, event) => {
+    if (event) event.stopPropagation();
+    const updated = chatSessions.filter((s) => s.id !== sessionId);
+    setChatSessions(updated);
+    try {
+      const key = `kaagapai_resident_chat_sessions_${resident?.id || "guest"}`;
+      localStorage.setItem(key, JSON.stringify(updated));
+    } catch (e) {
+      console.warn("Failed to delete session:", e);
+    }
+    if (currentSessionId === sessionId) {
+      handleNewChat();
+    }
+  };
+
+  const handleClearAllRecents = () => {
+    setChatSessions([]);
+    try {
+      const key = `kaagapai_resident_chat_sessions_${resident?.id || "guest"}`;
+      localStorage.setItem(key, JSON.stringify([]));
+    } catch (e) {
+      console.warn("Failed to clear sessions:", e);
+    }
+    handleNewChat();
+  };
 
   // Password update form
   const [passwordForm, setPasswordForm] = useState({
@@ -923,7 +1079,8 @@ const UserDashboard = () => {
     if (!question) return;
 
     const userMessage = { id: `user-${Date.now()}`, role: "user", text: question };
-    setAssistantMessages((current) => [...current, userMessage]);
+    const nextMessagesWithUser = [...assistantMessages, userMessage];
+    setAssistantMessages(nextMessagesWithUser);
     setAssistantInput("");
     setAssistantLoading(true);
 
@@ -946,23 +1103,27 @@ const UserDashboard = () => {
         await new Promise((resolve) => setTimeout(resolve, 1000 - elapsed));
       }
 
-      setAssistantMessages((current) => [
-        ...current,
+      const finalMessages = [
+        ...nextMessagesWithUser,
         {
           id: `assistant-${Date.now()}`,
           role: "assistant",
           text: answer,
         },
-      ]);
+      ];
+      setAssistantMessages(finalMessages);
+      saveChatSession(finalMessages);
     } catch (error) {
-      setAssistantMessages((current) => [
-        ...current,
+      const finalMessages = [
+        ...nextMessagesWithUser,
         {
           id: `assistant-${Date.now()}`,
           role: "assistant",
-          text: error.message || "Concierge could not process this question. Please try again.",
+          text: error.message || "KaagapAI could not process this question. Please try again.",
         },
-      ]);
+      ];
+      setAssistantMessages(finalMessages);
+      saveChatSession(finalMessages);
     } finally {
       setAssistantLoading(false);
     }
@@ -1001,6 +1162,91 @@ const UserDashboard = () => {
       });
     } finally {
       setRequesting(false);
+    }
+  };
+
+  const [editingRequest, setEditingRequest] = useState(null);
+  const [editDocumentType, setEditDocumentType] = useState("");
+  const [updatingRequest, setUpdatingRequest] = useState(false);
+  const [cancellingRequestId, setCancellingRequestId] = useState(null);
+
+  const handleOpenEditRequest = (req) => {
+    setEditingRequest(req);
+    setEditDocumentType(req.document_type || "");
+  };
+
+  const handleSaveEditRequest = async (e) => {
+    e.preventDefault();
+    if (!editingRequest || !editDocumentType) return;
+
+    setUpdatingRequest(true);
+    try {
+      await updateDocumentRequestType(editingRequest.id, editDocumentType);
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === editingRequest.id
+            ? { ...r, document_type: editDocumentType, updated_at: new Date().toISOString() }
+            : r
+        )
+      );
+      setRequestMessage({
+        type: "success",
+        text: `Document request updated to ${editDocumentType}.`,
+      });
+      setEditingRequest(null);
+    } catch (err) {
+      console.error("Failed to update request:", err);
+      setRequestMessage({ type: "error", text: err.message || "Failed to update request." });
+    } finally {
+      setUpdatingRequest(false);
+    }
+  };
+
+  const handleCancelRequestAction = async (req) => {
+    const ok = await confirm({
+      title: "Cancel Document Request?",
+      message: `Are you sure you want to cancel your pending request for "${req.document_type}"?`,
+      confirmText: "Yes, Cancel Request",
+      cancelText: "Keep Request",
+      confirmVariant: "danger",
+    });
+    if (!ok) return;
+
+    setCancellingRequestId(req.id);
+    try {
+      await cancelDocumentRequest(req.id);
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === req.id ? { ...r, status: "Cancelled", updated_at: new Date().toISOString() } : r
+        )
+      );
+      setRequestMessage({
+        type: "success",
+        text: `Request for ${req.document_type} has been cancelled.`,
+      });
+    } catch (err) {
+      console.error("Failed to cancel request:", err);
+      setRequestMessage({ type: "error", text: err.message || "Failed to cancel request." });
+    } finally {
+      setCancellingRequestId(null);
+    }
+  };
+
+  const handleDeleteRequestAction = async (req) => {
+    const ok = await confirm({
+      title: "Delete Request Log?",
+      message: `Delete record for "${req.document_type}" from your history?`,
+      confirmText: "Delete Log",
+      cancelText: "Cancel",
+      confirmVariant: "danger",
+    });
+    if (!ok) return;
+
+    try {
+      await deleteDocumentRequest(req.id);
+      setRequests((prev) => prev.filter((r) => r.id !== req.id));
+    } catch (err) {
+      console.error("Failed to delete request:", err);
     }
   };
 
@@ -1409,7 +1655,8 @@ const UserDashboard = () => {
               <img
                 src="/logo.png"
                 alt="Brgy. Seal"
-                className="h-14 w-14 shrink-0 object-contain rounded-full shadow-lg border-2 border-white/20 bg-white"
+                className="h-10 w-10 shrink-0 object-contain rounded-full shadow-md border border-white/20 bg-white"
+                style={{ width: "40px", height: "40px", minWidth: "40px", minHeight: "40px" }}
                 onError={(e) => {
                   e.target.src = "https://placehold.co/100x100/0b5d3b/ffffff?text=Seal";
                 }}
@@ -1459,47 +1706,38 @@ const UserDashboard = () => {
 
       {/* Main Body */}
       <main className="flex-1 flex flex-col min-w-0">
-        <header className="app-header">
-          <div className="header-left gap-3">
+        <header className="app-header py-2">
+          <div className="header-left gap-3.5">
             <button
               type="button"
               onClick={() => setMobileSidebarOpen(true)}
-              className="lg:hidden rounded-xl border p-1.5 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition shadow-sm"
+              className="lg:hidden rounded-xl border p-2 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition shadow-sm"
               aria-label="Open mobile menu"
             >
-              <Menu size={16} />
+              <Menu size={18} />
             </button>
             <div className="flex items-center gap-2.5">
               <img
                 src="/logo.png"
                 alt="Logo"
-                className="h-9 w-9 object-contain rounded-full shadow-sm border border-emerald-100 bg-white"
+                className="h-8 w-8 shrink-0 object-contain rounded-full shadow-xs border border-emerald-100 bg-white"
+                style={{ width: "32px", height: "32px", minWidth: "32px", minHeight: "32px" }}
                 onError={(e) => {
                   e.target.src = "https://placehold.co/100x100/0b5d3b/ffffff?text=Logo";
                 }}
               />
               <div className="hidden sm:flex flex-col text-left">
-                <span className="text-[10px] font-black tracking-widest uppercase text-emerald-600 dark:text-emerald-500">KaagapAI Portal</span>
-                <h2 className="text-sm font-black text-slate-800 dark:text-slate-100">
+                <span className="text-[11px] font-black tracking-widest uppercase text-emerald-600 dark:text-emerald-500">KaagapAI Portal</span>
+                <h2 className="text-base sm:text-lg font-black text-slate-800 dark:text-slate-100 leading-tight">
                   {dynamicGreeting}, {resident?.first_name || displayName}
                 </h2>
               </div>
             </div>
           </div>
           
-          <div className="header-right">
-            <div className="hidden md:block w-72 max-w-sm mr-2">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search announcements or requests..."
-                className={`w-full rounded-xl border px-3.5 py-1.5 text-sm font-semibold outline-none transition ${isDarkMode ? "border-slate-800 bg-slate-950 text-white focus:border-emerald-500" : "border-slate-200/60 bg-slate-50 text-slate-900 focus:border-[#0E6B3A]"}`}
-              />
-            </div>
-            
-            <div className="hidden sm:block text-right mr-2">
-              <span className="text-sm text-slate-400 font-bold uppercase tracking-wide">
+          <div className="header-right gap-3">
+            <div className="hidden sm:block text-right mr-1">
+              <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
                 {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
               </span>
             </div>
@@ -1508,11 +1746,11 @@ const UserDashboard = () => {
               <button
                 type="button"
                 onClick={() => { setShowAccountMenu(false); setShowNotificationMenu(!showNotificationMenu); }}
-                className={`relative flex h-8 w-8 items-center justify-center rounded-xl border shadow-2xs transition ${isDarkMode ? "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900 hover:text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-805"}`}
+                className={`relative flex h-10 w-10 items-center justify-center rounded-xl border shadow-2xs transition ${isDarkMode ? "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900 hover:text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-805"}`}
               >
-                <Bell size={14} />
+                <Bell size={17} />
                 {unreadNotificationCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-rose-600 px-1 text-sm font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
+                  <span className="absolute -right-1 -top-1 flex h-4.5 min-w-[1.1rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[11px] font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
                     {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
                   </span>
                 )}
@@ -1572,7 +1810,7 @@ const UserDashboard = () => {
               <button
                 type="button"
                 onClick={() => { setShowNotificationMenu(false); setShowAccountMenu(!showAccountMenu); }}
-                className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-emerald-200 hover:border-emerald-400 bg-slate-50 shadow-sm transition transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-emerald-300 hover:border-emerald-500 bg-slate-50 shadow-sm transition transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 {resident?.profile_photo_url ? (
                   <img src={resident.profile_photo_url} alt="" className="h-full w-full object-cover" />
@@ -2106,28 +2344,77 @@ const UserDashboard = () => {
                 {requests.length === 0 ? (
                   <p className="text-xs text-slate-400 text-center py-10 font-bold">No clearance applications submitted.</p>
                 ) : (
-                  <table className="w-full text-left text-xs min-w-[500px]">
+                  <table className="w-full text-left text-xs min-w-[600px]">
                     <thead>
                       <tr className="border-b font-bold uppercase tracking-wider text-sm border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400">
                         <th className="px-4 py-3">Document Type</th>
                         <th className="px-4 py-3">Date Applied</th>
                         <th className="px-4 py-3">Last Updated</th>
-                        <th className="px-4 py-3 text-right">Status</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y font-semibold divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                      {requests.map((req) => (
-                        <tr key={req.id} className="transition hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                          <td className="px-4 py-3 font-black text-slate-805 dark:text-white">{req.document_type}</td>
-                          <td className="px-4 py-3">{new Date(req.created_at).toLocaleDateString()}</td>
-                          <td className="px-4 py-3">{new Date(req.updated_at || req.created_at).toLocaleDateString()}</td>
-                          <td className="px-4 py-3 text-right">
-                            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-sm font-black border ${getStatusClass(req.status)}`}>
-                              {req.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {requests.map((req) => {
+                        const isPending = req.status === "Pending";
+                        const isCancelled = req.status === "Cancelled";
+                        return (
+                          <tr key={req.id} className="transition hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                            <td className="px-4 py-3 font-black text-slate-805 dark:text-white">{req.document_type}</td>
+                            <td className="px-4 py-3">{new Date(req.created_at).toLocaleDateString()}</td>
+                            <td className="px-4 py-3">{new Date(req.updated_at || req.created_at).toLocaleDateString()}</td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-black border ${getStatusClass(req.status)}`}>
+                                {req.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {isPending && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEditRequest(req)}
+                                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-xs font-bold transition border border-blue-200 dark:border-blue-800 shadow-2xs"
+                                      title="Edit Request Type"
+                                    >
+                                      <Pencil size={12} />
+                                      <span>Edit</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCancelRequestAction(req)}
+                                      disabled={cancellingRequestId === req.id}
+                                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-bold transition border border-rose-200 dark:border-rose-800 shadow-2xs disabled:opacity-50"
+                                      title="Cancel Request"
+                                    >
+                                      {cancellingRequestId === req.id ? <Loader size={12} className="animate-spin" /> : <XCircle size={12} />}
+                                      <span>Cancel</span>
+                                    </button>
+                                  </>
+                                )}
+
+                                {isCancelled && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteRequestAction(req)}
+                                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold transition border border-slate-200 dark:border-slate-700"
+                                    title="Delete Record"
+                                  >
+                                    <Trash2 size={12} />
+                                    <span>Delete</span>
+                                  </button>
+                                )}
+
+                                {!isPending && !isCancelled && (
+                                  <span className="text-[11px] text-slate-400 font-medium">No actions</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}
@@ -3290,24 +3577,150 @@ const UserDashboard = () => {
               transition={{ type: "spring", damping: 30, stiffness: 250 }}
             >
               {/* Header */}
-              <div className="flex h-14 shrink-0 items-center justify-between bg-gradient-to-r from-[#0B5D3B] to-[#0E6B46] px-4 text-white">
-                <div className="flex items-center gap-2">
-                  <div className="h-7 w-7 overflow-hidden rounded-full border border-white/20">
-                    <AssistantAiIcon />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-black leading-none">KaagapAI Concierge</h3>
-                    <span className="text-sm text-emerald-250 mt-0.5 block">Automated Slide-in Assistant</span>
+              <div className="flex h-14 shrink-0 items-center justify-between bg-gradient-to-r from-[#0B5D3B] via-[#0E6B46] to-[#157347] px-3 text-white relative shadow-sm">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {/* Recents Navigation Menu Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={() => setChatNavOpen(!chatNavOpen)}
+                    className="p-1.5 rounded-xl hover:bg-white/15 text-emerald-100 hover:text-white transition flex items-center gap-1"
+                    title="Open Recent Chats Navigation"
+                  >
+                    <Menu size={18} />
+                    <div className="h-7 w-7 overflow-hidden rounded-full border border-white/20 bg-emerald-950/40 shrink-0 flex items-center justify-center">
+                      <AssistantAiIcon />
+                    </div>
+                  </button>
+
+                  <div className="min-w-0 cursor-pointer" onClick={() => setChatNavOpen(!chatNavOpen)}>
+                    <h3 className="text-sm font-black leading-none truncate flex items-center gap-1">
+                      KaagapAI
+                      <span className="text-[10px] font-bold bg-white/20 px-1.5 py-0.2 rounded-full text-emerald-100">AI</span>
+                    </h3>
+                    <span className="text-[11px] text-emerald-200 mt-0.5 block truncate">Upper Mingading Virtual Assistant</span>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setAssistantOpen(false)}
-                  className="rounded-full p-1.5 text-emerald-100 hover:bg-white dark:bg-slate-900/10 hover:text-white"
-                >
-                  <X size={16} />
-                </button>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* New Chat Button */}
+                  <button
+                    type="button"
+                    onClick={handleNewChat}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition shadow-2xs border border-white/10 active:scale-95"
+                    title="Start New Clean Chat"
+                  >
+                    <Plus size={14} />
+                    <span className="hidden sm:inline">New Chat</span>
+                  </button>
+
+                  {/* Close Drawer Button */}
+                  <button
+                    type="button"
+                    onClick={() => setAssistantOpen(false)}
+                    className="rounded-xl p-1.5 text-emerald-100 hover:bg-white/10 hover:text-white transition"
+                    aria-label="Close assistant"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
+
+              {/* Slide-out Recents Navigation Bar Sidebar (ChatGPT Style) */}
+              <AnimatePresence>
+                {chatNavOpen && (
+                  <motion.div
+                    initial={{ x: "-100%", opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: "-100%", opacity: 0 }}
+                    transition={{ type: "spring", damping: 25, stiffness: 250 }}
+                    className="absolute inset-0 z-30 bg-slate-900/95 text-white backdrop-blur-md flex flex-col p-4 border-r border-slate-800"
+                  >
+                    {/* Recents Nav Header */}
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <History size={18} className="text-emerald-400" />
+                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-200">Recent Chats</h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setChatNavOpen(false)}
+                        className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+
+                    {/* New Chat Action in Nav */}
+                    <div className="py-3">
+                      <button
+                        type="button"
+                        onClick={handleNewChat}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-[#0B5D3B] to-[#157347] text-white text-xs font-bold shadow-md hover:scale-101 transition border border-white/10"
+                      >
+                        <Plus size={15} />
+                        <span>Start New Clean Chat</span>
+                      </button>
+                    </div>
+
+                    {/* List of Recent Sessions */}
+                    <div className="flex-1 overflow-y-auto space-y-1.5 py-2 pr-1 scrollbar-hide">
+                      {chatSessions.length === 0 ? (
+                        <div className="h-40 flex flex-col items-center justify-center text-center text-slate-500 text-xs font-semibold px-4 space-y-2">
+                          <Clock size={24} className="text-slate-600" />
+                          <p>No recent chat history yet.</p>
+                          <p className="text-[11px] text-slate-600">Start a conversation and it will automatically appear here!</p>
+                        </div>
+                      ) : (
+                        chatSessions.map((session) => {
+                          const isActive = session.id === currentSessionId;
+                          return (
+                            <div
+                              key={session.id}
+                              onClick={() => handleSelectSession(session)}
+                              className={`group flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold cursor-pointer transition ${
+                                isActive
+                                  ? "bg-emerald-600/20 border border-emerald-500/40 text-emerald-300"
+                                  : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0 pr-2">
+                                <MessageSquare size={14} className={isActive ? "text-emerald-400 shrink-0" : "text-slate-500 shrink-0 group-hover:text-slate-300"} />
+                                <div className="min-w-0">
+                                  <p className="truncate text-xs font-bold leading-snug">{session.title || "Chat session"}</p>
+                                  <span className="text-[10px] text-slate-500 block">{new Date(session.updatedAt || session.createdAt).toLocaleDateString()}</span>
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteSession(session.id, e)}
+                                className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-rose-500/20 hover:text-rose-400 text-slate-500 transition"
+                                title="Delete chat"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Footer in Recents Nav */}
+                    {chatSessions.length > 0 && (
+                      <div className="pt-3 border-t border-slate-800 flex justify-between items-center text-xs">
+                        <span className="text-slate-500 font-medium text-[11px]">{chatSessions.length} saved thread(s)</span>
+                        <button
+                          type="button"
+                          onClick={handleClearAllRecents}
+                          className="text-[11px] text-rose-400 hover:text-rose-300 font-bold hover:underline"
+                        >
+                          Clear all recents
+                        </button>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Chat messages */}
               <div className="flex-1 min-h-0 flex flex-col bg-slate-50 dark:bg-slate-950">
@@ -3383,7 +3796,7 @@ const UserDashboard = () => {
                   <input
                     value={assistantInput}
                     onChange={(e) => setAssistantInput(e.target.value)}
-                    placeholder="Ask KaagapAI Concierge..."
+                    placeholder="Ask KaagapAI..."
                     className="min-w-0 flex-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2.5 text-xs outline-none focus:border-[#0B5D3B] focus:bg-white dark:bg-slate-900 font-semibold text-slate-900"
                   />
                   <button
@@ -3772,6 +4185,91 @@ const UserDashboard = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Edit Pending Document Request Modal */}
+      <AnimatePresence>
+        {editingRequest && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
+              onClick={() => setEditingRequest(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800 z-10 space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <Pencil size={18} className="text-[#0B5D3B]" />
+                  <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
+                    Edit Document Request
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingRequest(null)}
+                  className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 transition"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEditRequest} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
+                    Select New Document Type
+                  </label>
+                  <select
+                    value={editDocumentType}
+                    onChange={(e) => setEditDocumentType(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-[#0B5D3B] text-slate-900 dark:text-white transition"
+                    required
+                  >
+                    <option value="">Choose Document Template</option>
+                    {documentTemplates.map((t) => {
+                      const label = t.template_name || t.document_type;
+                      return (
+                        <option key={t.id || label} value={label}>
+                          {label} {t.fee ? `(${t.fee})` : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <p className="text-[11px] text-slate-500 font-medium">
+                  Updating your request will automatically notify the system and update your record for the Secretary.
+                </p>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingRequest(null)}
+                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updatingRequest || !editDocumentType || editDocumentType === editingRequest.document_type}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#0B5D3B] to-[#157347] text-white text-xs font-bold shadow-xs hover:scale-101 transition disabled:opacity-50"
+                  >
+                    {updatingRequest ? <Loader size={12} className="animate-spin" /> : null}
+                    Save Updates
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <SettingsDrawer isOpen={isSettingsDrawerOpen} onClose={() => setIsSettingsDrawerOpen(false)} />
     </div>
   );
 };

@@ -28,7 +28,7 @@ const ALEOSAN_LOGO_SRC = "/logo.png";
 const BARANGAY_LOGO_SRC = "/logo.png";
 
 const fieldClass =
-  "mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-normal text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100";
+  "mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#14532D] focus:bg-white focus:ring-2 focus:ring-[#14532D]/20";
 
 const initialsFromName = (name) =>
   String(name || "")
@@ -519,7 +519,7 @@ const OrganizationChart = () => {
                   setViewingOfficial(null);
                   openEditor(officialToEdit);
                 }}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 shadow-md"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#14532D] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#0f3e21] shadow-md active:scale-95"
               >
                 <Edit2 size={16} />
                 Edit Profile

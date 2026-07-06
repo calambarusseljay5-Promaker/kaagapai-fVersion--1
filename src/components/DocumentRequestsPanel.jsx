@@ -7,21 +7,22 @@ const DocumentRequestsPanel = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const getStatusColor = (status) => {
+  const getStatusBadgeStyle = (status) => {
     switch (status) {
       case "Pending":
-        return "bg-amber-50 text-amber-700";
+        return { backgroundColor: "#f59e0b", color: "#ffffff", border: "1px solid #d97706", boxShadow: "0 0 10px rgba(245,158,11,0.4)" };
       case "Processing":
-        return "bg-blue-700 text-white font-semibold shadow-sm";
+        return { backgroundColor: "#2563eb", color: "#ffffff", border: "1px solid #1d4ed8", boxShadow: "0 0 10px rgba(37,99,235,0.4)" };
       case "Approved":
-        return "bg-sky-50 text-sky-700";
       case "Completed":
       case "Released":
-        return "bg-emerald-50 text-emerald-700";
+        return { backgroundColor: "#10b981", color: "#ffffff", border: "1px solid #059669", boxShadow: "0 0 10px rgba(16,185,129,0.4)" };
+      case "Cancelled":
+        return { backgroundColor: "#64748b", color: "#ffffff", border: "1px solid #475569" };
       case "Rejected":
-        return "bg-rose-50 text-rose-700";
+        return { backgroundColor: "#e11d48", color: "#ffffff", border: "1px solid #be123c", boxShadow: "0 0 10px rgba(225,29,72,0.4)" };
       default:
-        return "bg-slate-100 text-slate-700";
+        return { backgroundColor: "#64748b", color: "#ffffff", border: "1px solid #475569" };
     }
   };
 
@@ -35,7 +36,8 @@ const DocumentRequestsPanel = () => {
         const result = await fetchDocumentRequests({ limit: 10 });
         if (!isMounted) return;
         const requestsData = Array.isArray(result) ? result : result.data;
-        setRequests(requestsData || []);
+        const activeRequests = (requestsData || []).filter(r => r.status !== "Cancelled");
+        setRequests(activeRequests);
       } catch (e) {
         if (!isMounted) return;
         console.error("Error loading document requests:", e);
@@ -120,9 +122,8 @@ const DocumentRequestsPanel = () => {
                   <td className="px-5 py-3.5 text-sm text-slate-500">{formatDate(request.created_at)}</td>
                   <td className="px-5 py-3.5">
                     <span
-                      className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${getStatusColor(
-                        request.status
-                      )}`}
+                      className="inline-flex rounded-md px-2.5 py-1 text-xs font-semibold"
+                      style={getStatusBadgeStyle(request.status)}
                     >
                       {request.status}
                     </span>

@@ -216,7 +216,7 @@ const Livelihood = () => {
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex h-[46px] items-center justify-center gap-2 rounded-[16px] bg-emerald-600 px-6 text-sm font-bold text-white transition hover:bg-emerald-700 hover:shadow-md"
+              className="inline-flex h-[46px] items-center justify-center gap-2 rounded-xl bg-[#14532D] px-6 text-sm font-bold text-white transition hover:bg-[#0f3e21] shadow-sm hover:shadow active:scale-95"
             >
               <Plus size={18} />
               Add Post
