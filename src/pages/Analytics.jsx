@@ -1763,20 +1763,8 @@ const Analytics = () => {
         description="Choose a report, review options, then export or print from one focused panel."
         onClose={() => setShowGenerateModal(false)}
         footer={(
-          <div className="grid gap-2 sm:grid-cols-4">
-            <button type="button" onClick={handleExportPdf} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1b4332] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#0f2d19]">
-              <FileType size={14} />
-              Export PDF
-            </button>
-            <button type="button" onClick={handleExportWord} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50">
-              <FileText size={14} />
-              Export Word
-            </button>
-            <button type="button" onClick={handleExport} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50">
-              <Download size={14} />
-              Export CSV
-            </button>
-            <button type="button" onClick={() => window.print()} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#c5a059] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#b08d48]">
+          <div className="flex justify-end w-full">
+            <button type="button" onClick={() => window.print()} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#14532D] hover:bg-[#0f3e21] px-5 py-2.5 text-xs font-bold text-white transition active:scale-95 shadow-md">
               <Printer size={14} />
               Print Report
             </button>

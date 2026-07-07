@@ -349,11 +349,19 @@ const clampNumber = (value, min, max, fallback) => {
   return Math.min(max, Math.max(min, number));
 };
 
-const getPrintSettings = (fields = {}) => ({
-  bodyFontSize: clampNumber(fields.printFontSize, 10, 14, 12),
-  lineHeight: clampNumber(fields.printLineHeight, 1.2, 1.8, 1.38),
-  paragraphGap: clampNumber(fields.printParagraphGap, 0.04, 0.16, 0.08),
-});
+const getPrintSettings = (fields = {}) => {
+  const marginMap = {
+    narrow: "0.6in 0.6in 0.6in",
+    wide: "1.2in 1.2in 1.2in",
+    normal: "0.96in 1in 0.8in",
+  };
+  return {
+    bodyFontSize: clampNumber(fields.printFontSize, 10, 14, 12),
+    lineHeight: clampNumber(fields.printLineHeight, 1.2, 1.8, 1.38),
+    paragraphGap: clampNumber(fields.printParagraphGap, 0.04, 0.16, 0.08),
+    padding: marginMap[fields.printMargin] || "0.96in 1in 0.8in",
+  };
+};
 
 const getDocumentTitle = (template) => {
   const key = getRealDocumentTemplateKey(template);
@@ -459,7 +467,7 @@ const REAL_DOCUMENT_CSS = `
   html, body { margin: 0; padding: 0; background: #fff; }
   .real-doc-shell, .real-doc-shell * { box-sizing: border-box; }
   .real-doc-shell { font-family: "Times New Roman", Times, serif; color: #000; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .real-doc-page { position: relative; width: 8.5in; min-height: 11in; margin: 0 auto; padding: 0.96in 1in 0.8in; background: #fff; box-shadow: 0 0 0 1px #d7d7d7; }
+  .real-doc-page { position: relative; width: 8.5in; min-height: 11in; margin: 0 auto; padding: var(--doc-padding, 0.96in 1in 0.8in); background: #fff; box-shadow: 0 0 0 1px #d7d7d7; }
   .real-doc-header { position: relative; min-height: 0.98in; border-bottom: 1px solid #000; padding-bottom: 0.08in; text-align: center; font-size: 10px; line-height: 1.08; }
   .real-doc-seal { position: absolute; left: 0.1in; top: -0.04in; width: 1.1in; height: 1.02in; object-fit: contain; }
   .real-doc-office { margin-top: 0.08in; font-size: 10px; font-weight: 700; text-transform: uppercase; }
@@ -499,7 +507,7 @@ export const getRealDocumentMarkup = ({ fields, template, editable = false }) =>
     <main class="real-doc-shell" ${editable ? 'data-editable="true"' : ""}>
       <article
         class="real-doc-page real-doc-${getRealDocumentTemplateKey(template)}"
-        style="--doc-body-font-size: ${printSettings.bodyFontSize}px; --doc-line-height: ${printSettings.lineHeight}; --doc-paragraph-gap: ${printSettings.paragraphGap}in;"
+        style="--doc-body-font-size: ${printSettings.bodyFontSize}px; --doc-line-height: ${printSettings.lineHeight}; --doc-paragraph-gap: ${printSettings.paragraphGap}in; --doc-padding: ${printSettings.padding};"
       >
         <header class="real-doc-header">
           <img class="real-doc-seal" src="${BARANGAY_SEAL_SRC}" alt="" />

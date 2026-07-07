@@ -12,6 +12,7 @@ import {
 } from "../services/documentRequestService";
 import { getCurrentUserWithProfile } from "../services/authService";
 import { fetchResidents } from "../services/adminService";
+import { sendSmsNotification } from "../services/smsService";
 import {
   DEFAULT_PREPARED_BY,
   PUNONG_BARANGAY,
@@ -198,34 +199,7 @@ const DocumentManagement = () => {
   const [templates, setTemplates] = useState([]);
   const [residents, setResidents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [delayedLoading, setDelayedLoading] = useState(false);
-  const loadingStartTimeRef = useRef(0);
-
-  useEffect(() => {
-    let timer;
-
-    if (loading) {
-      timer = setTimeout(() => {
-        setDelayedLoading(true);
-        loadingStartTimeRef.current = Date.now();
-      }, 250);
-    } else {
-      const elapsed = Date.now() - loadingStartTimeRef.current;
-      const minDuration = 600;
-
-      if (loadingStartTimeRef.current > 0 && elapsed < minDuration) {
-        timer = setTimeout(() => {
-          setDelayedLoading(false);
-          loadingStartTimeRef.current = 0;
-        }, minDuration - elapsed);
-      } else {
-        setDelayedLoading(false);
-        loadingStartTimeRef.current = 0;
-      }
-    }
-
-    return () => clearTimeout(timer);
-  }, [loading]);
+  const delayedLoading = loading;
 
   const [message, setMessage] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
@@ -280,13 +254,15 @@ const DocumentManagement = () => {
       : residents;
     const query = residentSearch.trim().toLowerCase();
 
-    if (!query) return merged;
+    if (!query) return merged.slice(0, 50);
 
-    return merged.filter((resident) =>
-      [resident.full_name, resident.email, resident.house_no, resident.purok, resident.address]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query))
-    );
+    return merged
+      .filter((resident) =>
+        [resident.full_name, resident.email, resident.house_no, resident.purok, resident.address]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query))
+      )
+      .slice(0, 50);
   }, [residentSearch, residents, selectedRequest]);
 
   const walkInResidentOptions = useMemo(() => {
@@ -299,14 +275,16 @@ const DocumentManagement = () => {
       )
       : residents;
 
+    const limited = filteredResidents.slice(0, 50);
+
     if (
       selectedWalkInResident &&
-      !filteredResidents.some((resident) => resident.id === selectedWalkInResident.id)
+      !limited.some((resident) => resident.id === selectedWalkInResident.id)
     ) {
-      return [selectedWalkInResident, ...filteredResidents];
+      return [selectedWalkInResident, ...limited];
     }
 
-    return filteredResidents;
+    return limited;
   }, [residents, selectedWalkInResident, walkInForm.residentSearch]);
 
   const resolvedWalkInResident = useMemo(() => {
@@ -755,6 +733,19 @@ const DocumentManagement = () => {
     try {
       const updatedRequest = await updateDocumentRequestStatus(id, newStatus);
 
+      // Notify resident via SMS if they have a phone number and status is Completed
+      const targetRequest = requests.find((r) => r.id === id) || selectedRequest;
+      const resident = targetRequest ? getNestedResident(targetRequest.residents) : null;
+
+      if (newStatus === "Completed" && resident?.phone) {
+        try {
+          const smsBody = `KaagapAI: Hello ${resident.first_name || resident.full_name}, your ${targetRequest.document_type || "document"} request is completed and ready for pickup at the barangay office.`;
+          await sendSmsNotification({ to: resident.phone, body: smsBody });
+        } catch (smsError) {
+          console.warn("Failed to send SMS notification:", smsError);
+        }
+      }
+
       setRequests((currentRequests) =>
         currentRequests.map((request) =>
           request.id === id ? { ...request, ...updatedRequest, status: newStatus } : request
@@ -765,7 +756,7 @@ const DocumentManagement = () => {
         type: "success",
         text:
           newStatus === "Completed"
-            ? "Request marked as Completed. The resident portal was notified for pickup."
+            ? "Request marked as Completed. The resident portal was notified and SMS was sent."
             : `Request marked as ${newStatus}.`,
       });
 
@@ -861,9 +852,25 @@ const DocumentManagement = () => {
       printWindow.opener = null;
       printWindow.focus();
       setShowDetailModal(false);
+
+      // Automatically update status to Released on print without confirmation
+      const id = selectedRequest.id;
+      (async () => {
+        try {
+          const updatedRequest = await updateDocumentRequestStatus(id, "Released");
+          setRequests((currentRequests) =>
+            currentRequests.map((request) =>
+              request.id === id ? { ...request, ...updatedRequest, status: "Released" } : request
+            )
+          );
+        } catch (statusError) {
+          console.warn("Failed to automatically update status to Released on print:", statusError);
+        }
+      })();
+
       setMessage({
         type: "success",
-        text: "Print preview opened. Review the document and click Print Document when ready.",
+        text: "Print preview opened. Request has been marked as Released.",
       });
     } catch (error) {
       printWindow.close();
@@ -1126,17 +1133,7 @@ const DocumentManagement = () => {
               onSubmit={handleWalkInSubmit}
               className="p-6 border-b border-slate-200/50 bg-white/20"
             >
-              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
-                <div>
-                  <h2 className="text-xl font-black text-slate-800">Walk-in Request</h2>
-                  <p className="mt-1 text-sm font-medium text-slate-500">
-                    Create a counter request, autofill resident details, then open the print preview.
-                  </p>
-                </div>
-                <span className="w-fit rounded-full bg-slate-100 border border-slate-200 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Barangay Office
-                </span>
-              </div>
+
 
               <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] xl:items-end">
                 <label className="text-sm font-semibold text-slate-700">
@@ -1144,7 +1141,7 @@ const DocumentManagement = () => {
                   <select
                     value={walkInForm.templateId}
                     onChange={(event) => updateWalkInForm("templateId", event.target.value)}
-                    className="mt-2 h-[60px] w-full rounded-[16px] border border-slate-200 bg-slate-50 px-4 text-base font-medium text-slate-800 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
+                    className="mt-2 h-[46px] w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-800 outline-none transition focus:border-[#14532D] focus:bg-white focus:ring-4 focus:ring-[#14532D]/10 shadow-sm"
                   >
                     <option value="">Select document</option>
                     {templates.map((template) => (
@@ -1168,12 +1165,12 @@ const DocumentManagement = () => {
                     aria-expanded={walkInResidentSearchOpen}
                     aria-controls="walk-in-resident-results"
                     aria-autocomplete="list"
-                    className="mt-2 h-[60px] w-full rounded-[16px] border border-slate-200 bg-slate-50 px-4 text-base font-medium text-slate-800 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
+                    className="mt-2 h-[46px] w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-800 outline-none transition focus:border-[#14532D] focus:bg-white focus:ring-4 focus:ring-[#14532D]/10 shadow-sm"
                   />
                   {walkInResidentSearchOpen && walkInForm.residentSearch.trim() ? (
                     <div
                       id="walk-in-resident-results"
-                      className="absolute left-0 right-0 top-full z-30 mt-2 max-h-64 overflow-y-auto rounded-[16px] border border-slate-200 bg-white p-2 shadow-xl"
+                      className="absolute left-0 right-0 top-full z-30 mt-2 max-h-64 overflow-y-auto rounded-[12px] border border-slate-200 bg-white p-2 shadow-xl"
                       role="listbox"
                     >
                       {walkInResidentOptions.length > 0 ? (
@@ -1209,7 +1206,7 @@ const DocumentManagement = () => {
                   <select
                     value={walkInForm.residentId || resolvedWalkInResident?.id || ""}
                     onChange={(event) => handleWalkInResidentChange(event.target.value)}
-                    className="mt-2 h-[60px] w-full rounded-[16px] border border-slate-200 bg-slate-50 px-4 text-base font-medium text-slate-800 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
+                    className="mt-2 h-[46px] w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-800 outline-none transition focus:border-[#14532D] focus:bg-white focus:ring-4 focus:ring-[#14532D]/10 shadow-sm"
                   >
                     <option value="">Select resident</option>
                     {walkInResidentOptions.map((resident) => (
@@ -1226,17 +1223,17 @@ const DocumentManagement = () => {
                     value={walkInForm.purpose}
                     onChange={(event) => updateWalkInForm("purpose", event.target.value)}
                     placeholder="Optional"
-                    className="mt-2 h-[60px] w-full rounded-[16px] border border-slate-200 bg-slate-50 px-4 text-base font-medium text-slate-800 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
+                    className="mt-2 h-[46px] w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-800 outline-none transition focus:border-[#14532D] focus:bg-white focus:ring-4 focus:ring-[#14532D]/10 shadow-sm"
                   />
                 </label>
 
                 <button
                   type="submit"
                   disabled={creatingWalkIn || !walkInForm.templateId || !resolvedWalkInResident}
-                  className="inline-flex h-[60px] min-w-[140px] items-center justify-center gap-2 rounded-[16px] bg-emerald-600 px-6 text-base font-bold text-white transition hover:bg-emerald-700 hover:shadow-md disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                  className="inline-flex h-[46px] min-w-[140px] items-center justify-center gap-2 rounded-[12px] bg-[#14532D] px-6 text-sm font-bold text-white transition hover:bg-[#0f3e21] hover:shadow-md disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none shadow-sm active:scale-95"
                 >
-                  {creatingWalkIn ? <Loader size={20} className="animate-spin" /> : <UserCheck size={20} />}
-                  {creatingWalkIn ? "Preparing..." : "Autofill & Prepare"}
+                  {creatingWalkIn ? <Loader size={18} className="animate-spin" /> : <UserCheck size={18} />}
+                  {creatingWalkIn ? "Generating..." : "Generate"}
                 </button>
               </div>
             </form>
@@ -1314,22 +1311,12 @@ const DocumentManagement = () => {
             eyebrow="Document processing"
             maxWidth="max-w-[95vw] lg:max-w-7xl"
             footer={
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.2fr_auto] w-full">
-                <button
-                  type="button"
-                  onClick={handleSaveDocument}
-                  disabled={savingDocument || !selectedRequest}
-                  className="btn-gov btn-gov-success min-h-[46px]"
-                >
-                  <Save size={18} />
-                  {savingDocument ? "Saving..." : "Save Draft"}
-                </button>
-
+              <div className="grid gap-3 grid-cols-2 w-full">
                 <button
                   type="button"
                   onClick={handlePrintDocument}
                   disabled={!documentIsReady}
-                  className="btn-gov btn-gov-info min-h-[46px]"
+                  className="btn-gov btn-gov-info min-h-[46px] w-full"
                 >
                   <Printer size={18} />
                   Print Document
@@ -1339,178 +1326,15 @@ const DocumentManagement = () => {
                   type="button"
                   onClick={() => handleStatusChange(selectedRequest.id, "Completed")}
                   disabled={updating || selectedRequest.status === "Completed" || !documentIsReady}
-                  className="btn-gov btn-gov-primary min-h-[46px]"
+                  className="btn-gov btn-gov-primary min-h-[46px] w-full"
                 >
                   <Download size={18} />
-                  Complete & Notify
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowDetailModal(false)}
-                  className="btn-gov btn-gov-secondary min-h-[46px]"
-                >
-                  Close
+                  Complete
                 </button>
               </div>
             }
           >
             <div className="flex flex-col lg:flex-row flex-1">
-              <aside className="w-full lg:w-[380px] shrink-0 space-y-6 border-b lg:border-b-0 lg:border-r border-slate-200 p-6">
-                <section>
-                  <div className="mb-4 flex items-center gap-2 text-sm font-bold text-emerald-800 uppercase tracking-wider">
-                    <FileText size={18} className="text-emerald-500" />
-                    Document Template
-                  </div>
-                  <select
-                    value={selectedTemplateId}
-                    onChange={(event) => handleTemplateChange(event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
-                  >
-                    <option value="">Select template</option>
-                    {templates.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {getTemplateLabel(template)}
-                      </option>
-                    ))}
-                  </select>
-
-                  {selectedTemplate ? (
-                    <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-600 shadow-sm">
-                      <summary className="cursor-pointer font-bold text-slate-700">
-                        Template source
-                      </summary>
-                      <div className="mt-3">
-                        <label
-                          className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 font-bold transition ${uploadingTemplate
-                            ? "border-slate-200 bg-slate-100 text-slate-400"
-                            : "border-emerald-200 bg-white text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50"
-                            }`}
-                          title="Choose a document template file"
-                        >
-                          {uploadingTemplate ? (
-                            <Loader size={14} className="animate-spin" />
-                          ) : (
-                            <Upload size={14} />
-                          )}
-                          {uploadingTemplate ? "Uploading..." : "Upload file"}
-                          <input
-                            type="file"
-                            accept={TEMPLATE_UPLOAD_ACCEPT}
-                            disabled={uploadingTemplate}
-                            onChange={handleTemplateFileUpload}
-                            className="sr-only"
-                          />
-                        </label>
-                        <p className="mt-2 truncate text-[11px] font-medium text-slate-500">
-                          {getTemplateFileName(selectedTemplate)}
-                        </p>
-                      </div>
-                      <div className="mt-3 grid gap-1.5">
-                        <p>
-                          <span className="font-bold">Type:</span>{" "}
-                          {selectedTemplate.document_type || "-"}
-                        </p>
-                        <p>
-                          <span className="font-bold">Processing:</span>{" "}
-                          {selectedTemplate.processing_time || "-"}
-                        </p>
-                        <p>
-                          <span className="font-bold">Fee:</span> {selectedTemplate.fee || "-"}
-                        </p>
-                        <p>
-                          <span className="font-bold">Requirements:</span>{" "}
-                          {selectedTemplate.requirements || "-"}
-                        </p>
-                      </div>
-                    </details>
-                  ) : (
-                    <p className="mt-2 text-xs font-medium text-rose-600">
-                      No template selected. Add or seed document templates in Supabase.
-                    </p>
-                  )}
-                </section>
-
-                <section>
-                  <div className="mb-4 flex items-center gap-2 text-sm font-bold text-emerald-800 uppercase tracking-wider">
-                    <UserCheck size={18} className="text-emerald-500" />
-                    Resident Autofill
-                  </div>
-                  <input
-                    value={residentSearch}
-                    onChange={(event) => setResidentSearch(event.target.value)}
-                    placeholder="Search resident, e.g. Juan"
-                    className="mb-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
-                  />
-                  <select
-                    value={selectedResidentId}
-                    onChange={(event) => handleResidentChange(event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
-                  >
-                    <option value="">Select resident</option>
-                    {residentOptions.map((resident) => (
-                      <option key={resident.id} value={resident.id}>
-                        {resident.full_name} - {resident.purok || "No purok"}
-                      </option>
-                    ))}
-                  </select>
-                </section>
-
-                <section className="grid gap-4">
-                  <div className="mb-2 flex items-center gap-2 text-sm font-bold text-emerald-800 uppercase tracking-wider">
-                    <FileText size={18} className="text-emerald-500" />
-                    Certificate data
-                  </div>
-                  <label className="text-sm font-bold text-slate-700">
-                    Purpose
-                    <input
-                      value={documentFields.purpose}
-                      onChange={(event) => updateDocumentField("purpose", event.target.value)}
-                      placeholder="Scholarship, employment, business permit..."
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
-                    />
-                  </label>
-
-                  <label className="text-sm font-bold text-slate-700">
-                    Issue date
-                    <input
-                      type="date"
-                      value={documentFields.issueDate}
-                      onChange={(event) => updateDocumentField("issueDate", event.target.value)}
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
-                    />
-                  </label>
-
-                  <label className="text-sm font-bold text-slate-700">
-                    Prepared by
-                    <input
-                      value={documentFields.preparedBy}
-                      onChange={(event) => updateDocumentField("preparedBy", event.target.value)}
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
-                    />
-                  </label>
-
-                  <label className="text-sm font-bold text-slate-700">
-                    Approving officer
-                    <input
-                      value={documentFields.approvingOfficer}
-                      onChange={(event) => updateDocumentField("approvingOfficer", event.target.value)}
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
-                    />
-                  </label>
-
-                  <label className="text-sm font-bold text-slate-700">
-                    Remarks
-                    <textarea
-                      value={documentFields.remarks}
-                      onChange={(event) => updateDocumentField("remarks", event.target.value)}
-                      rows={3}
-                      className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
-                    />
-                  </label>
-                </section>
-              </aside>
-
               <section className="flex-1 space-y-6 p-6">
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -1536,32 +1360,7 @@ const DocumentManagement = () => {
                   </div>
                 ) : null}
 
-                {aiReview ? (
-                  <div className="rounded-xl border border-blue-200 bg-blue-50 px-5 py-5 shadow-sm">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 text-sm font-bold text-blue-900">
-                          <Bot size={18} />
-                          AI review
-                        </div>
-                        <p className="mt-1.5 text-sm leading-relaxed text-blue-800">{aiReview.summary}</p>
-                      </div>
-                      <span className="w-fit rounded-lg bg-white border border-blue-100 px-3 py-1.5 text-xs font-bold text-blue-700 shadow-sm">
-                        {aiReview.source} - {aiReview.confidence}
-                      </span>
-                    </div>
-                    {aiReview.checklist?.length > 0 ? (
-                      <ul className="mt-4 space-y-2 text-sm font-medium text-blue-800">
-                        {aiReview.checklist.map((item) => (
-                          <li key={item} className="flex gap-2.5 items-start">
-                            <CheckCircle size={16} className="mt-0.5 shrink-0 text-blue-600" />
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
-                ) : null}
+
 
                 <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
@@ -1572,7 +1371,7 @@ const DocumentManagement = () => {
                       </p>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[140px_140px_150px_auto]">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[130px_130px_130px_130px_auto] w-full lg:w-auto items-end">
                       <label className="text-xs font-semibold text-slate-700">
                         Text size
                         <select
@@ -1613,6 +1412,19 @@ const DocumentManagement = () => {
                         </select>
                       </label>
 
+                      <label className="text-xs font-semibold text-slate-700">
+                        Margins
+                        <select
+                          value={documentFields.printMargin || "normal"}
+                          onChange={(event) => updateDocumentField("printMargin", event.target.value)}
+                          className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20"
+                        >
+                          <option value="normal">Normal</option>
+                          <option value="narrow">Narrow</option>
+                          <option value="wide">Wide</option>
+                        </select>
+                      </label>
+
                       <button
                         type="button"
                         onClick={resetPrintableText}
@@ -1640,23 +1452,7 @@ const DocumentManagement = () => {
                   />
                 </div>
 
-                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="mb-4 text-sm font-bold text-slate-900">Update Status</p>
-                  <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
-                    {STATUS_OPTIONS.map((status) => (
-                      <button
-                        key={status}
-                        type="button"
-                        onClick={() => handleStatusChange(selectedRequest.id, status)}
-                        disabled={updating || selectedRequest.status === status}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm"
-                      >
-                        {status === "Rejected" ? <X size={16} /> : status === "Pending" ? <ClipboardList size={16} /> : <Check size={16} />}
-                        {status}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+
               </section>
             </div>
           </FloatingModal>

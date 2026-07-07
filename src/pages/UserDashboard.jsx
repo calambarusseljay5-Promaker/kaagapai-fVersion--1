@@ -98,6 +98,7 @@ import {
 import { fetchResidentStats } from "../services/residentStatsService";
 import {
   purokDefinitions,
+  normalizePurokValue,
   civilStatusOptions,
   educationalAttainmentOptions,
   householdRelationshipOptions,
@@ -321,18 +322,136 @@ const UserDashboard = () => {
   const [latestNotificationToast, setLatestNotificationToast] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const doesAnnouncementApplyToResident = (announcement, residentInstance) => {
+    const aud = announcement.audience || "All Residents";
+    if (aud === "All Residents") return true;
+    if (aud === "Family Household Representatives") return true;
+    if (aud === "Senior Citizens" || aud === "PWD/PWED Residents" || aud === "Youth") return true;
+    
+    if (!residentInstance) return false;
+
+    // Single Purok
+    if (aud.startsWith("Purok: ")) {
+      const targetLabel = aud.replace("Purok: ", "").trim();
+      const targetPurok = purokDefinitions.find((p) => p.label === targetLabel);
+      if (!targetPurok) return false;
+      return normalizePurokValue(residentInstance.purok) === targetPurok.value;
+    }
+
+    // Multiple Puroks
+    if (aud.startsWith("Puroks: ")) {
+      const targetLabels = aud.replace("Puroks: ", "").split(",").map((s) => s.trim());
+      const targetValues = targetLabels.map((lbl) => purokDefinitions.find((p) => p.label === lbl)?.value).filter(Boolean);
+      return targetValues.includes(normalizePurokValue(residentInstance.purok));
+    }
+
+    // Selected Resident
+    if (aud.startsWith("Selected Resident: ")) {
+      const targetName = aud.replace("Selected Resident: ", "").trim();
+      return residentInstance.full_name === targetName;
+    }
+
+    return false;
+  };
+
+  useEffect(() => {
+    const requestPerm = async () => {
+      if (typeof window !== "undefined" && "Notification" in window) {
+        if (Notification.permission === "default") {
+          await Notification.requestPermission();
+        }
+      }
+    };
+    requestPerm();
+
+    const handleInteraction = () => {
+      requestPerm();
+      window.removeEventListener("click", handleInteraction);
+    };
+    window.addEventListener("click", handleInteraction);
+    return () => window.removeEventListener("click", handleInteraction);
+  }, []);
+
+  useEffect(() => {
+    const redirectModule = localStorage.getItem("kaagapai_redirect_module");
+    if (redirectModule && resident?.id) {
+      openModule(redirectModule);
+      localStorage.removeItem("kaagapai_redirect_module");
+    }
+  }, [resident]);
+
+  useEffect(() => {
+    if (!resident?.id) return;
+
+    const channel = supabase
+      .channel("announcements-realtime-user")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "announcements",
+        },
+        (payload) => {
+          const newAnn = payload.new;
+          if (newAnn && newAnn.status === "Published") {
+            if (doesAnnouncementApplyToResident(newAnn, resident)) {
+              setPublishedAnnouncements((current) => {
+                const exists = current.some((a) => a.id === newAnn.id);
+                if (exists) {
+                  return current.map((a) => (a.id === newAnn.id ? newAnn : a));
+                }
+                return [newAnn, ...current];
+              });
+
+              const isInsert = payload.eventType === "INSERT";
+              const isUpdate = payload.eventType === "UPDATE";
+              if (isInsert || isUpdate) {
+                const lastViewedId = localStorage.getItem(`kaagapai_last_viewed_announcement_id_${resident.id}`);
+                if (lastViewedId !== String(newAnn.id)) {
+                  setLatestAnnouncementToast(newAnn);
+
+                  // HTML5 browser push notification
+                  if (Notification.permission === "granted") {
+                    const nativeNotif = new Notification("Barangay Upper Mingading", {
+                      body: `${newAnn.title}\n${newAnn.body}`,
+                      icon: "/favicon.ico",
+                      tag: `announcement-${newAnn.id}`,
+                    });
+                    nativeNotif.onclick = () => {
+                      window.focus();
+                      localStorage.setItem("kaagapai_redirect_module", "announcements");
+                      window.location.href = "/resident-dashboard";
+                    };
+                    setTimeout(() => {
+                      nativeNotif.close();
+                    }, 3000); // Swipe/close after 3 seconds!
+                  }
+                }
+              }
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [resident]);
+
   useEffect(() => {
     if (publishedAnnouncements.length === 0 || !resident?.id) return;
-    const latest = publishedAnnouncements[0];
+    const applicable = publishedAnnouncements.filter((a) =>
+      doesAnnouncementApplyToResident(a, resident)
+    );
+    if (applicable.length === 0) return;
+    const latest = applicable[0];
     const lastViewedId = localStorage.getItem(`kaagapai_last_viewed_announcement_id_${resident.id}`);
     if (lastViewedId !== String(latest.id)) {
       setLatestAnnouncementToast(latest);
-      const timer = setTimeout(() => {
-        setLatestAnnouncementToast(null);
-      }, 5000);
-      return () => clearTimeout(timer);
     }
-  }, [publishedAnnouncements, resident?.id]);
+  }, [publishedAnnouncements, resident?.id, resident]);
 
   useEffect(() => {
     if (notifications.length === 0 || !resident?.id) return;
@@ -340,12 +459,43 @@ const UserDashboard = () => {
     const lastViewedId = localStorage.getItem(`kaagapai_last_viewed_notification_id_${resident.id}`);
     if (lastViewedId !== String(latest.id) && !latest.is_read) {
       setLatestNotificationToast(latest);
-      const timer = setTimeout(() => {
-        setLatestNotificationToast(null);
-      }, 5000);
-      return () => clearTimeout(timer);
+
+      // Trigger native browser notification
+      if (Notification.permission === "granted") {
+        const nativeNotif = new Notification("KaagapA.I Notification", {
+          body: `${latest.title}\n${latest.message || latest.body || ""}`,
+          icon: "/favicon.ico",
+          tag: `notification-${latest.id}`,
+        });
+        nativeNotif.onclick = () => {
+          window.focus();
+          localStorage.setItem("kaagapai_redirect_module", "documents");
+          window.location.href = "/resident-dashboard";
+        };
+        setTimeout(() => {
+          nativeNotif.close();
+        }, 3000); // Close/swipe out after 3 seconds!
+      }
     }
   }, [notifications, resident?.id]);
+
+  useEffect(() => {
+    if (latestAnnouncementToast) {
+      const timer = setTimeout(() => {
+        setLatestAnnouncementToast(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [latestAnnouncementToast]);
+
+  useEffect(() => {
+    if (latestNotificationToast) {
+      const timer = setTimeout(() => {
+        setLatestNotificationToast(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [latestNotificationToast]);
 
   const dismissToast = () => {
     if (latestAnnouncementToast && resident?.id) {
@@ -896,9 +1046,41 @@ const UserDashboard = () => {
     return () => window.clearInterval(intervalId);
   }, [resident?.id]);
 
+  const allNotificationsMerged = useMemo(() => {
+    const systemNotifs = notifications.map((n) => ({
+      id: String(n.id),
+      title: n.title,
+      message: n.message || n.body || "",
+      created_at: n.created_at,
+      is_read: n.is_read,
+      isAnnouncement: false,
+      original: n,
+    }));
+
+    const applicableAnn = publishedAnnouncements
+      .filter((a) => doesAnnouncementApplyToResident(a, resident))
+      .map((a) => {
+        const isRead = announcementReadIds.includes(a.id);
+        return {
+          id: `announcement-${a.id}`,
+          title: `📢 Announcement: ${a.title}`,
+          message: a.body,
+          created_at: a.publish_date + "T00:00:00Z",
+          is_read: isRead,
+          isAnnouncement: true,
+          announcement_id: a.id,
+          original: a,
+        };
+      });
+
+    return [...systemNotifs, ...applicableAnn].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }, [notifications, publishedAnnouncements, resident, announcementReadIds]);
+
   const unreadNotificationCount = useMemo(
-    () => notifications.filter((notification) => !notification.is_read).length,
-    [notifications]
+    () => allNotificationsMerged.filter((notification) => !notification.is_read).length,
+    [allNotificationsMerged]
   );
 
   const recentRequests = useMemo(() => {
@@ -1020,12 +1202,16 @@ const UserDashboard = () => {
   }, [recentRequests, searchQuery]);
 
   const filteredAnnouncements = useMemo(() => {
-    if (!searchQuery.trim()) return publishedAnnouncements;
-    return publishedAnnouncements.filter((a) =>
+    let list = publishedAnnouncements;
+    if (resident) {
+      list = list.filter((a) => doesAnnouncementApplyToResident(a, resident));
+    }
+    if (!searchQuery.trim()) return list;
+    return list.filter((a) =>
       a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       a.body.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [publishedAnnouncements, searchQuery]);
+  }, [publishedAnnouncements, searchQuery, resident]);
 
 
 
@@ -1060,6 +1246,7 @@ const UserDashboard = () => {
     if (!ok) return;
 
     const goodbyeName = displayName;
+    sessionStorage.setItem("just_logged_out", "true");
     clearResidentSession();
     await logoutUser();
     navigate("/goodbye", {
@@ -1771,20 +1958,28 @@ const UserDashboard = () => {
                         </span>
                       </div>
                       <div className="max-h-72 divide-y divide-slate-100 dark:divide-slate-800 overflow-y-auto">
-                        {notifications.length === 0 ? (
+                        {allNotificationsMerged.length === 0 ? (
                           <div className="p-6 text-center text-xs text-slate-400 font-bold">No recent alerts.</div>
                         ) : (
-                          notifications.map((n) => (
+                          allNotificationsMerged.map((n) => (
                             <button
                               key={n.id}
                               type="button"
                               onClick={() => {
-                                handleMarkNotificationRead(n);
-                                setShowNotificationMenu(false);
-                                const title = (n.title || "").toLowerCase();
-                                if (title.includes("announcement")) openModule("announcements");
-                                else if (title.includes("livelihood") || title.includes("application")) openModule("livelihood");
-                                else openModule("documents");
+                                if (n.isAnnouncement) {
+                                  const next = [...new Set([...announcementReadIds, n.announcement_id])];
+                                  saveStoredReadIds(`${ANNOUNCEMENT_READ_KEY}:${resident?.id}`, next);
+                                  setAnnouncementReadIds(next);
+                                  setShowNotificationMenu(false);
+                                  openModule("announcements");
+                                } else {
+                                  handleMarkNotificationRead(n.original);
+                                  setShowNotificationMenu(false);
+                                  const title = (n.title || "").toLowerCase();
+                                  if (title.includes("announcement")) openModule("announcements");
+                                  else if (title.includes("livelihood") || title.includes("application")) openModule("livelihood");
+                                  else openModule("documents");
+                                }
                               }}
                               className={`w-full flex gap-2.5 p-3 text-left transition-colors ${isDarkMode ? `hover:bg-slate-800 ${!n.is_read ? "bg-emerald-505/5" : ""}` : `hover:bg-slate-50 ${!n.is_read ? "bg-emerald-50/20" : ""}`}`}
                             >
@@ -3376,6 +3571,34 @@ const UserDashboard = () => {
                             }`} />
                           </button>
                         </div>
+
+                        <div className={`flex justify-between items-center p-4 rounded-xl border ${
+                          isDarkMode ? "bg-slate-950/40 border-slate-850" : "bg-slate-50 dark:bg-slate-950 border-slate-150 dark:border-slate-850 shadow-inner"
+                        }`}>
+                          <div className="flex-1 pr-4">
+                            <p className={`text-xs font-bold ${isDarkMode ? "text-white" : "text-slate-800 dark:text-slate-100"}`}>Browser Push Notifications</p>
+                            <p className="text-sm text-slate-400 dark:text-slate-500 font-bold mt-1">
+                              Show floating desktop and mobile push alerts for announcements. Current status: <span className="font-extrabold uppercase text-[#C8A14A]">{typeof window !== "undefined" && "Notification" in window ? Notification.permission : "Not Supported"}</span>
+                            </p>
+                            {typeof window !== "undefined" && "Notification" in window && Notification.permission === "denied" && (
+                              <span className="block text-[11px] text-rose-500 mt-1.5 font-bold">
+                                ⚠️ Permission is blocked. Please click the lock icon next to the browser website address URL and change "Notification" settings to "Allow".
+                              </span>
+                            )}
+                          </div>
+                          {typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted" && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await Notification.requestPermission();
+                                window.location.reload();
+                              }}
+                              className="px-3.5 py-2 text-xs font-black rounded-lg bg-[#14532D] hover:bg-[#14532D]/90 text-white border border-[#C8A14A]/20 transition active:scale-95 shadow-sm"
+                            >
+                              Request Access
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -4073,33 +4296,44 @@ const UserDashboard = () => {
       <AnimatePresence>
         {(latestAnnouncementToast || latestNotificationToast) && (
           <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            initial={{ opacity: 0, x: 200 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 200 }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className="fixed bottom-4 right-4 z-50 w-full max-w-sm flex flex-col gap-3"
           >
             {latestAnnouncementToast && (
-              <div className="p-4 rounded-2xl border shadow-xl portal-theme-glass text-slate-800 dark:text-white flex items-start gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                  <Megaphone size={16} className="animate-bounce" />
+              <div className="p-4 rounded-2xl border border-slate-800 shadow-2xl bg-slate-950/90 backdrop-blur-md text-white flex items-start gap-3 relative overflow-hidden transition-all duration-300">
+                {/* Visual Accent Bar */}
+                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#C8A14A]" />
+                
+                {/* App Logo Circular Indicator */}
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#14532D] border border-[#C8A14A]/40 text-white shadow-inner">
+                  <Megaphone size={18} className="text-[#C8A14A] animate-pulse" />
                 </span>
-                <div className="min-w-0 flex-1 space-y-1">
+
+                <div className="min-w-0 flex-1 space-y-1 pl-1">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-black uppercase tracking-wider text-[#0B5D3B] dark:text-emerald-400">📢 New Announcement</p>
-                    <span className="text-sm text-slate-400 font-bold">Just Now</span>
+                    <p className="text-xs font-semibold tracking-wider text-[#C8A14A] uppercase">KaagapA.I</p>
+                    <span className="text-[10px] text-slate-400 font-medium">Just Now</span>
                   </div>
-                  <p className="text-xs font-black truncate">{latestAnnouncementToast.title}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-450 line-clamp-2 leading-normal font-bold">
-                    {latestAnnouncementToast.body}
-                  </p>
+                  
+                  <div className="pt-0.5" onClick={viewAnnouncementFromToast} style={{ cursor: "pointer" }}>
+                    <p className="text-sm font-extrabold text-white truncate leading-tight">
+                      {latestAnnouncementToast.title}
+                    </p>
+                    <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed mt-1">
+                      {latestAnnouncementToast.body}
+                    </p>
+                  </div>
+
                   <div className="pt-2 flex items-center gap-3">
                     <button
                       type="button"
                       onClick={viewAnnouncementFromToast}
-                      className="px-3.5 py-1.5 text-sm font-black rounded-lg bg-[#0B5D3B] hover:bg-[#0B5D3B]/90 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white transition active:scale-95"
+                      className="px-3.5 py-1.5 text-xs font-black rounded-lg bg-[#14532D] hover:bg-[#14532D]/90 text-white border border-[#C8A14A]/20 transition active:scale-95 shadow-sm"
                     >
-                      View Announcement
+                      View
                     </button>
                     <button
                       type="button"
@@ -4109,25 +4343,28 @@ const UserDashboard = () => {
                         }
                         setLatestAnnouncementToast(null);
                       }}
-                      className="text-sm font-bold text-slate-400 hover:text-slate-655 dark:hover:text-slate-200 transition"
+                      className="text-xs font-bold text-slate-400 hover:text-slate-200 transition"
                     >
                       Dismiss
                     </button>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (resident?.id) {
-                      localStorage.setItem(`kaagapai_last_viewed_announcement_id_${resident.id}`, String(latestAnnouncementToast.id));
-                    }
-                    setLatestAnnouncementToast(null);
-                  }}
-                  className="rounded-full p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-655 dark:hover:text-slate-200 transition shrink-0"
-                  aria-label="Close notification"
-                >
-                  <X size={14} />
-                </button>
+
+                <div className="flex items-center gap-1 shrink-0 -mt-1 -mr-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (resident?.id) {
+                        localStorage.setItem(`kaagapai_last_viewed_announcement_id_${resident.id}`, String(latestAnnouncementToast.id));
+                      }
+                      setLatestAnnouncementToast(null);
+                    }}
+                    className="rounded-full p-1 hover:bg-white/10 text-slate-400 hover:text-white transition"
+                    aria-label="Close notification"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
               </div>
             )}
             

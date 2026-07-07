@@ -88,7 +88,8 @@ const compressOfficialPhoto = async (file) => {
 
 const Avatar = ({ official, size = "md" }) => {
   const isCaptain = official.level === "captain";
-  const dimensionClass = size === "lg" ? "h-[160px] w-[160px]" : size === "md" ? "h-[120px] w-[120px]" : "h-[70px] w-[70px]";
+  const dimensionClass = size === "lg" ? "h-[160px] w-[160px]" : size === "md" ? "h-[90px] w-[90px]" : "h-[70px] w-[70px]";
+  const textClass = size === "lg" ? "text-4xl" : size === "md" ? "text-2xl" : "text-lg";
 
   if (official.photoUrl) {
     return (
@@ -100,37 +101,43 @@ const Avatar = ({ official, size = "md" }) => {
 
   return (
     <span
-      className={`flex shrink-0 items-center justify-center rounded-full font-black shadow-md mx-auto text-4xl border-4 border-white ${
-        isCaptain ? "bg-amber-50 text-amber-700" : "bg-blue-50 text-blue-700"
-      } ${dimensionClass}`}
+      className={`flex shrink-0 items-center justify-center rounded-full font-black shadow-md mx-auto border-4 border-white ${
+        isCaptain ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
+      } ${textClass} ${dimensionClass}`}
     >
-      {isCaptain ? <Crown size={size === "lg" ? 64 : size === "md" ? 44 : 28} /> : initialsFromName(official.name)}
+      {isCaptain ? <Crown size={size === "lg" ? 64 : size === "md" ? 36 : 28} /> : initialsFromName(official.name)}
     </span>
   );
 };
 
 const OfficialCard = ({ official, onClick }) => {
   const isActive = official.status === "Active";
+  const isCaptain = official.level === "captain";
+
+  const borderBClass = isCaptain ? "border-b-[#C8A14A]" : "border-b-[#14532D]";
+  const hoverBorderClass = isCaptain ? "hover:border-[#C8A14A]/40" : "hover:border-emerald-300";
+  const hoverTextClass = isCaptain ? "group-hover:text-[#C8A14A]" : "group-hover:text-[#14532D]";
+  const positionTextClass = isCaptain ? "text-[#C8A14A]" : "text-emerald-700 font-bold";
 
   return (
     <article
       onClick={() => onClick(official)}
-      className="relative w-full max-w-[280px] rounded-2xl bg-white border border-slate-200 border-b-[6px] border-b-blue-600 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg hover:border-blue-300 cursor-pointer p-6 flex flex-col items-center text-center group"
+      className={`relative w-full max-w-[240px] rounded-2xl bg-white border border-slate-200 border-b-[6px] ${borderBClass} shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg ${hoverBorderClass} cursor-pointer p-5 flex flex-col items-center text-center group`}
     >
       <Avatar official={official} size="md" />
 
       <div className="mt-4 flex flex-col items-center">
-        <p className="text-base font-bold text-slate-800 tracking-tight leading-snug group-hover:text-blue-600 transition-colors">
+        <p className={`text-sm font-bold text-slate-800 tracking-tight leading-snug ${hoverTextClass} transition-colors`}>
           {official.name}
         </p>
-        <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-blue-600">
+        <p className={`mt-1 text-[11px] font-bold uppercase tracking-[0.1em] ${positionTextClass}`}>
           {official.position}
         </p>
       </div>
 
       <div className="mt-3 flex flex-wrap justify-center gap-1.5">
         <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border ${
             isActive
               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
               : "bg-amber-50 text-amber-700 border-amber-200"
@@ -284,6 +291,14 @@ const OrganizationChart = () => {
   const kagawads = DEFAULT_ORGANIZATION_OFFICIALS.filter((official) => official.level === "kagawad")
     .map((defaultOfficial) => findOfficialById(officials, defaultOfficial.id))
     .filter(Boolean);
+
+  const gridOfficials = [...kagawads];
+  if (skChairman) gridOfficials.push(skChairman);
+
+  const columns = [[], [], [], []];
+  gridOfficials.forEach((official, idx) => {
+    columns[idx % 4].push(official);
+  });
 
   const openEditor = (official) => {
     setEditingId(official.id);
@@ -439,7 +454,7 @@ const OrganizationChart = () => {
             {loadingOfficials ? (
               <div className="text-center py-20 text-slate-500 font-semibold">Loading official profiles...</div>
             ) : (
-              <div className="mx-auto flex w-max min-w-full flex-col items-center py-2">
+              <div className="mx-auto flex w-full flex-col items-center py-2">
                 <style>{`
                   @keyframes orgChartFadeIn {
                     from { opacity: 0; transform: translateY(10px); }
@@ -450,51 +465,78 @@ const OrganizationChart = () => {
                   }
                 `}</style>
 
-                <div className="org-chart-fade-in flex flex-col items-center">
-                  <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-4 py-1 text-xs font-bold uppercase tracking-[0.14em] text-blue-700 shadow-sm">
+                <div className="org-chart-fade-in flex flex-col items-center w-full">
+                  <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#C8A14A]/30 bg-amber-50 px-4 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[#C8A14A] shadow-sm">
                     <Crown size={14} />
                     Punong Barangay
                   </div>
                   {captain && <OfficialCard official={captain} onClick={setViewingOfficial} />}
-                  <div className="h-6 w-px bg-slate-300" />
+                  <div className="h-8 w-px bg-slate-300 hidden md:block" />
                 </div>
 
-                <div className="org-chart-fade-in relative mt-2 flex w-max items-start justify-center gap-10 px-4">
-                  <div className="absolute left-1/2 top-0 h-6 w-px -translate-x-1/2 bg-slate-300" />
-                  <div className="absolute left-0 right-0 top-6 h-px bg-slate-300" />
+                <div className="org-chart-fade-in relative mt-2 flex flex-col md:flex-row items-center justify-center gap-6 md:gap-20 w-full">
+                  {/* Horizontal bridge line on desktop */}
+                  <div className="absolute left-[25%] right-[25%] top-0 h-px bg-slate-300 hidden md:block" />
+                  
+                  {/* Vertical line connecting bridge to grid below */}
+                  <div className="absolute left-1/2 top-0 h-full w-px bg-slate-300 hidden md:block" />
 
-                  <div className="flex flex-col items-center">
-                    <div className="h-6 w-px bg-slate-300" />
-                    {secretary && <OfficialCard official={secretary} onClick={setViewingOfficial} />}
-                  </div>
+                  {secretary && (
+                    <div className="flex flex-col items-center z-10">
+                      <div className="h-6 w-px bg-slate-300 hidden md:block" />
+                      <OfficialCard official={secretary} onClick={setViewingOfficial} />
+                    </div>
+                  )}
 
-                  <div className="flex flex-col items-center">
-                    <div className="h-6 w-px bg-slate-300" />
-                    {treasurer && <OfficialCard official={treasurer} onClick={setViewingOfficial} />}
-                  </div>
+                  {treasurer && (
+                    <div className="flex flex-col items-center z-10">
+                      <div className="h-6 w-px bg-slate-300 hidden md:block" />
+                      <OfficialCard official={treasurer} onClick={setViewingOfficial} />
+                    </div>
+                  )}
                 </div>
 
-                <div className="org-chart-fade-in mt-3 flex flex-col items-center">
-                  <div className="h-6 w-px bg-slate-300" />
-                  <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-600 shadow-sm">
+                <div className="org-chart-fade-in relative mt-8 flex flex-col items-center w-full">
+                  <div className="h-8 w-px bg-slate-300 hidden md:block" />
+                  <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-600 shadow-sm">
                     Sangguniang Barangay and SK
                   </div>
 
-                  <div className="w-max max-w-none">
-                    <div className="grid grid-flow-col auto-cols-[220px] gap-4 px-4">
-                      {kagawads.map((official) => (
-                        <div key={official.id} className="flex flex-col items-center">
-                          <div className="h-6 w-px bg-slate-300" />
-                          <OfficialCard official={official} onClick={setViewingOfficial} />
-                        </div>
-                      ))}
+                  {/* Horizontal line for Sangguniang Barangay on desktop */}
+                  <div className="relative w-full max-w-5xl h-px bg-slate-300 hidden md:block">
+                    <div className="absolute left-[12.5%] top-0 h-6 w-px -translate-x-1/2 bg-slate-300" />
+                    <div className="absolute left-[37.5%] top-0 h-6 w-px -translate-x-1/2 bg-slate-300" />
+                    <div className="absolute left-[62.5%] top-0 h-6 w-px -translate-x-1/2 bg-slate-300" />
+                    <div className="absolute left-[87.5%] top-0 h-6 w-px -translate-x-1/2 bg-slate-300" />
+                  </div>
 
-                      {skChairman && (
-                        <div key={skChairman.id} className="flex flex-col items-center">
-                          <div className="h-6 w-px bg-slate-300" />
-                          <OfficialCard official={skChairman} onClick={setViewingOfficial} />
-                        </div>
-                      )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 md:gap-x-12 md:gap-y-10 mt-6 md:mt-10 px-4 w-full max-w-5xl justify-items-center">
+                    {/* Column 1 */}
+                    <div className="flex flex-col items-center space-y-6 md:space-y-10">
+                      {columns[0].map((official) => (
+                        <OfficialCard key={official.id} official={official} onClick={setViewingOfficial} />
+                      ))}
+                    </div>
+
+                    {/* Column 2 */}
+                    <div className="flex flex-col items-center space-y-6 md:space-y-10">
+                      {columns[1].map((official) => (
+                        <OfficialCard key={official.id} official={official} onClick={setViewingOfficial} />
+                      ))}
+                    </div>
+
+                    {/* Column 3 */}
+                    <div className="flex flex-col items-center space-y-6 md:space-y-10">
+                      {columns[2].map((official) => (
+                        <OfficialCard key={official.id} official={official} onClick={setViewingOfficial} />
+                      ))}
+                    </div>
+
+                    {/* Column 4 */}
+                    <div className="flex flex-col items-center space-y-6 md:space-y-10">
+                      {columns[3].map((official) => (
+                        <OfficialCard key={official.id} official={official} onClick={setViewingOfficial} />
+                      ))}
                     </div>
                   </div>
                 </div>

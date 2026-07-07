@@ -622,34 +622,7 @@ const ResidentsManagement = () => {
   const [residents, setResidents] = useState([]);
   const [pendingResidents, setPendingResidents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [delayedLoading, setDelayedLoading] = useState(false);
-  const loadingStartTimeRef = useRef(0);
-
-  useEffect(() => {
-    let timer;
-
-    if (loading) {
-      timer = setTimeout(() => {
-        setDelayedLoading(true);
-        loadingStartTimeRef.current = Date.now();
-      }, 250);
-    } else {
-      const elapsed = Date.now() - loadingStartTimeRef.current;
-      const minDuration = 600;
-
-      if (loadingStartTimeRef.current > 0 && elapsed < minDuration) {
-        timer = setTimeout(() => {
-          setDelayedLoading(false);
-          loadingStartTimeRef.current = 0;
-        }, minDuration - elapsed);
-      } else {
-        setDelayedLoading(false);
-        loadingStartTimeRef.current = 0;
-      }
-    }
-
-    return () => clearTimeout(timer);
-  }, [loading]);
+  const delayedLoading = loading;
 
   const [saving, setSaving] = useState(false);
   const [approvingId, setApprovingId] = useState(null);

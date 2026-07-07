@@ -187,6 +187,7 @@ const Header = ({ title, subtitle, middleContent = null, actions = null, classNa
   const confirmSignOut = () => {
     setShowSignOutConfirm(false);
     setShowProfile(false);
+    sessionStorage.setItem("just_logged_out", "true");
 
     // Start sign out without leaving the modal open
     setIsSigningOut(true);

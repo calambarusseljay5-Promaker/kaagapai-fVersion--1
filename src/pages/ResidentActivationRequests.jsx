@@ -181,7 +181,7 @@ const ResidentActivationRequests = () => {
         try {
           await sendSmsNotification({
             to: smsPhone,
-            body: `Hello ${result.full_name || request.full_name || "Resident"}, your Barangay Upper Mingading resident account is verified. Username: ${result.username}. Household password: ${result.temporary_password}. You may now log in to KaagapAI.`,
+            body: `Hello ${result.full_name || request.full_name || "Resident"}, your Barangay Upper Mingading resident account is verified. Username: ${result.username}. Household password: ${result.temporary_password}. Login here: https://kaagapai-f-version-1.vercel.app`,
           });
           smsStatus = "success";
           smsMessage = `Credentials were sent by SMS to ${normalizeSmsPhone(smsPhone)}.`;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -40,9 +40,11 @@ import {
   Check,
   Globe
 } from "lucide-react";
+import { supabase } from "../lib/supabaseClient";
 import { clearAuthSession, loginUser } from "../services/authService";
 import {
   clearResidentSession,
+  getResidentSession,
   loginResident,
   requestResidentActivation,
   validateResidentRegistrationProof,
@@ -156,6 +158,7 @@ const Login = () => {
   };
 
   const openPortalModal = (type = "choose") => {
+    sessionStorage.removeItem("just_logged_out");
     setModalStep(type);
     setError(null);
     setNotice(null);
@@ -166,7 +169,92 @@ const Login = () => {
     setShowLoginModal(false);
     setError(null);
     setNotice(null);
+    localStorage.removeItem("kaagapai_redirect_module");
   };
+
+  useEffect(() => {
+    const justLoggedOut = sessionStorage.getItem("just_logged_out") === "true";
+
+    // 1. If already logged in AND did not just log out, redirect immediately
+    const residentSession = getResidentSession();
+    if (residentSession && !justLoggedOut) {
+      navigate("/resident-dashboard", { replace: true });
+      return;
+    }
+
+    if (!justLoggedOut) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          supabase
+            .from("user_profiles")
+            .select("role")
+            .eq("id", session.user.id)
+            .single()
+            .then(({ data: profile }) => {
+              if (profile) {
+                const path = getDashboardPathForRole(profile.role);
+                if (path) {
+                  navigate(path, { replace: true });
+                }
+              }
+            });
+        }
+      });
+    }
+
+    // 2. Otherwise check for auto-login (Skip completely if user just signed out)
+    if (justLoggedOut) {
+      return;
+    }
+
+    const openTimer = setTimeout(() => {
+      if (modalStep === "choose") {
+        openPortalModal("resident_login");
+        setAccessMode("Resident");
+        setResidentAuthMode("signin");
+      }
+    }, 600);
+
+    const timer = setTimeout(() => {
+      const emailInput = document.querySelector('input[name="email"]');
+      const passwordInput = document.querySelector('input[name="password"]');
+      
+      if (emailInput && passwordInput && emailInput.value && passwordInput.value) {
+        setFormData((current) => ({
+          ...current,
+          email: emailInput.value,
+          password: passwordInput.value,
+        }));
+        
+        setLoading(true);
+        clearResidentSession();
+        clearAuthSession();
+        
+        loginResident(emailInput.value, passwordInput.value)
+          .then((res) => {
+            closeModal();
+            navigate("/welcome", {
+              replace: true,
+              state: {
+                redirectTo: "/resident-dashboard",
+                role: "resident",
+                displayName: getLoginDisplayName({ resident: res }),
+              },
+            });
+          })
+          .catch((err) => {
+            console.error("Auto login failed:", err);
+            setError(err.message || "Auto login failed.");
+            setLoading(false);
+          });
+      }
+    }, 1200);
+
+    return () => {
+      clearTimeout(openTimer);
+      clearTimeout(timer);
+    };
+  }, [navigate]);
 
   const renderStep1Fields = () => (
     <div className="space-y-3 text-left">

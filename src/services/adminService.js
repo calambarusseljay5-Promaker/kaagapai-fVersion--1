@@ -116,16 +116,24 @@ const attachResidentAccounts = async (residents = []) => {
 
   try {
     const accounts = [];
+    const promises = [];
 
     for (let index = 0; index < residentIds.length; index += ACCOUNT_FETCH_BATCH_SIZE) {
       const residentIdBatch = residentIds.slice(index, index + ACCOUNT_FETCH_BATCH_SIZE);
-      const { data, error } = await supabase
-        .from(RESIDENT_ACCOUNTS_TABLE)
-        .select("id,resident_id,username,account_status,must_change_credentials,last_login_at")
-        .in("resident_id", residentIdBatch);
+      promises.push(
+        supabase
+          .from(RESIDENT_ACCOUNTS_TABLE)
+          .select("id,resident_id,username,account_status,must_change_credentials,last_login_at")
+          .in("resident_id", residentIdBatch)
+      );
+    }
 
+    const results = await Promise.all(promises);
+    for (const { data, error } of results) {
       if (error) throw error;
-      accounts.push(...(data || []));
+      if (data) {
+        accounts.push(...data);
+      }
     }
 
     const accountByResidentId = new Map(
@@ -175,8 +183,14 @@ const buildResidentsQuery = (search = "", statusFilter = "", filters = {}) => {
     purok = "",
     householdNo = "",
     householdRelationship = "",
+    withAccounts = false,
   } = filters || {};
-  let query = supabase.from(RESIDENTS_TABLE).select("*");
+
+  const selectQuery = withAccounts
+    ? "*, resident_accounts(id,resident_id,username,account_status,must_change_credentials,last_login_at)"
+    : "*";
+
+  let query = supabase.from(RESIDENTS_TABLE).select(selectQuery);
 
   if (statusFilter) {
     query = query.eq("status", statusFilter);
@@ -224,11 +238,13 @@ export async function fetchResidents(search = "", statusFilter = "", filters = {
     const fetchPageSize = Math.max(1, Math.min(Number(pageSize) || RESIDENT_FETCH_PAGE_SIZE, RESIDENT_FETCH_PAGE_SIZE));
     const rowLimit = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Number(limit) : null;
 
+    const queryFilters = { ...filters, withAccounts };
+
     for (let from = 0; ; from += fetchPageSize) {
       const to = rowLimit
         ? Math.min(from + fetchPageSize - 1, rowLimit - 1)
         : from + fetchPageSize - 1;
-      const { data, error } = await buildResidentsQuery(search, statusFilter, filters)
+      const { data, error } = await buildResidentsQuery(search, statusFilter, queryFilters)
         .order("created_at", { ascending: false })
         .range(from, to);
 
@@ -242,7 +258,28 @@ export async function fetchResidents(search = "", statusFilter = "", filters = {
     }
 
     const residents = rowLimit ? rows.slice(0, rowLimit) : rows;
-    return withAccounts ? attachResidentAccounts(residents) : residents;
+
+    if (withAccounts) {
+      return residents.map((resident) => {
+        const rawAccount = resident.resident_accounts;
+        const account = Array.isArray(rawAccount)
+          ? rawAccount[0] || null
+          : rawAccount || null;
+
+        // Exclude the resident_accounts array field from mapping to keep it identical to original shape
+        const { resident_accounts, ...cleanResident } = resident;
+
+        return {
+          ...cleanResident,
+          resident_account: account,
+          portal_username: account?.username || "",
+          portal_account_status: account?.account_status || "",
+          portal_must_change_credentials: Boolean(account?.must_change_credentials),
+        };
+      });
+    }
+
+    return residents;
   } catch (error) {
     console.error("Error fetching residents:", error);
     throw normalizeResidentError(error);
