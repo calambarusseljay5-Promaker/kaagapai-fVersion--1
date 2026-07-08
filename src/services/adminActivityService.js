@@ -11,7 +11,7 @@ export const DEFAULT_SYSTEM_SETTINGS = {
   officeEmail: "calambarusseljay5@gmail.com",
   officePhone: "09306259795",
   officeHours: "Monday to Friday, 8:00 AM - 5:00 PM",
-  adminTheme: "light",
+  adminTheme: "favorite",
   residentPortalEnabled: true,
   aiAssistantEnabled: true,
   documentNotificationsEnabled: true,
@@ -112,7 +112,7 @@ export function getSystemSettings() {
   const settings = getStoredObject(SETTINGS_KEY, DEFAULT_SYSTEM_SETTINGS);
   return {
     ...settings,
-    adminTheme: settings.adminTheme === "favorite" ? "favorite" : "light",
+    adminTheme: settings.adminTheme === "light" ? "light" : "favorite",
   };
 }
 
@@ -120,7 +120,7 @@ export function saveSystemSettings(settings) {
   const nextSettings = {
     ...DEFAULT_SYSTEM_SETTINGS,
     ...settings,
-    adminTheme: settings?.adminTheme === "favorite" ? "favorite" : "light",
+    adminTheme: settings?.adminTheme === "light" ? "light" : "favorite",
     updatedAt: new Date().toISOString(),
   };
 

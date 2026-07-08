@@ -5,7 +5,7 @@ import Sidebar from "../components/Sidebar";
 import { getSystemSettings } from "../services/adminActivityService";
 
 const adminThemes = new Set(["light", "favorite"]);
-const normalizeAdminTheme = (theme) => (adminThemes.has(theme) ? theme : "light");
+const normalizeAdminTheme = (theme) => (adminThemes.has(theme) ? theme : "favorite");
 
 const MainLayout = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
