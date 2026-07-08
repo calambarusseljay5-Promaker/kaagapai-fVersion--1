@@ -207,14 +207,6 @@ const Login = () => {
       return;
     }
 
-    const openTimer = setTimeout(() => {
-      if (modalStep === "choose") {
-        openPortalModal("resident_login");
-        setAccessMode("Resident");
-        setResidentAuthMode("signin");
-      }
-    }, 600);
-
     const timer = setTimeout(() => {
       const emailInput = document.querySelector('input[name="email"]');
       const passwordInput = document.querySelector('input[name="password"]');
@@ -251,7 +243,6 @@ const Login = () => {
     }, 1200);
 
     return () => {
-      clearTimeout(openTimer);
       clearTimeout(timer);
     };
   }, [navigate]);
