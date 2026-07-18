@@ -59,7 +59,7 @@ export default {
         'primary-gradient': 'linear-gradient(135deg, #0F6B43 0%, #14532D 100%)',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Poppins', 'Inter', 'system-ui', 'sans-serif'],
       },
     },
   },

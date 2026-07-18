@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useLayoutEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertCircle,
@@ -135,6 +135,17 @@ const Dashboard = () => {
   const [searchError, setSearchError] = useState("");
   const trimmedSearch = searchQuery.trim();
 
+  const searchInputRef = useRef(null);
+
+  useLayoutEffect(() => {
+    if (searchInputRef.current) {
+      searchInputRef.current.style.setProperty('background', 'rgba(255, 255, 255, 0.1)', 'important');
+      searchInputRef.current.style.setProperty('background-color', 'rgba(255, 255, 255, 0.1)', 'important');
+      searchInputRef.current.style.setProperty('border-color', 'rgba(255, 255, 255, 0.15)', 'important');
+      searchInputRef.current.style.setProperty('color', '#ffffff', 'important');
+    }
+  }, [searchQuery]);
+
   useEffect(() => {
     const loadCounts = async () => {
       const [residentResult, residentListResult, requestResult, announcementResult, livelihoodResult, activityResult] =
@@ -268,28 +279,55 @@ const Dashboard = () => {
   };
 
   const dashboardSearch = (
-    <div className="relative">
-      <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+    <div className="relative w-[320px] max-w-full">
+      <style dangerouslySetInnerHTML={{__html: `
+        .transparent-search-input,
+        input.transparent-search-input {
+          background: rgba(255, 255, 255, 0.1) !important;
+          background-color: rgba(255, 255, 255, 0.1) !important;
+          border: 1px solid rgba(255, 255, 255, 0.15) !important;
+          color: #ffffff !important;
+          border-radius: 8px !important;
+        }
+        .transparent-search-input::placeholder,
+        input.transparent-search-input::placeholder {
+          color: rgba(255, 255, 255, 0.65) !important;
+        }
+        .transparent-search-input:focus,
+        input.transparent-search-input:focus {
+          background: rgba(255, 255, 255, 0.16) !important;
+          background-color: rgba(255, 255, 255, 0.16) !important;
+          border-color: rgba(255, 255, 255, 0.25) !important;
+        }
+      `}} />
+      <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/70" size={17} />
       <input
+        ref={searchInputRef}
         value={searchQuery}
         onChange={(event) => updateSearchQuery(event.target.value)}
+        onFocus={(e) => {
+          e.target.style.setProperty('background', 'rgba(255, 255, 255, 0.16)', 'important');
+          e.target.style.setProperty('background-color', 'rgba(255, 255, 255, 0.16)', 'important');
+          e.target.style.setProperty('border-color', 'rgba(255, 255, 255, 0.25)', 'important');
+        }}
+        onBlur={(e) => {
+          e.target.style.setProperty('background', 'rgba(255, 255, 255, 0.1)', 'important');
+          e.target.style.setProperty('background-color', 'rgba(255, 255, 255, 0.1)', 'important');
+          e.target.style.setProperty('border-color', 'rgba(255, 255, 255, 0.15)', 'important');
+        }}
         placeholder="Search records, requests, residents..."
-        className="hd-focus h-10 w-full rounded-lg border border-[#E5E6EB] bg-white pl-9 pr-20 text-sm font-medium text-[#1D2129] shadow-sm shadow-slate-900/5"
+        className="transparent-search-input hd-focus h-10 w-full rounded-lg border border-[#ffffff1a] bg-[#ffffff1a] pl-9 pr-10 text-sm font-medium text-white placeholder-white/65 shadow-sm shadow-slate-900/5 focus:border-[#ffffff33] focus:bg-[#ffffff26] focus:ring-0"
         aria-label="Search admin records"
       />
-      {searchQuery ? (
+      {searchQuery && (
         <button
           type="button"
           onClick={clearSearchQuery}
-          className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-white/70 transition hover:bg-[#ffffff1a] hover:text-white"
           aria-label="Clear dashboard search"
         >
           <X size={15} />
         </button>
-      ) : (
-        <span className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-500 sm:inline-flex">
-          Ctrl + K
-        </span>
       )}
 
       {showSearchPanel ? (
@@ -384,24 +422,11 @@ const Dashboard = () => {
   });
 
   return (
-    <div className="dashboard-v2-shell relative min-h-screen bg-transparent px-3 py-2 sm:px-4 lg:px-5">
-      {/* Subtle Barangay Office Background Reflection */}
-      <div className="fixed inset-0 pointer-events-none z-0 opacity-15 bg-cover bg-center" style={{ backgroundImage: "url('/barangay/BARANGAYOFICE.PNG')" }} />
-      <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-b from-slate-100/60 via-slate-50/80 to-slate-100/90" />
+    <div className="dashboard-v2-shell relative min-h-screen bg-[#F0FDF4] p-6">
+      {/* Light green solid background layout overlay */}
+      <div className="fixed inset-0 pointer-events-none z-0 bg-[#F0FDF4]" />
 
-      <div className="relative z-10">
-        <Header
-          title={`${greeting}, Admin!`}
-          subtitle="Welcome back to Barangay Upper Mingading"
-          middleContent={dashboardSearch}
-          className="dashboard-v2-header mb-3 rounded-2xl px-4 py-2 bg-white/75 backdrop-blur-md border border-slate-200/80 shadow-xs min-h-[64px]"
-          actions={
-            <span className="hidden items-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-xs xl:flex">
-              <CalendarDays size={15} className="text-[#14532D]" />
-              {currentDate}
-            </span>
-          }
-        />
+      <div className="relative z-10 max-w-[1600px] mx-auto min-w-0">
         <div>
           <DashboardOverview
             stats={stats}
@@ -410,6 +435,14 @@ const Dashboard = () => {
             requests={recentRequests}
             announcements={publishedAnnouncements}
             activities={recentActivities}
+            header={
+              <Header
+                title={`${greeting}, Admin! 👋`}
+                subtitle="Welcome back to Barangay Upper Mingading"
+                middleContent={dashboardSearch}
+                transparent={true}
+              />
+            }
           />
         </div>
       </div>

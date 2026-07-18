@@ -409,40 +409,19 @@ const OrganizationChart = () => {
       description="Manage barangay official profiles, photos, and print-ready hierarchy"
     >
       <div className="glass-container mt-2 mx-auto max-w-[1360px] flex flex-col pb-20">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between p-6 border-b border-slate-200/50">
-            <div className="max-w-2xl">
-              <span className="inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">
-                <Building2 size={14} />
-                Barangay Upper Mingading
-              </span>
-              <h2 className="mt-4 text-3xl font-black text-slate-800 sm:text-4xl">
-                Organizational Chart
-              </h2>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">
-                View the official hierarchy, upload real profile photos, update official background, and print a clean chart when needed.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
-              >
-                <Printer size={16} />
-                Print Chart
-              </button>
-              <button
-                type="button"
-                onClick={handleReset}
-                disabled={savingOfficial}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-50 px-5 py-3 text-sm font-bold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
-              >
-                <RotateCcw size={16} />
-                {savingOfficial ? "Saving..." : "Reset Data"}
-              </button>
-            </div>
+        <div className="flex items-center justify-between border-b border-slate-200/50 bg-slate-50/50 px-6 py-4">
+          <div className="text-sm font-semibold text-slate-500">Barangay Official Directory</div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="strict-button-hover inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 cursor-pointer shadow-sm"
+            >
+              <Printer size={14} />
+              Print Chart
+            </button>
           </div>
+        </div>
 
           {(message || savedAt) && (
             <div className="border-b border-slate-200/50 bg-emerald-50 px-6 py-3 text-sm font-bold text-emerald-800">
@@ -537,6 +516,18 @@ const OrganizationChart = () => {
                       {columns[3].map((official) => (
                         <OfficialCard key={official.id} official={official} onClick={setViewingOfficial} />
                       ))}
+                      
+                      {/* Safe Reset Data Button placed below the SK Chairman card */}
+                      <button
+                        type="button"
+                        onClick={handleReset}
+                        disabled={savingOfficial}
+                        className="strict-button-hover mt-4 inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60 cursor-pointer shadow-sm"
+                        title="Reset officials data to default"
+                      >
+                        <RotateCcw size={14} />
+                        {savingOfficial ? "Saving..." : "Reset Data"}
+                      </button>
                     </div>
                   </div>
                 </div>

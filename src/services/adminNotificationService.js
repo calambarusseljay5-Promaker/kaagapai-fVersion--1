@@ -302,8 +302,9 @@ export function markAllAdminNotificationsRead(notificationIds = []) {
 }
 
 export function subscribeAdminNotificationChanges(onChange) {
+  const uniqueId = Math.random().toString(36).substring(2, 10);
   const channel = supabase
-    .channel("admin-notification-feed")
+    .channel(`admin-notification-feed-${uniqueId}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "residents" }, onChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "resident_activation_requests" }, onChange)
     .on("postgres_changes", { event: "*", schema: "public", table: "resident_profile_update_requests" }, onChange)

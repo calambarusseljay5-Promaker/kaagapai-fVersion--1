@@ -148,6 +148,13 @@ export function formatPurok(value, fallback = "-") {
   return getPurokDefinition(value)?.label || String(value).trim() || fallback;
 }
 
+export function buildCompleteAddress(purokValue) {
+  if (!purokValue) return "";
+  const label = formatPurok(purokValue, "");
+  if (!label) return "";
+  return `Purok ${label}, Upper Mingading, Aleosan, Cotabato`;
+}
+
 export function getPurokColor(value) {
   return getPurokDefinition(value)?.color || "#64748b";
 }

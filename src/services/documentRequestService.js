@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabaseClient";
 import { getSystemSettings } from "./adminActivityService";
 import { mergeRealDocumentTemplates } from "../utils/realDocumentTemplates";
+import { moveToRecycleBin } from "./recycleBinService";
 
 const DOCUMENT_REQUESTS_TABLE = "document_requests";
 const RESIDENTS_TABLE = "residents";
@@ -376,6 +377,17 @@ export async function updateDocumentRequestType(id, document_type) {
  * Delete a document request record
  */
 export async function deleteDocumentRequest(id) {
+  // Fetch the record snapshot first for the Recycle Bin
+  const { data: record } = await supabase
+    .from(DOCUMENT_REQUESTS_TABLE)
+    .select("*, residents(full_name)")
+    .eq("id", id)
+    .single();
+
+  if (record) {
+    moveToRecycleBin("document_requests", id, record);
+  }
+
   const { data, error } = await supabase
     .from(DOCUMENT_REQUESTS_TABLE)
     .delete()

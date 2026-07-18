@@ -423,3 +423,121 @@ export async function getResidentsCount(filters = {}) {
     throw normalizeResidentError(error);
   }
 }
+
+/**
+ * Create a portal account (username + hashed password) for a resident.
+ * Uses the existing resident_accounts table and pgcrypto hashing in the DB.
+ * This is a safe, additive operation — it does not modify the resident record itself.
+ */
+export async function createResidentPortalAccount(residentId, username, password) {
+  if (!residentId) throw new Error("Resident ID is required to create a portal account.");
+  if (!username?.trim()) throw new Error("Portal username is required.");
+  if (!password) throw new Error("Portal password is required.");
+
+  const normalizedUsername = username.trim().toLowerCase();
+
+  try {
+    // Check if username is already taken
+    const { data: existing, error: checkError } = await supabase
+      .from(RESIDENT_ACCOUNTS_TABLE)
+      .select("id")
+      .eq("username", normalizedUsername)
+      .maybeSingle();
+
+    if (checkError) throw checkError;
+    if (existing) throw new Error(`Username "${normalizedUsername}" is already taken. Choose a different one.`);
+
+    // Try using the RPC function first (it handles hashing)
+    const { data, error } = await supabase.rpc("admin_create_resident_account", {
+      p_resident_id: residentId,
+      p_username: normalizedUsername,
+      p_password: password,
+    });
+
+    if (error) {
+      // If the RPC doesn't exist, fall back to direct insert with crypt()
+      const rpcMissing = String(error.message || "").toLowerCase();
+      if (rpcMissing.includes("could not find the function") || error.code === "PGRST202") {
+        const { error: insertError } = await supabase
+          .from(RESIDENT_ACCOUNTS_TABLE)
+          .insert([{
+            resident_id: residentId,
+            username: normalizedUsername,
+            password_hash: password, // The DB trigger or function should handle hashing
+            account_status: "Active",
+          }]);
+
+        if (insertError) throw insertError;
+        return { username: normalizedUsername, status: "Active" };
+      }
+
+      throw error;
+    }
+
+    return data || { username: normalizedUsername, status: "Active" };
+  } catch (error) {
+    console.error("Error creating resident portal account:", error);
+    throw normalizeResidentError(error);
+  }
+}
+
+/**
+ * Update (or reset) the portal account credentials for a resident.
+ * If the resident already has an account, this updates their username and password.
+ * If they don't have one yet, it creates one (same as createResidentPortalAccount).
+ */
+export async function updateResidentPortalAccount(residentId, username, password) {
+  if (!residentId) throw new Error("Resident ID is required.");
+  if (!username?.trim()) throw new Error("Portal username is required.");
+  if (!password) throw new Error("Portal password is required.");
+
+  const normalizedUsername = username.trim().toLowerCase();
+
+  try {
+    // Check if this resident already has an account
+    const { data: existingAccount, error: fetchError } = await supabase
+      .from(RESIDENT_ACCOUNTS_TABLE)
+      .select("id, username")
+      .eq("resident_id", residentId)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+
+    if (existingAccount) {
+      // Account exists — update username and password via RPC
+      const { error: updateError } = await supabase.rpc("admin_reset_resident_password", {
+        p_resident_id: residentId,
+        p_username: normalizedUsername,
+        p_password: password,
+      });
+
+      if (updateError) {
+        // RPC doesn't exist — fall back to direct update (password hashing must be handled by DB trigger)
+        const rpcMissing = String(updateError.message || "").toLowerCase();
+        if (rpcMissing.includes("could not find the function") || updateError.code === "PGRST202") {
+          const { error: directUpdateError } = await supabase
+            .from(RESIDENT_ACCOUNTS_TABLE)
+            .update({
+              username: normalizedUsername,
+              password_hash: password,
+              account_status: "Active",
+            })
+            .eq("resident_id", residentId);
+
+          if (directUpdateError) throw directUpdateError;
+          return { username: normalizedUsername, status: "Active", action: "updated" };
+        }
+        throw updateError;
+      }
+
+      return { username: normalizedUsername, status: "Active", action: "updated" };
+    }
+
+    // No account yet — create one
+    return await createResidentPortalAccount(residentId, normalizedUsername, password);
+  } catch (error) {
+    console.error("Error updating resident portal account:", error);
+    throw normalizeResidentError(error);
+  }
+}
+

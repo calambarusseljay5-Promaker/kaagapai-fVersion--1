@@ -7,6 +7,17 @@ const DocumentRequestsPanel = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const isRequestExpired = (request) => {
+    if (!request) return false;
+    if (["Released", "Rejected", "Cancelled"].includes(request.status)) return false;
+
+    const createdOrUpdatedTime = new Date(request.updated_at || request.created_at || 0).getTime();
+    const timeDifferenceMs = Date.now() - createdOrUpdatedTime;
+    const oneDayMs = 24 * 60 * 60 * 1000;
+
+    return timeDifferenceMs > oneDayMs;
+  };
+
   const getStatusBadgeStyle = (status) => {
     switch (status) {
       case "Pending":
@@ -21,6 +32,8 @@ const DocumentRequestsPanel = () => {
         return { backgroundColor: "#64748b", color: "#ffffff", border: "1px solid #475569" };
       case "Rejected":
         return { backgroundColor: "#e11d48", color: "#ffffff", border: "1px solid #be123c", boxShadow: "0 0 10px rgba(225,29,72,0.4)" };
+      case "Expired":
+        return { backgroundColor: "#ef4444", color: "#ffffff", border: "1px solid #dc2626", boxShadow: "0 0 10px rgba(239,68,68,0.4)" };
       default:
         return { backgroundColor: "#64748b", color: "#ffffff", border: "1px solid #475569" };
     }
@@ -113,23 +126,27 @@ const DocumentRequestsPanel = () => {
                 </td>
               </tr>
             ) : (
-              requests.slice(0, 4).map((request) => (
-                <tr key={request.id} className="transition hover:bg-blue-50/45">
-                  <td className="px-5 py-3.5 text-sm font-medium text-[#17233c]">
-                    {request.residents?.full_name || request.full_name || "-"}
-                  </td>
-                  <td className="px-5 py-3.5 text-sm text-slate-600">{request.document_type}</td>
-                  <td className="px-5 py-3.5 text-sm text-slate-500">{formatDate(request.created_at)}</td>
-                  <td className="px-5 py-3.5">
-                    <span
-                      className="inline-flex rounded-md px-2.5 py-1 text-xs font-semibold"
-                      style={getStatusBadgeStyle(request.status)}
-                    >
-                      {request.status}
-                    </span>
-                  </td>
-                </tr>
-              ))
+              requests.slice(0, 4).map((request) => {
+                const expired = isRequestExpired(request);
+                const displayStatus = expired ? "Expired" : request.status;
+                return (
+                  <tr key={request.id} className="transition hover:bg-blue-50/45">
+                    <td className="px-5 py-3.5 text-sm font-medium text-[#17233c]">
+                      {request.residents?.full_name || request.full_name || "-"}
+                    </td>
+                    <td className="px-5 py-3.5 text-sm text-slate-600">{request.document_type}</td>
+                    <td className="px-5 py-3.5 text-sm text-slate-500">{formatDate(request.created_at)}</td>
+                    <td className="px-5 py-3.5">
+                      <span
+                        className="inline-flex rounded-md px-2.5 py-1 text-xs font-semibold"
+                        style={getStatusBadgeStyle(displayStatus)}
+                      >
+                        {displayStatus}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

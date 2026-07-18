@@ -262,6 +262,17 @@ const sidebarNavItems = [
   { key: "officials", label: "Barangay Officials", icon: Users },
 ];
 
+const isRequestExpired = (request) => {
+  if (!request) return false;
+  if (["Released", "Rejected", "Cancelled"].includes(request.status)) return false;
+
+  const createdOrUpdatedTime = new Date(request.updated_at || request.created_at || 0).getTime();
+  const timeDifferenceMs = Date.now() - createdOrUpdatedTime;
+  const oneDayMs = 24 * 60 * 60 * 1000;
+
+  return timeDifferenceMs > oneDayMs;
+};
+
 const getStatusClass = (status) => {
   switch (status) {
     case "Pending":
@@ -275,6 +286,8 @@ const getStatusClass = (status) => {
       return "bg-teal-50 border-teal-250 text-teal-700";
     case "Rejected":
       return "bg-rose-50 border-rose-250 text-rose-700";
+    case "Expired":
+      return "bg-rose-50 border-rose-250 text-rose-700 font-bold border-rose-300";
     default:
       return "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-650 dark:text-slate-350";
   }
@@ -285,6 +298,12 @@ const AssistantAiIcon = () => (
     <Bot className="h-[55%] w-[55%]" strokeWidth={2} />
   </span>
 );
+
+const parsePurpose = (docType) => {
+  if (!docType) return "";
+  const match = docType.match(/\(Purpose:\s*(.*?)\)/i) || docType.match(/-\s*Purpose:\s*(.*)/i);
+  return match ? match[1].trim() : "";
+};
 
 const UserDashboard = () => {
   const navigate = useNavigate();
@@ -298,6 +317,7 @@ const UserDashboard = () => {
   const [allSystemRequests, setAllSystemRequests] = useState([]);
   const [documentTemplates, setDocumentTemplates] = useState([]);
   const [selectedDocumentType, setSelectedDocumentType] = useState("");
+  const [requestPurpose, setRequestPurpose] = useState("");
   const [notifications, setNotifications] = useState([]);
   const [announcementReadIds, setAnnouncementReadIds] = useState([]);
   const [livelihoodReadIds, setLivelihoodReadIds] = useState([]);
@@ -623,6 +643,15 @@ const UserDashboard = () => {
       console.warn("Failed to load chat sessions:", e);
     }
   }, [resident?.id]);
+
+
+
+  useEffect(() => {
+    const currentState = window.history.state;
+    if (!currentState || currentState.activeNav !== activeNav) {
+      window.history.pushState({ activeNav }, "", "");
+    }
+  }, [activeNav]);
 
   const saveChatSession = (messagesList) => {
     const userMsgs = messagesList.filter((m) => m.role === "user");
@@ -1023,6 +1052,50 @@ const UserDashboard = () => {
 
   const residentUsername = resident?.username || resident?.email || "";
 
+  // Handle mobile/browser hardware Back button to navigate between tabs
+  useEffect(() => {
+    const handlePopState = async (event) => {
+      if (event.state && event.state.activeNav) {
+        setActiveNav(event.state.activeNav);
+      } else {
+        const isMobile = window.innerWidth < 1024;
+        if (isMobile) {
+          // Push the state back immediately to prevent exit
+          window.history.pushState({ activeNav: "dashboard" }, "", "");
+          
+          const ok = await confirm({
+            title: "Confirm Exit / Logout",
+            message: "Are you sure you want to log out of your KaagapAI Resident Account?",
+            confirmText: "Yes, Logout",
+            cancelText: "No, Stay",
+            variant: "danger",
+            icon: LogOut,
+          });
+
+          if (ok) {
+            const goodbyeName = displayName;
+            sessionStorage.setItem("just_logged_out", "true");
+            clearResidentSession();
+            await logoutUser();
+            navigate("/goodbye", {
+              replace: true,
+              state: { displayName: goodbyeName, role: "resident" },
+            });
+          }
+        } else {
+          setActiveNav("dashboard");
+        }
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    if (!window.history.state || !window.history.state.activeNav) {
+      window.history.replaceState({ activeNav: "dashboard" }, "", "");
+    }
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [confirm, displayName, navigate]);
+
   useEffect(() => {
     if (!resident?.id) return undefined;
     const readIds = getStoredReadIds(`${ANNOUNCEMENT_READ_KEY}:${resident.id}`);
@@ -1086,15 +1159,19 @@ const UserDashboard = () => {
   const recentRequests = useMemo(() => {
     return [...requests]
       .slice(0, 5)
-      .map((request) => ({
-        ...request,
-        title: request.document_type || "Document Request",
-        dateLabel: new Date(request.created_at).toLocaleDateString(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        }),
-      }));
+      .map((request) => {
+        const expired = isRequestExpired(request);
+        return {
+          ...request,
+          status: expired ? "Expired" : request.status,
+          title: request.document_type || "Document Request",
+          dateLabel: new Date(request.created_at).toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          }),
+        };
+      });
   }, [requests]);
 
   const handleApplyLivelihood = async (livelihoodId) => {
@@ -1255,14 +1332,8 @@ const UserDashboard = () => {
     });
   };
 
-  const handlePrompt = (promptText) => {
-    setAssistantOpen(true);
-    setAssistantInput(promptText);
-  };
-
-  const handleAssistantSubmit = async (event) => {
-    event.preventDefault();
-    const question = assistantInput.trim();
+  const submitAssistantQuestion = async (questionText) => {
+    const question = questionText.trim();
     if (!question) return;
 
     const userMessage = { id: `user-${Date.now()}`, role: "user", text: question };
@@ -1316,6 +1387,16 @@ const UserDashboard = () => {
     }
   };
 
+  const handlePrompt = (promptText) => {
+    setAssistantOpen(true);
+    submitAssistantQuestion(promptText);
+  };
+
+  const handleAssistantSubmit = async (event) => {
+    event.preventDefault();
+    submitAssistantQuestion(assistantInput);
+  };
+
   const handleDocumentRequest = async (event) => {
     event.preventDefault();
     if (!resident?.id) {
@@ -1326,14 +1407,19 @@ const UserDashboard = () => {
       setRequestMessage({ type: "error", text: "Please select a clearance template." });
       return;
     }
+    if (!requestPurpose.trim()) {
+      setRequestMessage({ type: "error", text: "Please provide a purpose for your document request." });
+      return;
+    }
 
     setRequesting(true);
     setRequestMessage(null);
 
     try {
+      const finalDocType = `${selectedDocumentType} (Purpose: ${requestPurpose.trim()})`;
       const newRequest = await createDocumentRequest({
         resident_id: resident.id,
-        document_type: selectedDocumentType,
+        document_type: finalDocType,
       });
       setRequests((current) => [newRequest, ...current]);
       await refreshResidentActivity(resident.id);
@@ -1341,6 +1427,7 @@ const UserDashboard = () => {
         type: "success",
         text: `Application for ${selectedDocumentType} submitted successfully.`,
       });
+      setRequestPurpose(""); // clear purpose field
       setDocumentModalOpen(false);
     } catch (error) {
       setRequestMessage({
@@ -1354,31 +1441,41 @@ const UserDashboard = () => {
 
   const [editingRequest, setEditingRequest] = useState(null);
   const [editDocumentType, setEditDocumentType] = useState("");
+  const [editDocumentPurpose, setEditDocumentPurpose] = useState("");
   const [updatingRequest, setUpdatingRequest] = useState(false);
   const [cancellingRequestId, setCancellingRequestId] = useState(null);
 
   const handleOpenEditRequest = (req) => {
+    if (isRequestExpired(req)) {
+      alert("This document request has expired.");
+      return;
+    }
     setEditingRequest(req);
-    setEditDocumentType(req.document_type || "");
+    const docTypeRaw = req.document_type || "";
+    const typePart = docTypeRaw.split(" (Purpose:")[0].split(" - Purpose:")[0].trim();
+    const purposePart = parsePurpose(docTypeRaw);
+    setEditDocumentType(typePart);
+    setEditDocumentPurpose(purposePart);
   };
 
   const handleSaveEditRequest = async (e) => {
     e.preventDefault();
-    if (!editingRequest || !editDocumentType) return;
+    if (!editingRequest || !editDocumentType || !editDocumentPurpose.trim()) return;
 
     setUpdatingRequest(true);
     try {
-      await updateDocumentRequestType(editingRequest.id, editDocumentType);
-      setRequests((prev) =>
-        prev.map((r) =>
+      const finalDocType = `${editDocumentType} (Purpose: ${editDocumentPurpose.trim()})`;
+      await updateDocumentRequestType(editingRequest.id, finalDocType);
+      setRequests((current) =>
+        current.map((r) =>
           r.id === editingRequest.id
-            ? { ...r, document_type: editDocumentType, updated_at: new Date().toISOString() }
+            ? { ...r, document_type: finalDocType, updated_at: new Date().toISOString() }
             : r
         )
       );
       setRequestMessage({
         type: "success",
-        text: `Document request updated to ${editDocumentType}.`,
+        text: "Document request updated successfully.",
       });
       setEditingRequest(null);
     } catch (err) {
@@ -1390,6 +1487,10 @@ const UserDashboard = () => {
   };
 
   const handleCancelRequestAction = async (req) => {
+    if (isRequestExpired(req)) {
+      alert("This document request has expired.");
+      return;
+    }
     const ok = await confirm({
       title: "Cancel Document Request?",
       message: `Are you sure you want to cancel your pending request for "${req.document_type}"?`,
@@ -1770,7 +1871,7 @@ const UserDashboard = () => {
   const renderDocumentRequestForm = () => (
     <form onSubmit={handleDocumentRequest} className="space-y-4">
       <div className="space-y-1.5">
-        <label className="block text-sm font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:text-slate-500">Clearance Document Type *</label>
+        <label className="block text-sm font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Clearance Document Type *</label>
         <select
           value={selectedDocumentType}
           onChange={(event) => setSelectedDocumentType(event.target.value)}
@@ -1786,6 +1887,18 @@ const UserDashboard = () => {
             ))
           )}
         </select>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="block text-sm font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Purpose of Request *</label>
+        <textarea
+          value={requestPurpose}
+          onChange={(event) => setRequestPurpose(event.target.value)}
+          placeholder="Specify purpose (e.g. Job Application, Scholarship, Local Travel, etc.)"
+          className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2.5 text-xs font-semibold text-slate-900 dark:text-white outline-none transition focus:border-[#0B5D3B] focus:bg-white dark:bg-slate-900"
+          rows={3}
+          required
+        />
       </div>
 
       {requestMessage && (
@@ -1893,175 +2006,96 @@ const UserDashboard = () => {
 
       {/* Main Body */}
       <main className="flex-1 flex flex-col min-w-0">
-        <header className="app-header py-2">
-          <div className="header-left gap-3.5">
-            <button
-              type="button"
-              onClick={() => setMobileSidebarOpen(true)}
-              className="lg:hidden rounded-xl border p-2 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition shadow-sm"
-              aria-label="Open mobile menu"
-            >
-              <Menu size={18} />
-            </button>
-            <div className="flex items-center gap-2.5">
-              <img
-                src="/logo.png"
-                alt="Logo"
-                className="h-8 w-8 shrink-0 object-contain rounded-full shadow-xs border border-emerald-100 bg-white"
-                style={{ width: "32px", height: "32px", minWidth: "32px", minHeight: "32px" }}
-                onError={(e) => {
-                  e.target.src = "https://placehold.co/100x100/0b5d3b/ffffff?text=Logo";
-                }}
-              />
-              <div className="hidden sm:flex flex-col text-left">
-                <span className="text-[11px] font-black tracking-widest uppercase text-emerald-600 dark:text-emerald-500">KaagapAI Portal</span>
-                <h2 className="text-base sm:text-lg font-black text-slate-800 dark:text-slate-100 leading-tight">
-                  {dynamicGreeting}, {resident?.first_name || displayName}
-                </h2>
-              </div>
-            </div>
-          </div>
-          
-          <div className="header-right gap-3">
-            <div className="hidden sm:block text-right mr-1">
-              <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
-                {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-              </span>
-            </div>
-
-            <div className="relative">
+        {activeNav !== "dashboard" && (
+          <header className="app-header py-2">
+            <div className="header-left gap-3.5">
               <button
                 type="button"
-                onClick={() => { setShowAccountMenu(false); setShowNotificationMenu(!showNotificationMenu); }}
-                className={`relative flex h-10 w-10 items-center justify-center rounded-xl border shadow-2xs transition ${isDarkMode ? "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900 hover:text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-805"}`}
+                onClick={() => openModule("dashboard")}
+                className="rounded-xl border p-2 text-[#14532D] dark:text-[#C8A14A] bg-[#14532D]/5 dark:bg-slate-900 border-[#14532D]/20 hover:bg-[#14532D]/10 hover:border-[#14532D]/40 transition shadow-xs flex items-center justify-center cursor-pointer shrink-0"
+                aria-label="Back to Dashboard"
+                title="Back to Dashboard"
               >
-                <Bell size={17} />
-                {unreadNotificationCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-4.5 min-w-[1.1rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[11px] font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
-                    {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
-                  </span>
-                )}
+                <ChevronLeft size={16} />
               </button>
-
-              <AnimatePresence>
-                {showNotificationMenu && (
-                  <>
-                    <div className="fixed inset-0 z-45" onClick={() => setShowNotificationMenu(false)} />
-                    <motion.div
-                      className={`absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-2xl border shadow-xl ${isDarkMode ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-808"}`}
-                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-                    >
-                      <div className={`flex items-center justify-between border-b px-4 py-2.5 ${isDarkMode ? "border-slate-800 bg-slate-950" : "border-slate-100 bg-slate-50"}`}>
-                        <p className="text-sm font-black uppercase tracking-wider text-slate-505">Notifications</p>
-                        <span className={`rounded-full px-2 py-0.5 text-sm font-bold ${isDarkMode ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-50 text-emerald-805"}`}>
-                          {unreadNotificationCount} New
-                        </span>
-                      </div>
-                      <div className="max-h-72 divide-y divide-slate-100 dark:divide-slate-800 overflow-y-auto">
-                        {allNotificationsMerged.length === 0 ? (
-                          <div className="p-6 text-center text-xs text-slate-400 font-bold">No recent alerts.</div>
-                        ) : (
-                          allNotificationsMerged.map((n) => (
-                            <button
-                              key={n.id}
-                              type="button"
-                              onClick={() => {
-                                if (n.isAnnouncement) {
-                                  const next = [...new Set([...announcementReadIds, n.announcement_id])];
-                                  saveStoredReadIds(`${ANNOUNCEMENT_READ_KEY}:${resident?.id}`, next);
-                                  setAnnouncementReadIds(next);
-                                  setShowNotificationMenu(false);
-                                  openModule("announcements");
-                                } else {
-                                  handleMarkNotificationRead(n.original);
-                                  setShowNotificationMenu(false);
-                                  const title = (n.title || "").toLowerCase();
-                                  if (title.includes("announcement")) openModule("announcements");
-                                  else if (title.includes("livelihood") || title.includes("application")) openModule("livelihood");
-                                  else openModule("documents");
-                                }
-                              }}
-                              className={`w-full flex gap-2.5 p-3 text-left transition-colors ${isDarkMode ? `hover:bg-slate-800 ${!n.is_read ? "bg-emerald-505/5" : ""}` : `hover:bg-slate-50 ${!n.is_read ? "bg-emerald-50/20" : ""}`}`}
-                            >
-                              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isDarkMode ? "bg-slate-805 text-emerald-400" : "bg-emerald-50 text-emerald-700"}`}>
-                                <FileText size={13} />
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-xs font-bold">{n.title}</p>
-                                <p className={`mt-0.5 line-clamp-2 text-sm leading-normal font-semibold ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>{n.message}</p>
-                              </div>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
             </div>
+            
+            <div className="header-right pr-1 sm:pr-0">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => { setShowAccountMenu(false); setShowNotificationMenu(!showNotificationMenu); }}
+                  className={`relative flex h-10 w-10 items-center justify-center rounded-xl border shadow-2xs transition ${isDarkMode ? "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900 hover:text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-805"}`}
+                >
+                  <Bell size={17} />
+                  {unreadNotificationCount > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4.5 min-w-[1.1rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[11px] font-bold text-white ring-2 ring-white dark:ring-slate-900 animate-pulse">
+                      {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+                    </span>
+                  )}
+                </button>
 
-            {/* Profile Dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => { setShowNotificationMenu(false); setShowAccountMenu(!showAccountMenu); }}
-                className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-emerald-300 hover:border-emerald-500 bg-slate-50 shadow-sm transition transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              >
-                {resident?.profile_photo_url ? (
-                  <img src={resident.profile_photo_url} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xs font-black text-emerald-800 bg-emerald-50">
-                    {displayName[0]?.toUpperCase() || "R"}
-                  </div>
-                )}
-              </button>
-              <div className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 z-10"></div>
-
-              <AnimatePresence>
-                {showAccountMenu && (
-                  <>
-                    <div className="fixed inset-0 z-45" onClick={() => setShowAccountMenu(false)} />
-                    <motion.div
-                      className={`absolute right-0 z-50 mt-2 w-52 rounded-2xl border p-1.5 shadow-xl backdrop-blur-md ${isDarkMode ? "bg-slate-900/95 border-slate-800 text-white" : "bg-white dark:bg-slate-900/95 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100"}`}
-                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-                    >
-                      <div className={`px-3 py-2.5 mb-1.5 text-center border-b ${isDarkMode ? "border-slate-800 bg-slate-950/40" : "border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50"}`}>
-                        <div className="mx-auto h-10 w-10 overflow-hidden rounded-full border mb-2 border-slate-200 dark:border-slate-800">
-                          {resident?.profile_photo_url ? (
-                            <img src={resident.profile_photo_url} alt="" className="h-full w-full object-cover" />
+                <AnimatePresence>
+                  {showNotificationMenu && (
+                    <>
+                      <div className="fixed inset-0 z-45" onClick={() => setShowNotificationMenu(false)} />
+                      <motion.div
+                        className={`absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-2xl border shadow-xl ${isDarkMode ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200 text-slate-808"}`}
+                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                      >
+                        <div className={`flex items-center justify-between border-b px-4 py-2.5 ${isDarkMode ? "border-slate-800 bg-slate-950" : "border-slate-100 bg-slate-50"}`}>
+                          <p className="text-sm font-black uppercase tracking-wider text-slate-505">Notifications</p>
+                          <span className={`rounded-full px-2 py-0.5 text-sm font-bold ${isDarkMode ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-50 text-emerald-805"}`}>
+                            {unreadNotificationCount} New
+                          </span>
+                        </div>
+                        <div className="max-h-72 divide-y divide-slate-100 dark:divide-slate-800 overflow-y-auto">
+                          {allNotificationsMerged.length === 0 ? (
+                            <div className="p-6 text-center text-xs text-slate-400 font-bold">No recent alerts.</div>
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-xs font-black text-emerald-800 bg-emerald-50">{displayName[0]?.toUpperCase() || "R"}</div>
+                            allNotificationsMerged.map((n) => (
+                              <button
+                                key={n.id}
+                                type="button"
+                                onClick={() => {
+                                  if (n.isAnnouncement) {
+                                    const next = [...new Set([...announcementReadIds, n.announcement_id])];
+                                    saveStoredReadIds(`${ANNOUNCEMENT_READ_KEY}:${resident?.id}`, next);
+                                    setAnnouncementReadIds(next);
+                                    setShowNotificationMenu(false);
+                                    openModule("announcements");
+                                  } else {
+                                    handleMarkNotificationRead(n.original);
+                                    setShowNotificationMenu(false);
+                                    const title = (n.title || "").toLowerCase();
+                                    if (title.includes("announcement")) openModule("announcements");
+                                    else if (title.includes("livelihood") || title.includes("application")) openModule("livelihood");
+                                    else openModule("documents");
+                                  }
+                                }}
+                                className={`w-full flex gap-2.5 p-3 text-left transition-colors ${isDarkMode ? `hover:bg-slate-800 ${!n.is_read ? "bg-emerald-505/5" : ""}` : `hover:bg-slate-50 ${!n.is_read ? "bg-emerald-50/20" : ""}`}`}
+                              >
+                                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isDarkMode ? "bg-slate-805 text-emerald-400" : "bg-emerald-50 text-emerald-700"}`}>
+                                  <FileText size={13} />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-xs font-bold">{n.title}</p>
+                                  <p className={`mt-0.5 line-clamp-2 text-sm leading-normal font-semibold ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>{n.message}</p>
+                                </div>
+                              </button>
+                            ))
                           )}
                         </div>
-                        <p className="truncate text-xs font-black">{displayName}</p>
-                        <p className="truncate text-sm text-slate-400 dark:text-slate-500 font-bold mt-0.5">{residentUsername}</p>
-                      </div>
-
-                      {[
-                        { key: "profile", label: "My Profile", icon: User },
-                        { key: "personal_info", label: "Personal Information", icon: FileText },
-                        { key: "settings", sub: "security", label: "Settings", icon: Settings },
-                      ].map((item, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => { setShowAccountMenu(false); openModule(item.key, item.sub); }}
-                          className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold transition ${isDarkMode ? "text-slate-300 hover:bg-slate-800 hover:text-white" : "text-slate-650 dark:text-slate-350 hover:bg-slate-50 dark:bg-slate-950 hover:text-slate-900"}`}
-                        >
-                          <item.icon size={13} className="text-[#0B5D3B] dark:text-emerald-450 shrink-0" />
-                          {item.label}
-                        </button>
-                      ))}
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
+          </header>
+        )}
 
-          </div>
-        </header>
-
-        <div className="px-4 py-5 sm:px-6 lg:px-8 max-w-7xl w-full mx-auto pb-24">
+        <div className="px-2 py-4 sm:px-6 lg:px-8 max-w-7xl w-full mx-auto pb-24">
           
           {portalError && (
             <div className="mb-4 flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-bold text-rose-800 shadow-sm">
@@ -2080,7 +2114,194 @@ const UserDashboard = () => {
           {/* TAB 1: DASHBOARD OVERVIEW */}
           {activeNav === "dashboard" && (
             <div className="space-y-6 animate-fadeIn">
-              
+              {/* HERO BANNER CARD WITH BARANGAYOFICE.PNG AND INTEGRATED HEADER */}
+              <div className="relative rounded-[24px] overflow-visible border border-white/10 select-none bg-gradient-to-br from-[#0E6B3A] to-[#0B5A30] text-white animate-fadeIn">
+                {/* Background Image with fade transition */}
+                <div className="absolute inset-0 w-full h-full pointer-events-none z-0 rounded-[24px] overflow-hidden">
+                  <img
+                    src="/barangay/BARANGAYOFICE.PNG"
+                    alt="Barangay Hall"
+                    className="w-full h-full object-cover opacity-25 rounded-[24px]"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a2916]/95 via-[#0B5A30]/80 to-transparent rounded-[24px]" />
+                </div>
+
+                {/* Content Overlay */}
+                <div className="relative z-10 p-4 sm:p-5 flex flex-col text-left">
+                  
+                  {/* Integrated Header Top Row */}
+                  <div className="flex items-center justify-between gap-3 w-full flex-nowrap">
+                    {/* Left side: Greeting */}
+                    <div className="flex items-center min-w-0 shrink">
+                      <h2 className="text-sm sm:text-base font-black text-white leading-tight flex items-center gap-1.5 truncate">
+                        {dynamicGreeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-green-300">{resident?.first_name || displayName}</span>! 👋
+                      </h2>
+                    </div>
+
+                    {/* Right side: Actions (Document Request, Bell, Profile) */}
+                    <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 pr-3 sm:pr-0">
+                      {/* Minimized Document Request Button */}
+                      <button
+                        type="button"
+                        onClick={() => openModule("documents")}
+                        className="inline-flex items-center gap-1 sm:gap-1.5 bg-[#C8A14A] hover:bg-[#b08b3a] active:scale-95 text-slate-900 rounded-lg px-2.5 py-1 text-[10px] sm:text-xs font-black shadow-sm transition duration-200 shrink-0"
+                      >
+                        <ClipboardList size={12} className="text-slate-900 shrink-0" />
+                        <span className="hidden sm:inline">Document Request</span>
+                        <span className="sm:hidden">Request</span>
+                      </button>
+
+                      {/* Notification Bell with Dropdown */}
+                      <div className="relative shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => { setShowAccountMenu(false); setShowNotificationMenu(!showNotificationMenu); }}
+                          className="relative flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 hover:bg-white/15 text-white shadow-sm transition"
+                        >
+                          <Bell size={15} />
+                          {unreadNotificationCount > 0 && (
+                            <span className="absolute -right-1 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[9px] font-bold text-white ring-2 ring-[#0B5A30] animate-pulse">
+                              {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+                            </span>
+                          )}
+                        </button>
+
+                        <AnimatePresence>
+                          {showNotificationMenu && (
+                            <>
+                              <div className="fixed inset-0 z-45" onClick={() => setShowNotificationMenu(false)} />
+                              <motion.div
+                                className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-2xl border shadow-xl bg-slate-900 border-slate-800 text-white"
+                                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                              >
+                                <div className="flex items-center justify-between border-b px-4 py-2.5 border-slate-800 bg-slate-950">
+                                  <p className="text-sm font-black uppercase tracking-wider text-slate-400">Notifications</p>
+                                  <span className="rounded-full px-2 py-0.5 text-xs font-bold bg-emerald-500/20 text-emerald-400">
+                                    {unreadNotificationCount} New
+                                  </span>
+                                </div>
+                                <div className="max-h-72 divide-y divide-slate-800 overflow-y-auto">
+                                  {allNotificationsMerged.length === 0 ? (
+                                    <div className="p-6 text-center text-xs text-slate-400 font-bold">No recent alerts.</div>
+                                  ) : (
+                                    allNotificationsMerged.map((n) => (
+                                      <button
+                                        key={n.id}
+                                        type="button"
+                                        onClick={() => {
+                                          if (n.isAnnouncement) {
+                                            const next = [...new Set([...announcementReadIds, n.announcement_id])];
+                                            saveStoredReadIds(`${ANNOUNCEMENT_READ_KEY}:${resident?.id}`, next);
+                                            setAnnouncementReadIds(next);
+                                            setShowNotificationMenu(false);
+                                            openModule("announcements");
+                                          } else {
+                                            handleMarkNotificationRead(n.original);
+                                            setShowNotificationMenu(false);
+                                            const title = (n.title || "").toLowerCase();
+                                            if (title.includes("announcement")) openModule("announcements");
+                                            else if (title.includes("livelihood") || title.includes("application")) openModule("livelihood");
+                                            else openModule("documents");
+                                          }
+                                        }}
+                                        className="w-full flex gap-2.5 p-3 text-left transition-colors hover:bg-slate-800 bg-slate-900/50"
+                                      >
+                                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-emerald-400">
+                                          <FileText size={13} />
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                          <p className="truncate text-xs font-bold text-white">{n.title}</p>
+                                          <p className="mt-0.5 line-clamp-2 text-sm leading-normal font-semibold text-slate-400">{n.message}</p>
+                                        </div>
+                                      </button>
+                                    ))
+                                  )}
+                                </div>
+                              </motion.div>
+                            </>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      {/* Profile Avatar with Dropdown */}
+                      <div className="relative shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => { setShowNotificationMenu(false); setShowAccountMenu(!showAccountMenu); }}
+                          className="relative flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center overflow-hidden rounded-full border-2 border-emerald-300 hover:border-emerald-500 bg-white/10 shadow-sm transition transform hover:scale-105"
+                        >
+                          {resident?.profile_photo_url ? (
+                            <img src={resident.profile_photo_url} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xs font-black text-white bg-emerald-700">
+                              {displayName[0]?.toUpperCase() || "R"}
+                            </div>
+                          )}
+                        </button>
+                        <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-[#0B5A30] bg-emerald-500 z-10"></div>
+
+                        <AnimatePresence>
+                          {showAccountMenu && (
+                            <>
+                              <div className="fixed inset-0 z-45" onClick={() => setShowAccountMenu(false)} />
+                              <motion.div
+                                className="absolute right-0 z-50 mt-2 w-52 rounded-2xl border p-1.5 shadow-xl backdrop-blur-md bg-slate-900/95 border-slate-800 text-white"
+                                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                              >
+                                <div className="px-3 py-2.5 mb-1.5 text-center border-b border-slate-800 bg-slate-950/40">
+                                  <div className="mx-auto h-10 w-10 overflow-hidden rounded-full border mb-2 border-slate-800">
+                                    {resident?.profile_photo_url ? (
+                                      <img src={resident.profile_photo_url} alt="" className="h-full w-full object-cover" />
+                                    ) : (
+                                      <div className="flex h-full w-full items-center justify-center text-xs font-black text-white bg-emerald-750">{displayName[0]?.toUpperCase() || "R"}</div>
+                                    )}
+                                  </div>
+                                  <p className="truncate text-xs font-black">{displayName}</p>
+                                  <p className="truncate text-sm text-slate-500 font-bold mt-0.5">{residentUsername}</p>
+                                </div>
+
+                                {[
+                                  { key: "profile", label: "My Profile", icon: User },
+                                  { key: "personal_info", label: "Personal Information", icon: FileText },
+                                  { key: "settings", sub: "security", label: "Settings", icon: Settings },
+                                ].map((item, idx) => (
+                                  <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => { setShowAccountMenu(false); openModule(item.key, item.sub); }}
+                                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold transition text-slate-300 hover:bg-slate-800 hover:text-white"
+                                  >
+                                    <item.icon size={13} className="text-emerald-400 shrink-0" />
+                                    {item.label}
+                                  </button>
+                                ))}
+                              </motion.div>
+                            </>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+              {/* Dashboard Overview Header section */}
+              <div className="space-y-3 mb-2 px-1">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMobileSidebarOpen(true)}
+                    className="lg:hidden rounded-lg border border-[#0E6B3A]/20 dark:border-slate-800 p-1.5 text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-slate-900 hover:bg-emerald-100 dark:hover:bg-slate-800 active:scale-95 transition shadow-2xs shrink-0"
+                    aria-label="Open mobile menu"
+                  >
+                    <Menu size={15} className="text-[#0E6B3A] dark:text-emerald-400" />
+                  </button>
+                  <h3 className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? "text-white" : "text-[#0E6B3A]"}`}>Dashboard Overview</h3>
+                </div>
+              </div>
+
               {/* Statistics Grid */}
               <div className="stats-grid lg:hidden">
                 {[
@@ -2102,130 +2323,7 @@ const UserDashboard = () => {
                     </div>
                   </div>
                 ))}
-              </div>
-
-              {/* Analytics Dashboard section */}
-              <div className="space-y-3">
-                <h3 className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? "text-white" : "text-[#0E6B3A]"}`}>Dashboard Analytics</h3>
-                <div className="analytics-grid">
-                  
-                  {/* Line Chart: Request Overview */}
-                  <div className="chart-card flex flex-col h-72">
-                    <p className="text-sm font-black uppercase tracking-wider opacity-60 mb-4 leading-none">Request Overview (Monthly)</p>
-                    <div className="flex-1 w-full min-h-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={requestOverviewData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#334155" : "#e5e7eb"} />
-                          <XAxis dataKey="name" stroke={isDarkMode ? "#94a3b8" : "#6b7280"} fontSize={9} />
-                          <YAxis stroke={isDarkMode ? "#94a3b8" : "#6b7280"} fontSize={9} allowDecimals={false} />
-                          <Tooltip contentStyle={{ background: isDarkMode ? "#1e293b" : "#ffffff", borderColor: isDarkMode ? "#334155" : "#e5e7eb" }} />
-                          <Line type="monotone" dataKey="Requests" stroke={isDarkMode ? "#10b981" : "#0E6B3A"} strokeWidth={2} activeDot={{ r: 5 }} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  {/* Doughnut Chart: Request Status */}
-                  <div className="chart-card flex flex-col h-72">
-                    <p className="text-sm font-black uppercase tracking-wider opacity-60 mb-4 leading-none">Application Status Ratio</p>
-                    <div className="flex-1 w-full min-h-0 flex items-center justify-center">
-                      {requestStatusData.length === 0 ? (
-                        <div className="opacity-60 text-xs font-bold">No request logs.</div>
-                      ) : (
-                        <div className="w-full h-full flex flex-col sm:flex-row items-center justify-center gap-4">
-                          <div className="w-28 h-28 relative shrink-0">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie
-                                  data={requestStatusData}
-                                  cx="50%"
-                                  cy="50%"
-                                  innerRadius={28}
-                                  outerRadius={44}
-                                  paddingAngle={3}
-                                  dataKey="value"
-                                >
-                                  {requestStatusData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                  ))}
-                                </Pie>
-                                <Tooltip />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          </div>
-                          <div className="flex flex-col gap-1 text-sm font-black">
-                            {requestStatusData.map((item, idx) => (
-                              <div key={idx} className="flex items-center gap-1.5">
-                                <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                                <span className="opacity-70 uppercase tracking-wider">{item.name}:</span>
-                                <span>{item.value}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Bar Chart: Documents Requested */}
-                  <div className="chart-card flex flex-col h-72">
-                    <p className="text-sm font-black uppercase tracking-wider opacity-60 mb-4 leading-none">Clearance Document Types</p>
-                    <div className="flex-1 w-full min-h-0">
-                      {docsRequestedData.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center opacity-60 text-xs font-bold">No clearance data available.</div>
-                      ) : (
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={docsRequestedData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#334155" : "#e5e7eb"} />
-                            <XAxis dataKey="name" stroke={isDarkMode ? "#94a3b8" : "#6b7280"} fontSize={8} interval={0} />
-                            <YAxis stroke={isDarkMode ? "#94a3b8" : "#6b7280"} fontSize={9} allowDecimals={false} />
-                            <Tooltip contentStyle={{ background: isDarkMode ? "#1e293b" : "#ffffff", borderColor: isDarkMode ? "#334155" : "#e5e7eb" }} />
-                            <Bar dataKey="count" fill={isDarkMode ? "#10b981" : "#0E6B3A"} radius={[4, 4, 0, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Bar Chart: Announcement Stats */}
-                  <div className="chart-card flex flex-col h-72">
-                    <p className="text-sm font-black uppercase tracking-wider opacity-60 mb-4 leading-none">Announcement Statistics</p>
-                    <div className="flex-1 w-full min-h-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={announcementStatsData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#334155" : "#e5e7eb"} />
-                          <XAxis dataKey="name" stroke={isDarkMode ? "#94a3b8" : "#6b7280"} fontSize={9} />
-                          <YAxis stroke={isDarkMode ? "#94a3b8" : "#6b7280"} fontSize={9} allowDecimals={false} />
-                          <Tooltip contentStyle={{ background: isDarkMode ? "#1e293b" : "#ffffff", borderColor: isDarkMode ? "#334155" : "#e5e7eb" }} />
-                          <Bar dataKey="count" fill={isDarkMode ? "#0E6B3A" : "#10B981"} radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  {/* Area Chart: Resident Activity Timeline */}
-                  <div className="chart-card chart-full flex flex-col h-72">
-                    <p className="text-sm font-black uppercase tracking-wider opacity-60 mb-4 leading-none">Portal Activity Timeline (Weekly)</p>
-                    <div className="flex-1 w-full min-h-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={activityOverviewData}>
-                          <defs>
-                            <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor={isDarkMode ? "#10b981" : "#0E6B3A"} stopOpacity={0.3}/>
-                              <stop offset="95%" stopColor={isDarkMode ? "#10b981" : "#0E6B3A"} stopOpacity={0.0}/>
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#334155" : "#e5e7eb"} />
-                          <XAxis dataKey="name" stroke={isDarkMode ? "#94a3b8" : "#6b7280"} fontSize={9} />
-                          <YAxis stroke={isDarkMode ? "#94a3b8" : "#6b7280"} fontSize={9} allowDecimals={false} />
-                          <Tooltip contentStyle={{ background: isDarkMode ? "#1e293b" : "#ffffff", borderColor: isDarkMode ? "#334155" : "#e5e7eb" }} />
-                          <Area type="monotone" dataKey="Activity" stroke={isDarkMode ? "#10b981" : "#0E6B3A"} strokeWidth={1.5} fillOpacity={1} fill="url(#colorActivity)" />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
                 </div>
-              </div>
 
               {/* Main Dashboard Workspace Grid */}
               <div className="bottom-grid">
@@ -2551,7 +2649,9 @@ const UserDashboard = () => {
                     </thead>
                     <tbody className="divide-y font-semibold divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                       {requests.map((req) => {
-                        const isPending = req.status === "Pending";
+                        const expired = isRequestExpired(req);
+                        const displayStatus = expired ? "Expired" : req.status;
+                        const isPending = !expired && req.status === "Pending";
                         const isCancelled = req.status === "Cancelled";
                         return (
                           <tr key={req.id} className="transition hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
@@ -2559,8 +2659,8 @@ const UserDashboard = () => {
                             <td className="px-4 py-3">{new Date(req.created_at).toLocaleDateString()}</td>
                             <td className="px-4 py-3">{new Date(req.updated_at || req.created_at).toLocaleDateString()}</td>
                             <td className="px-4 py-3">
-                              <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-black border ${getStatusClass(req.status)}`}>
-                                {req.status}
+                              <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-black border ${getStatusClass(displayStatus)}`}>
+                                {displayStatus}
                               </span>
                             </td>
                             <td className="px-4 py-3 text-right">
@@ -3999,9 +4099,13 @@ const UserDashboard = () => {
                   {/* suggestions */}
                   <div className="bg-slate-50 dark:bg-slate-950/50 border-t border-slate-200 dark:border-slate-800 p-2.5 overflow-x-auto shrink-0 flex gap-2 scrollbar-hide">
                     {[
-                      "How to request clearances?",
-                      "List council officials",
-                      "Check pending document request status",
+                      "Paano kumuha ng Clearance?",
+                      "Magkano ang bayad sa Residency?",
+                      "Sino ang Barangay Kapitan?",
+                      "Anong oras bukas ang Barangay Hall?",
+                      "May livelihood programs ba?",
+                      "Paano mag-reklamo ng maingay?",
+                      "Where is the evacuation center?",
                     ].map((s) => (
                       <button
                         key={s}
@@ -4479,6 +4583,20 @@ const UserDashboard = () => {
                   </select>
                 </div>
 
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
+                    Purpose of Request
+                  </label>
+                  <textarea
+                    value={editDocumentPurpose}
+                    onChange={(e) => setEditDocumentPurpose(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-[#0B5D3B] text-slate-900 dark:text-white transition"
+                    placeholder="Specify purpose (e.g. Job Application, Scholarship, Local Travel, etc.)"
+                    rows={2}
+                    required
+                  />
+                </div>
+
                 <p className="text-[11px] text-slate-500 font-medium">
                   Updating your request will automatically notify the system and update your record for the Secretary.
                 </p>
@@ -4493,7 +4611,7 @@ const UserDashboard = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={updatingRequest || !editDocumentType || editDocumentType === editingRequest.document_type}
+                    disabled={updatingRequest || !editDocumentType || !editDocumentPurpose.trim()}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#0B5D3B] to-[#157347] text-white text-xs font-bold shadow-xs hover:scale-101 transition disabled:opacity-50"
                   >
                     {updatingRequest ? <Loader size={12} className="animate-spin" /> : null}

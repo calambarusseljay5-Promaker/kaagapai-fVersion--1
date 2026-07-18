@@ -10,43 +10,49 @@ import {
   Briefcase,
   Megaphone,
   Archive,
-  Activity,
+  UserCheck,
   BrainCircuit,
   Settings,
   Landmark,
+  Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { useState, useEffect } from "react";
+import { fetchResidentActivationRequests } from "../services/residentActivationService";
+import { subscribeAdminNotificationChanges } from "../services/adminNotificationService";
 
 const navigationGroups = [
   {
     label: "Main",
     items: [
       { name: "Dashboard", icon: "LayoutDashboard", path: "/dashboard" },
-      { name: "Resident", icon: "Users", path: "/residents" },
+      { name: "Residents", icon: "Users", path: "/residents" },
       { name: "Organizational Chart", icon: "Building2", path: "/organization" },
       { name: "Document Management", icon: "FileText", path: "/documents" },
       { name: "Announcements", icon: "Megaphone", path: "/announcements" },
       { name: "Livelihood & Jobs", icon: "Briefcase", path: "/livelihood" },
       { name: "Resident Knowledge", icon: "BrainCircuit", path: "/ai-knowledge" },
       { name: "Reports & Analytics", icon: "BarChart3", path: "/analytics" },
-      { name: "Audit Logs", icon: "Activity", path: "/audit" },
-      { name: "Archive Management", icon: "Archive", path: "/archive" },
+      { name: "Resident Registration", icon: "UserCheck", path: "/resident-activations" },
+      { name: "Archive", icon: "Archive", path: "/archive" },
+      { name: "Recycle Bin", icon: "Trash2", path: "/recycle-bin" },
     ],
   },
 ];
 
 const iconMap = {
-  LayoutDashboard: <LayoutDashboard size={24} />,
-  Users: <Users size={24} />,
-  FileText: <FileText size={24} />,
-  BarChart3: <BarChart3 size={24} />,
-  Building2: <Building2 size={24} />,
-  Briefcase: <Briefcase size={24} />,
-  Megaphone: <Megaphone size={24} />,
-  Archive: <Archive size={24} />,
-  Activity: <Activity size={24} />,
-  BrainCircuit: <BrainCircuit size={24} />,
-  Settings: <Settings size={24} />,
+  LayoutDashboard: <LayoutDashboard size={20} className="stroke-[2]" />,
+  Users: <Users size={20} className="stroke-[2]" />,
+  FileText: <FileText size={20} className="stroke-[2]" />,
+  BarChart3: <BarChart3 size={20} className="stroke-[2]" />,
+  Building2: <Building2 size={20} className="stroke-[2]" />,
+  Briefcase: <Briefcase size={20} className="stroke-[2]" />,
+  Megaphone: <Megaphone size={20} className="stroke-[2]" />,
+  Archive: <Archive size={20} className="stroke-[2]" />,
+  UserCheck: <UserCheck size={20} className="stroke-[2]" />,
+  BrainCircuit: <BrainCircuit size={20} className="stroke-[2]" />,
+  Settings: <Settings size={20} className="stroke-[2]" />,
+  Trash2: <Trash2 size={20} className="stroke-[2]" />,
 };
 
 const AdminOrbitLogo = () => (
@@ -62,6 +68,37 @@ const AdminOrbitLogo = () => (
 const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
   const location = useLocation();
   const shouldReduceMotion = useReducedMotion();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadPendingCount = async () => {
+      try {
+        const requests = await fetchResidentActivationRequests("Pending Approval");
+        if (isMounted) {
+          setPendingCount(requests.length);
+        }
+      } catch (err) {
+        console.error("Sidebar pending count error:", err);
+      }
+    };
+
+    loadPendingCount();
+
+    // Subscribe to DB changes to auto-update
+    const unsubscribe = subscribeAdminNotificationChanges(() => {
+      loadPendingCount();
+    });
+
+    window.addEventListener("focus", loadPendingCount);
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+      window.removeEventListener("focus", loadPendingCount);
+    };
+  }, []);
 
   const sidebarVariants = {
     expanded: {
@@ -171,15 +208,15 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                     <NavLink
                       to={item.path}
                       title={isCollapsed ? item.name : undefined}
-                      className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-all duration-200 ${active
-                          ? "bg-white/15 text-white shadow-md ring-1 ring-white/20"
-                          : "text-emerald-100/90 hover:bg-white/10 hover:text-white"
-                        }`}
+                      className={`group relative flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${active
+                          ? "bg-white/12 text-white shadow-sm ring-1 ring-white/10"
+                          : "text-emerald-100/90 hover:bg-white/8 hover:text-white"
+                        } ${isCollapsed ? "justify-center" : ""}`}
                     >
                       {active && (
                         <motion.span
                           layoutId="activeIndicator"
-                          className="absolute bottom-2 left-0 top-2 w-1.5 rounded-r-full bg-[#C8A14A]"
+                          className="absolute bottom-2.5 left-0 top-2.5 w-1 rounded-r-full bg-[#C8A14A]"
                           initial={false}
                           transition={{ type: "spring", stiffness: 500, damping: 30 }}
                         />
@@ -187,17 +224,27 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                       {active && (
                         <motion.span
                           layoutId="activeNavGlow"
-                          className="pointer-events-none absolute inset-0 rounded-[14px] bg-gradient-to-r from-white/12 via-slate-300/8 to-transparent"
+                          className="pointer-events-none absolute inset-0 rounded-[14px] bg-gradient-to-r from-white/10 via-slate-300/5 to-transparent"
                           initial={false}
                           transition={{ type: "spring", stiffness: 420, damping: 32 }}
                         />
                       )}
-                      <span className="relative flex-shrink-0 text-current transition-transform duration-200 group-hover:scale-110">
+                      <span className="relative flex-shrink-0 text-current transition-transform duration-200 group-hover:scale-105">
                         {iconMap[item.icon]}
+                        {isCollapsed && item.name === "Resident Registration" && pendingCount > 0 && (
+                          <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#FFB800] text-[9px] font-extrabold text-white ring-1 ring-white">
+                            {pendingCount > 9 ? "9+" : pendingCount}
+                          </span>
+                        )}
                       </span>
                       {!isCollapsed && (
-                        <span className="relative truncate">
-                          {item.name}
+                        <span className="relative truncate flex-1 flex items-center justify-between">
+                          <span>{item.name}</span>
+                          {item.name === "Resident Registration" && pendingCount > 0 && (
+                            <span className="ml-2 rounded-full bg-[#FFB800] px-2 py-0.5 text-[10px] font-extrabold text-slate-900 shadow-sm animate-pulse">
+                              {pendingCount}
+                            </span>
+                          )}
                         </span>
                       )}
                     </NavLink>

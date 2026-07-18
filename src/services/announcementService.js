@@ -3,6 +3,7 @@ import {
   deleteKnowledgeForSource,
   syncKnowledgeFromAnnouncement,
 } from "./knowledgeService";
+import { moveToRecycleBin } from "./recycleBinService";
 
 const TABLE = "announcements";
 const SETUP_MESSAGE =
@@ -116,6 +117,17 @@ export async function updateAnnouncement(id, updates) {
 
 export async function deleteAnnouncement(id) {
   if (!id) throw new Error("Announcement ID is required.");
+
+  // Fetch the record snapshot first for the Recycle Bin
+  const { data: record } = await supabase
+    .from(TABLE)
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (record) {
+    moveToRecycleBin("announcements", id, record);
+  }
 
   const { error } = await supabase.from(TABLE).delete().eq("id", id);
   if (error) throw normalizeSupabaseError(error);

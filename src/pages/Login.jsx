@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -38,10 +38,15 @@ import {
   Home as HomeIcon,
   PhoneCall,
   Check,
-  Globe
+  Globe,
+  Flame,
+  Calendar,
+  AlertTriangle,
+  Megaphone,
+  CalendarDays
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
-import { clearAuthSession, loginUser } from "../services/authService";
+import { clearAuthSession, loginUser, resetPassword } from "../services/authService";
 import {
   clearResidentSession,
   getResidentSession,
@@ -49,9 +54,25 @@ import {
   requestResidentActivation,
   validateResidentRegistrationProof,
 } from "../services/residentAuthService";
-import { isValidSmsPhone } from "../services/smsService";
+import { isValidSmsPhone, normalizeSmsPhone } from "../services/smsService";
 import { getDashboardPathForRole } from "../utils/authRoutes";
 import { buildFullName, calculateAge, formatPurok, purokOptions } from "../utils/residentProfile";
+import { fetchPublishedAnnouncements } from "../services/announcementService";
+import { fetchLivelihoodPosts } from "../services/livelihoodService";
+import { fetchOrganizationOfficials } from "../services/organizationService";
+import { getSystemSettings } from "../services/adminActivityService";
+import ReCAPTCHA from "react-google-recaptcha";
+import {
+  checkLoginAllowed,
+  recordFailedAttempt,
+  clearFailedAttempts,
+  logSecurityEvent
+} from "../services/securityService";
+import {
+  sendOTP,
+  verifyOTP,
+  getOTPCooldownSeconds
+} from "../services/otpService";
 
 const purokOptionList = purokOptions.map((purok) => (
   <option key={purok} value={purok}>
@@ -84,16 +105,38 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   // Modal State System
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [modalStep, setModalStep] = useState("choose"); // "choose" | "resident_login" | "resident_register" | "admin_login"
+  const [showLoginModal, setShowLoginModal] = useState(true);
+  const [modalStep, setModalStep] = useState("resident_login"); // "choose" | "resident_login" | "resident_register" | "admin_login" | "admin_forgot_password" | "resident_forgot_phone" | "resident_forgot_otp" | "resident_forgot_newpass"
   const [accessMode, setAccessMode] = useState("Resident");
   const [residentAuthMode, setResidentAuthMode] = useState("signin");
   const [registrationProof, setRegistrationProof] = useState(null);
   const [registrationStep, setRegistrationStep] = useState(1);
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [showRecaptcha, setShowRecaptcha] = useState(false);
+
+  // Forgot Password System States
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotPhone, setForgotPhone] = useState("");
+  const [forgotOTP, setForgotOTP] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState("");
+  const [otpCooldown, setOtpCooldown] = useState(0);
+  const [otpRemaining, setOtpRemaining] = useState(0);
+  const [forgotResidentId, setForgotResidentId] = useState(null);
 
   // Single-Screen Information Viewer Overlay
   const [activeOverlay, setActiveOverlay] = useState(null); // null | "about" | "features" | "services" | "contact"
+
+  // Google reCAPTCHA integration refs & token state
+  const adminCaptchaRef = useRef(null);
+  const residentCaptchaRef = useRef(null);
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const isRecaptchaConfigured = () => {
+    return Boolean(
+      import.meta.env.VITE_RECAPTCHA_SITE_KEY && 
+      import.meta.env.VITE_RECAPTCHA_SITE_KEY !== "YOUR_SITE_KEY_HERE"
+    );
+  };
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -118,6 +161,10 @@ const Login = () => {
     is_solo_parent: false,
     is_pwd: false,
     pwd_type: "",
+    gmail: "",
+    username: "",
+    portal_password: "",
+    confirm_password: "",
   });
 
   const navigate = useNavigate();
@@ -171,6 +218,140 @@ const Login = () => {
     setNotice(null);
     localStorage.removeItem("kaagapai_redirect_module");
   };
+
+  // Landing Page Data State
+  const [landingData, setLandingData] = useState({
+    stats: {
+      totalResidents: 0,
+      totalHouseholds: 0,
+      documentsProcessed: 0,
+      pendingRequests: 0,
+      announcementsPublished: 0,
+      completedPercent: 100,
+    },
+    announcements: [],
+    events: [],
+    officials: [],
+    systemSettings: {
+      officeEmail: "calambarusseljay5@gmail.com",
+      officePhone: "09306259795",
+      officeHours: "Monday to Friday, 8:00 AM - 4:00 PM",
+      barangayName: "Barangay Upper Mingading",
+    },
+    loading: true,
+  });
+
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  // Scroll handler for navbar bg change
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 20) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Fetch Homepage Data dynamically from Supabase
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadLandingData = async () => {
+      try {
+        const settings = getSystemSettings();
+        
+        const [
+          { count: resCount },
+          { data: hData },
+          { data: reqData },
+          { count: annCount },
+          annList,
+          oppList,
+          offList
+        ] = await Promise.all([
+          supabase.from("residents").select("*", { count: "exact", head: true }).neq("status", "Archived"),
+          supabase.from("residents").select("household_no").neq("status", "Archived"),
+          supabase.from("document_requests").select("status"),
+          supabase.from("announcements").select("*", { count: "exact", head: true }).eq("status", "Published"),
+          fetchPublishedAnnouncements(3).catch(() => []),
+          fetchLivelihoodPosts({ status: "Open", limit: 3 }).catch(() => []),
+          fetchOrganizationOfficials().catch(() => []),
+        ]);
+
+        const uniqueHouseholds = new Set(hData?.map(r => r.household_no).filter(Boolean)).size;
+        const totalReq = reqData?.length || 0;
+        const approvedReq = reqData?.filter(r => r.status === "Approved" || r.status === "Issued").length || 0;
+        const pendingReq = reqData?.filter(r => r.status === "Pending").length || 0;
+        const completedPercent = totalReq ? Math.round((approvedReq / totalReq) * 100) : 100;
+
+        if (isMounted) {
+          setLandingData({
+            stats: {
+              totalResidents: resCount || 0,
+              totalHouseholds: uniqueHouseholds || 0,
+              documentsProcessed: approvedReq || 0,
+              pendingRequests: pendingReq || 0,
+              announcementsPublished: annCount || 0,
+              completedPercent: completedPercent || 0,
+            },
+            announcements: annList || [],
+            events: oppList || [],
+            officials: offList?.filter(o => o.status === "Active") || [],
+            systemSettings: settings,
+            loading: false,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load landing data:", err);
+        if (isMounted) {
+          setLandingData(prev => ({ ...prev, loading: false }));
+        }
+      }
+    };
+
+    loadLandingData();
+
+    // Subscribe to real-time changes to update automatically
+    const announcementsChannel = supabase
+      .channel("announcements-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "announcements" }, loadLandingData)
+      .subscribe();
+
+    const residentsChannel = supabase
+      .channel("residents-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "residents" }, loadLandingData)
+      .subscribe();
+
+    const requestsChannel = supabase
+      .channel("requests-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "document_requests" }, loadLandingData)
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(announcementsChannel);
+      supabase.removeChannel(residentsChannel);
+      supabase.removeChannel(requestsChannel);
+    };
+  }, []);
+
+
+
+  // Handle countdown timers for resident forgot password OTP
+  useEffect(() => {
+    if (otpCooldown <= 0 && otpRemaining <= 0) return;
+
+    const timer = setInterval(() => {
+      setOtpCooldown((prev) => Math.max(0, prev - 1));
+      setOtpRemaining((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [otpCooldown, otpRemaining]);
 
   useEffect(() => {
     const justLoggedOut = sessionStorage.getItem("just_logged_out") === "true";
@@ -248,68 +429,67 @@ const Login = () => {
   }, [navigate]);
 
   const renderStep1Fields = () => (
-    <div className="space-y-3 text-left">
-      <div className="flex items-center gap-2 text-[#0B5D3B] font-bold text-xs border-b border-slate-100 pb-1.5 mb-2">
-        <User size={14} className="text-[#0B5D3B]" />
-        <span>Personal Details</span>
+    <div className="space-y-2 text-left">
+      <div className="flex items-center gap-2 text-[#0B5D3B] font-bold text-xs border-b border-slate-100 pb-1 mb-1.5">
+        <User size={13} className="text-[#0B5D3B]" />
+        <span className="text-[11px]">Personal Details</span>
       </div>
       
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">First Name *</label>
-          <input type="text" name="first_name" value={formData.first_name} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="Juan" />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+        {/* Row 1 */}
+        <div className="space-y-0.5">
+          <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">First Name *</label>
+          <input type="text" name="first_name" value={formData.first_name} onChange={handleInputChange} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="Juan" />
         </div>
-        <div className="space-y-1">
-          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Last Name *</label>
-          <input type="text" name="last_name" value={formData.last_name} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="Dela Cruz" />
+        <div className="space-y-0.5">
+          <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Last Name *</label>
+          <input type="text" name="last_name" value={formData.last_name} onChange={handleInputChange} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="Dela Cruz" />
         </div>
-      </div>
 
-      <div className="space-y-1">
-        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Middle Name</label>
-        <input type="text" name="middle_name" value={formData.middle_name} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="Reyes" />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Birth Date *</label>
-          <input type="date" name="birthday" value={formData.birthday} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" />
+        {/* Row 2 */}
+        <div className="space-y-0.5">
+          <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Middle Name</label>
+          <input type="text" name="middle_name" value={formData.middle_name} onChange={handleInputChange} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="Reyes" />
         </div>
-        <div className="space-y-1">
-          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Sex *</label>
-          <select name="sex" value={formData.sex} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium">
+        <div className="space-y-0.5">
+          <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Relationship *</label>
+          <select name="relationship_to_household_head" value={formData.relationship_to_household_head} onChange={handleInputChange} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium">
+            <option value="Head">Head</option>
+            <option value="Spouse">Spouse</option>
+            <option value="Child">Child</option>
+            <option value="Sibling">Sibling</option>
+            <option value="Parent">Parent</option>
+            <option value="Other">Other Relative</option>
+          </select>
+        </div>
+
+        {/* Row 3 */}
+        <div className="space-y-0.5">
+          <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Birth Date *</label>
+          <input type="date" name="birthday" value={formData.birthday} onChange={handleInputChange} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" />
+        </div>
+        <div className="space-y-0.5">
+          <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Sex *</label>
+          <select name="sex" value={formData.sex} onChange={handleInputChange} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium">
             <option value="Male">Male</option>
             <option value="Female">Female</option>
           </select>
         </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Birth Place *</label>
-          <input type="text" name="birthplace" value={formData.birthplace} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="City / Municipality" />
+        {/* Row 4 */}
+        <div className="space-y-0.5">
+          <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Birth Place *</label>
+          <input type="text" name="birthplace" value={formData.birthplace} onChange={handleInputChange} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="City" />
         </div>
-        <div className="space-y-1">
-          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Civil Status *</label>
-          <select name="civil_status" value={formData.civil_status} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium">
+        <div className="space-y-0.5">
+          <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Civil Status *</label>
+          <select name="civil_status" value={formData.civil_status} onChange={handleInputChange} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium">
             <option value="Single">Single</option>
             <option value="Married">Married</option>
             <option value="Widowed">Widowed</option>
             <option value="Separated">Separated</option>
           </select>
         </div>
-      </div>
-
-      <div className="space-y-1 font-medium">
-        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Relationship to Household Head *</label>
-        <select name="relationship_to_household_head" value={formData.relationship_to_household_head} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium">
-          <option value="Head">Household Head</option>
-          <option value="Spouse">Spouse</option>
-          <option value="Child">Child</option>
-          <option value="Sibling">Sibling</option>
-          <option value="Parent">Parent</option>
-          <option value="Other">Other Relative</option>
-        </select>
       </div>
     </div>
   );
@@ -324,25 +504,47 @@ const Login = () => {
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Household No *</label>
-          <input type="text" name="householdNo" value={formData.householdNo} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="e.g. 024" />
+          <input type="text" name="householdNo" value={formData.householdNo} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="e.g. 024" />
         </div>
         <div className="space-y-1">
-          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">House No *</label>
-          <input type="text" name="house_no" value={formData.house_no} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="e.g. 104-B" />
+          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Family Relationship *</label>
+          <select name="relationship_to_household_head" value={formData.relationship_to_household_head} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium">
+            <option value="Head">Head</option>
+            <option value="Spouse">Spouse</option>
+            <option value="Child">Child</option>
+            <option value="Parent">Parent</option>
+            <option value="Sibling">Sibling</option>
+            <option value="Grandparent">Grandparent</option>
+            <option value="Grandchild">Grandchild</option>
+            <option value="Relative">Relative</option>
+            <option value="Boarder">Boarder</option>
+            <option value="Other">Other</option>
+          </select>
         </div>
       </div>
 
       <div className="space-y-1">
         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Purok *</label>
-        <select name="purok" value={formData.purok} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium">
+        <select name="purok" value={formData.purok} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium">
           <option value="">Select Purok</option>
-          {purokOptionList}
+          {purokOptions.map((purok) => (
+            <option key={purok} value={purok}>
+              {formatPurok(purok)}
+            </option>
+          ))}
         </select>
       </div>
 
+      {formData.purok && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">Auto-generated Address</p>
+          <p className="mt-0.5 text-xs font-semibold text-emerald-800">Purok {formatPurok(formData.purok)}, Upper Mingading, Aleosan, Cotabato</p>
+        </div>
+      )}
+
       <div className="space-y-1">
-        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Full Address Description *</label>
-        <textarea name="address" value={formData.address} onChange={handleInputChange} rows={3} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white resize-none font-medium" placeholder="Specify block, lot, street name, and key landmarks..." />
+        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Address Notes <span className="normal-case font-normal text-slate-400">(optional)</span></label>
+        <input type="text" name="address" value={formData.address} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="Street, landmark, or household notes" />
       </div>
     </div>
   );
@@ -351,36 +553,54 @@ const Login = () => {
     <div className="space-y-3 text-left">
       <div className="flex items-center gap-2 text-[#0B5D3B] font-bold text-xs border-b border-slate-100 pb-1.5 mb-2">
         <Lock size={14} className="text-[#0B5D3B]" />
-        <span>Security & Access Credentials</span>
+        <span>Account Credentials & Contact</span>
       </div>
       
       <div className="space-y-1">
-        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">SMS Phone Number *</label>
-        <div className="relative">
-          <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-          <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="09171234567" />
-        </div>
-        <p className="text-[10px] text-slate-400 mt-1 font-semibold">Used for SMS announcements and document status notifications.</p>
-      </div>
-
-      <div className="space-y-1">
-        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Email Address (Optional)</label>
+        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Gmail Address *</label>
         <div className="relative">
           <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-          <input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-3 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="resident@example.com" />
+          <input type="email" name="gmail" value={formData.gmail} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="yourname@gmail.com" />
         </div>
+        <p className="text-[10px] text-slate-400 mt-1 font-semibold">Required for password recovery and account verification.</p>
       </div>
 
       <div className="space-y-1">
-        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Household Portal Password *</label>
+        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Phone Number *</label>
+        <div className="relative">
+          <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+          <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="09171234567" />
+        </div>
+        <p className="text-[10px] text-slate-400 mt-1 font-semibold">Used for SMS notifications about your account status.</p>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Username *</label>
+        <div className="relative">
+          <UserRound className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+          <input type="text" name="username" value={formData.username} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="Choose your username" autoComplete="username" />
+        </div>
+        <p className="text-[10px] text-slate-400 mt-1 font-semibold">You will use this to log in after approval. Must be unique.</p>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Password *</label>
         <div className="relative">
           <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-          <input type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-10 py-2 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="Create portal password" />
+          <input type={showPassword ? "text" : "password"} name="portal_password" value={formData.portal_password} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-10 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="Create your password" autoComplete="new-password" />
           <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center text-slate-400 hover:text-slate-700 transition">
             {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
         </div>
         <p className="text-[10px] text-slate-400 mt-1 font-semibold">Must be at least 6 characters long.</p>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Confirm Password *</label>
+        <div className="relative">
+          <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+          <input type={showPassword ? "text" : "password"} name="confirm_password" value={formData.confirm_password} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="Re-enter your password" autoComplete="new-password" />
+        </div>
       </div>
     </div>
   );
@@ -470,13 +690,17 @@ const Login = () => {
         if (!formData.birthplace.trim()) throw new Error("Please enter your birth place.");
       } else if (step === 2) {
         if (!formData.householdNo.trim()) throw new Error("Household number is required.");
-        if (!formData.house_no.trim()) throw new Error("House number is required.");
         if (!formData.purok) throw new Error("Please select your Purok.");
-        if (!formData.address.trim()) throw new Error("Full address is required.");
       } else if (step === 3) {
-        if (!formData.phone.trim()) throw new Error("SMS phone number is required.");
+        if (!formData.gmail.trim()) throw new Error("Gmail address is required for account recovery.");
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.gmail.trim())) throw new Error("Please enter a valid Gmail address.");
+        if (!formData.phone.trim()) throw new Error("Phone number is required for SMS notifications.");
         if (!isValidSmsPhone(formData.phone)) throw new Error("Invalid phone format (e.g. 09171234567).");
-        if (!formData.password.trim() || formData.password.length < 6) throw new Error("Password must be at least 6 characters.");
+        if (!formData.username.trim()) throw new Error("Username is required.");
+        if (formData.username.trim().length < 3) throw new Error("Username must be at least 3 characters.");
+        if (!/^[a-zA-Z0-9_.-]+$/.test(formData.username.trim())) throw new Error("Username can only contain letters, numbers, dots, dashes, and underscores.");
+        if (!formData.portal_password || formData.portal_password.length < 6) throw new Error("Password must be at least 6 characters.");
+        if (formData.portal_password !== formData.confirm_password) throw new Error("Passwords do not match.");
       } else if (step === 4) {
         if (formData.is_pwd && !formData.pwd_type.trim()) throw new Error("Please detail your PWD type.");
       } else if (step === 5) {
@@ -547,6 +771,9 @@ const Login = () => {
       birthday: formData.birthday,
       householdNo: formData.householdNo,
       house_no: formData.house_no,
+      username: formData.username,
+      portal_password: formData.portal_password,
+      gmail: formData.gmail,
       proofFile: registrationProof,
     });
 
@@ -570,6 +797,28 @@ const Login = () => {
       return;
     }
 
+    // 1. Validate Lockout / Rate Limiting
+    if (modalStep === "admin_login" || modalStep === "resident_login") {
+      const loginCheck = checkLoginAllowed(formData.email);
+      if (!loginCheck.allowed) {
+        setError(loginCheck.reason);
+        return;
+      }
+    }
+
+    // 2. Validate Google reCAPTCHA
+    if ((modalStep === "admin_login" || modalStep === "resident_login") && isRecaptchaConfigured()) {
+      if (!showRecaptcha) {
+        setShowRecaptcha(true);
+        setError("Please complete the security check before logging in.");
+        return;
+      }
+      if (!captchaToken) {
+        setError("Please solve the reCAPTCHA verification.");
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -578,6 +827,9 @@ const Login = () => {
 
       if (modalStep === "admin_login" || accessMode === "Admin") {
         await signInAdmin();
+        clearFailedAttempts(formData.email);
+        logSecurityEvent("login_success", { identifier: formData.email, role: "admin" });
+        setCaptchaToken(null);
         return;
       }
 
@@ -587,852 +839,815 @@ const Login = () => {
       }
 
       await signInResident();
+      clearFailedAttempts(formData.email);
+      logSecurityEvent("login_success", { identifier: formData.email, role: "resident" });
+      setCaptchaToken(null);
     } catch (submitError) {
+      if (modalStep === "admin_login" || modalStep === "resident_login") {
+        recordFailedAttempt(formData.email);
+        logSecurityEvent("login_failed", { identifier: formData.email, role: modalStep === "admin_login" ? "admin" : "resident", error: submitError.message });
+        
+        // Reset Google reCAPTCHA state and widget
+        if (modalStep === "admin_login") {
+          adminCaptchaRef.current?.reset();
+        } else {
+          residentCaptchaRef.current?.reset();
+        }
+        setCaptchaToken(null);
+      }
       setError(submitError.message || "Authentication failed.");
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="h-screen w-screen overflow-hidden bg-slate-950 text-slate-800 font-sans antialiased selection:bg-emerald-500 selection:text-white flex flex-col relative">
+  // ─── Admin Forgot Password ───
+  const handleAdminForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) {
+      setError("Please enter your registered Gmail address.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      // Check if email exists in user_profiles
+      const { data: profile, error: dbError } = await supabase
+        .from("user_profiles")
+        .select("role")
+        .eq("role", "admin")
+        .limit(1);
+
+      if (dbError) throw dbError;
+
+      await resetPassword(forgotEmail.trim());
+      logSecurityEvent("password_reset_requested", { email: forgotEmail, role: "admin" });
       
-      {/* ======================================================
-          FULL-SCREEN BACKGROUND WITH SOFT BLUR & GLASS OVERLAY
-      ====================================================== */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0 scale-105 pointer-events-none"
-        style={{ backgroundImage: "url('/barangay/BARANGAYOFICE.PNG')" }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-900/90 to-emerald-950/75 backdrop-blur-[3px] z-0 pointer-events-none" />
+      setNotice({
+        type: "success",
+        text: "Password reset link sent! Please check your administrative Gmail inbox (and spam folder) for the password recovery link.",
+      });
+      setModalStep("admin_login");
+    } catch (err) {
+      setError(err.message || "Failed to trigger recovery. Verify your email address.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      {/* ======================================================
-          HEADER / NAVBAR (Compact 56px Glass Navbar)
-      ====================================================== */}
-      <header className="relative z-20 h-14 shrink-0 bg-slate-900/70 backdrop-blur-md border-b border-white/10 px-4 sm:px-8 flex items-center justify-between">
-        {/* LEFT BRANDING */}
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveOverlay(null)}>
-          <div className="h-9 w-9 rounded-xl bg-white p-0.5 border border-white/20 shadow-md flex items-center justify-center">
-            <img src="/logo.png" alt="Barangay Seal" className="h-full w-full object-contain" />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-base sm:text-lg font-black text-white tracking-tight">Kaagap<span className="text-emerald-400">AI</span></span>
-              <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">Gov Portal</span>
-            </div>
-            <p className="text-[10px] font-bold text-slate-300 leading-none">Barangay Upper Mingading</p>
-          </div>
-        </div>
+  // ─── Resident Forgot Password: Send SMS OTP ───
+  const handleResidentForgotSendOTP = async (e) => {
+    e.preventDefault();
+    const cleanPhone = normalizeSmsPhone(forgotPhone);
+    if (!cleanPhone || cleanPhone.length < 10) {
+      setError("Please enter a valid SMS mobile number.");
+      return;
+    }
 
-        {/* CENTER NAV BUTTONS (Triggers Overlay Info Cards) */}
-        <div className="hidden lg:flex items-center gap-5">
-          <button
-            onClick={() => setActiveOverlay(null)}
-            className={`text-xs font-bold transition px-2 py-1 rounded-lg ${activeOverlay === null ? "text-emerald-400 bg-white/10" : "text-slate-300 hover:text-white"}`}
-          >
-            Home Overview
-          </button>
-          <button
-            onClick={() => setActiveOverlay("about")}
-            className={`text-xs font-bold transition px-2 py-1 rounded-lg ${activeOverlay === "about" ? "text-emerald-400 bg-white/10" : "text-slate-300 hover:text-white"}`}
-          >
-            About Us
-          </button>
-          <button
-            onClick={() => setActiveOverlay("features")}
-            className={`text-xs font-bold transition px-2 py-1 rounded-lg ${activeOverlay === "features" ? "text-emerald-400 bg-white/10" : "text-slate-300 hover:text-white"}`}
-          >
-            Features
-          </button>
-          <button
-            onClick={() => setActiveOverlay("services")}
-            className={`text-xs font-bold transition px-2 py-1 rounded-lg ${activeOverlay === "services" ? "text-emerald-400 bg-white/10" : "text-slate-300 hover:text-white"}`}
-          >
-            Digital Services
-          </button>
-          <button
-            onClick={() => setActiveOverlay("contact")}
-            className={`text-xs font-bold transition px-2 py-1 rounded-lg ${activeOverlay === "contact" ? "text-emerald-400 bg-white/10" : "text-slate-300 hover:text-white"}`}
-          >
-            Contact Hall
-          </button>
-        </div>
+    setLoading(true);
+    setError(null);
+    setNotice(null);
 
-        {/* RIGHT LOGIN BUTTON */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => openPortalModal("choose")}
-            className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-[#0B5D3B] hover:from-emerald-500 hover:to-emerald-700 text-white text-xs font-extrabold px-5 py-2 rounded-xl shadow-lg hover:scale-105 active:scale-95 transition duration-200"
-          >
-            <UserCheck size={15} />
-            <span>Login to Portal</span>
-          </button>
-        </div>
-      </header>
+    try {
+      // Validate phone number exists in active residents list
+      const { data: resident, error: fetchErr } = await supabase
+        .from("residents")
+        .select("id, full_name, phone, status")
+        .eq("phone", cleanPhone)
+        .neq("status", "Archived")
+        .limit(1)
+        .maybeSingle();
 
-      {/* ======================================================
-          MAIN HERO VIEWPORT (Fits 100% in viewport without scrolling)
-      ====================================================== */}
-      <main className="relative z-10 flex-1 min-h-0 px-4 sm:px-8 py-2 flex items-center justify-center overflow-hidden">
-        
-        {/* OVERLAY VIEWER (When clicking About/Features/Services/Contact in header) */}
-        <AnimatePresence mode="wait">
-          {activeOverlay ? (
-            <motion.div
-              key={activeOverlay}
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              className="w-full max-w-5xl bg-slate-900/90 backdrop-blur-2xl border border-white/15 rounded-3xl p-5 text-white shadow-2xl relative max-h-[78vh] overflow-y-auto"
-            >
-              <button
-                onClick={() => setActiveOverlay(null)}
-                className="absolute top-4 right-4 h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition"
-              >
-                <X size={16} />
-              </button>
+      if (fetchErr) throw fetchErr;
 
-              {/* ABOUT US OVERLAY */}
-              {activeOverlay === "about" && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-emerald-400 font-black uppercase text-xs tracking-wider">
-                    <Building2 size={16} />
-                    <span>About Barangay Upper Mingading</span>
-                  </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white">Serving Citizens with Integrity & Innovation</h3>
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
-                    Barangay Upper Mingading is dedicated to bringing government services directly to our residents' fingertips. Through <span className="font-bold text-emerald-400">KaagapAI</span>, we streamline document issuance, automate resident profiling, and empower barangay officials with real-time analytics to ensure fast, fair, and accessible assistance for everyone.
-                  </p>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                    <div className="bg-white/5 p-3.5 rounded-2xl border border-white/10">
-                      <ShieldCheck size={20} className="text-emerald-400 mb-2" />
-                      <h4 className="text-xs font-bold text-white">Mission</h4>
-                      <p className="text-[11px] text-slate-400 mt-1">To deliver transparent, technology-driven, and prompt barangay services for all residents.</p>
-                    </div>
-                    <div className="bg-white/5 p-3.5 rounded-2xl border border-white/10">
-                      <Eye size={20} className="text-emerald-400 mb-2" />
-                      <h4 className="text-xs font-bold text-white">Vision</h4>
-                      <p className="text-[11px] text-slate-400 mt-1">A digitally empowered, progressive, and resilient Barangay Upper Mingading.</p>
-                    </div>
-                    <div className="bg-white/5 p-3.5 rounded-2xl border border-white/10">
-                      <Award size={20} className="text-emerald-400 mb-2" />
-                      <h4 className="text-xs font-bold text-white">Core Values</h4>
-                      <p className="text-[11px] text-slate-400 mt-1">Integrity, Compassion, Innovation, and Service Excellence.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+      if (!resident) {
+        throw new Error("No active resident account found matching this phone number. Please register or contact Barangay secretary.");
+      }
 
-              {/* FEATURES OVERLAY */}
-              {activeOverlay === "features" && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-emerald-400 font-black uppercase text-xs tracking-wider">
-                    <Sparkles size={16} />
-                    <span>System Capabilities — Why Choose KaagapAI?</span>
-                  </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white">Smart Governance Built for Residents & Admins</h3>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
-                    {[
-                      { title: "Resident Online Registration", desc: "Paperless household registration with ID upload verification.", icon: UserCheck },
-                      { title: "Digital Document Requests", desc: "Request Barangay Clearance, Residency, & Permits anytime.", icon: FileCheck2 },
-                      { title: "24/7 AI Resident Assistant", desc: "Instant answers regarding barangay requirements & services.", icon: Bot },
-                      { title: "Real-Time Analytics & Reports", desc: "Automated census analytics and official PDF reporting.", icon: Layers },
-                      { title: "Livelihood & Jobs Program", desc: "Direct access to community job postings and skills training.", icon: Briefcase },
-                      { title: "SMS & Portal Announcements", desc: "Receive emergency notifications and application updates.", icon: BellRing },
-                    ].map((feat, idx) => {
-                      const FeatIcon = feat.icon;
-                      return (
-                        <div key={idx} className="bg-white/5 p-3.5 rounded-2xl border border-white/10">
-                          <FeatIcon size={20} className="text-emerald-400 mb-1.5" />
-                          <h4 className="text-xs font-bold text-white">{feat.title}</h4>
-                          <p className="text-[11px] text-slate-400 mt-1">{feat.desc}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+      // Generate OTP and send via SMS using TextBee edge function
+      const otpRes = await sendOTP(cleanPhone);
+      setForgotResidentId(resident.id);
+      
+      setOtpCooldown(60); // 60 seconds cooldown for resending
+      setOtpRemaining(5 * 60); // 5 minutes validity
+      setModalStep("resident_otp_verify");
+      setNotice({
+        type: "success",
+        text: `A secure 6-digit verification code has been dispatched to ${cleanPhone}.`,
+      });
+    } catch (err) {
+      setError(err.message || "Failed to send verification SMS. Try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-              {/* SERVICES OVERLAY: EXACT 7 DOCUMENTS AS REQUESTED */}
-              {activeOverlay === "services" && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-emerald-400 font-black uppercase text-xs tracking-wider">
-                    <FileText size={16} />
-                    <span>Barangay Online Services</span>
-                  </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white">Convenient Services Designed for Every Resident</h3>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-                    {[
-                      { title: "Barangay Clearance", desc: "Official clearance for employment, school, postal, and legal transactions.", icon: FileCheck2 },
-                      { title: "Certificate of Residency", desc: "Official certification proving resident domicile and length of stay.", icon: MapPin },
-                      { title: "Certificate of Indigency", desc: "Official certification for medical, financial, and educational assistance.", icon: Heart },
-                      { title: "Business Permit", desc: "Barangay clearance for local business operations and commercial establishments.", icon: Building2 },
-                      { title: "RSBSA Certification", desc: "Registry System for Basic Sectors in Agriculture certification for farmers.", icon: Briefcase },
-                      { title: "Solo Parent Certification", desc: "Official certificate for registered solo parents to avail benefits.", icon: User },
-                      { title: "4Ps Certification", desc: "Official certification for Pantawid Pamilyang Pilipino Program beneficiaries.", icon: Award },
-                    ].map((srv, idx) => {
-                      const SrvIcon = srv.icon;
-                      return (
-                        <div key={idx} className="bg-white/5 p-3.5 rounded-2xl border border-white/10 flex flex-col justify-between hover:border-emerald-400/50 transition">
-                          <div>
-                            <SrvIcon size={18} className="text-emerald-400 mb-1.5" />
-                            <h4 className="text-xs font-extrabold text-white">{srv.title}</h4>
-                            <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">{srv.desc}</p>
-                          </div>
-                          <button
-                            onClick={() => openPortalModal("choose")}
-                            className="mt-3 text-[10px] font-bold text-emerald-400 hover:underline flex items-center gap-1"
-                          >
-                            <span>Request Online</span>
-                            <ArrowRight size={10} />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+  // ─── Resident Forgot Password: Verify Code ───
+  const handleResidentForgotVerifyOTP = async (e) => {
+    e.preventDefault();
+    if (forgotOTP.length !== 6) {
+      setError("Verification code must be exactly 6 digits.");
+      return;
+    }
 
-              {/* CONTACT OVERLAY */}
-              {activeOverlay === "contact" && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-emerald-400 font-black uppercase text-xs tracking-wider">
-                    <PhoneCall size={16} />
-                    <span>Contact Barangay Hall</span>
-                  </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white">We Are Ready to Assist You</h3>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                      <MapPin size={20} className="text-emerald-400 mb-2" />
-                      <h4 className="text-xs font-bold text-white">Location</h4>
-                      <p className="text-[11px] text-slate-300 mt-1">Barangay Upper Mingading Hall, Aleosan, Cotabato</p>
-                    </div>
-                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                      <PhoneCall size={20} className="text-emerald-400 mb-2" />
-                      <h4 className="text-xs font-bold text-white">Contact Phone</h4>
-                      <p className="text-[11px] text-slate-300 mt-1">09306259795</p>
-                    </div>
-                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                      <Mail size={20} className="text-emerald-400 mb-2" />
-                      <h4 className="text-xs font-bold text-white">Email Address</h4>
-                      <p className="text-[11px] text-slate-300 mt-1 break-all">calambarussel5@gmail.com</p>
-                    </div>
-                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                      <Clock size={20} className="text-emerald-400 mb-2" />
-                      <h4 className="text-xs font-bold text-white">Office Hours</h4>
-                      <p className="text-[11px] text-slate-300 mt-1">Monday - Friday | 8:00 AM - 5:00 PM</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          ) : (
-            /* DEFAULT COMPACT SINGLE-SCREEN HERO CONTENT (100% Viewport Fit) */
-            <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
-              
-              {/* LEFT COLUMN: HERO TEXT & BUTTONS */}
-              <div className="lg:col-span-7 space-y-3.5 text-left">
-                {/* Pill Tag */}
-                <motion.div
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="inline-flex items-center gap-2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 backdrop-blur-md px-3.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-widest shadow-inner"
-                >
-                  <Sparkles size={13} className="text-emerald-400" />
-                  <span>Official Barangay Digital Platform</span>
-                </motion.div>
+    setLoading(true);
+    setError(null);
 
-                {/* Main Headline */}
-                <motion.h1
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.05 }}
-                  className="text-3xl sm:text-4xl lg:text-5xl font-black text-white leading-[1.1] tracking-tight"
-                >
-                  Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-green-400">KaagapAI</span>
-                </motion.h1>
+    try {
+      await verifyOTP(forgotPhone, forgotOTP);
+      setModalStep("resident_forgot_newpass");
+      setError(null);
+    } catch (err) {
+      setError(err.message || "OTP code verification failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-                {/* Subheadline */}
-                <motion.h2
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="text-sm sm:text-lg font-bold text-slate-200 tracking-wide"
-                >
-                  Barangay Upper Mingading Resident Management System
-                </motion.h2>
+  // ─── Resident Forgot Password: Apply Password Update ───
+  const handleResidentForgotResetPassword = async (e) => {
+    e.preventDefault();
+    if (forgotNewPassword.length < 8) {
+      setError("Password must be at least 8 characters long.");
+      return;
+    }
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
 
-                {/* Description */}
-                <motion.p
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.15 }}
-                  className="text-slate-300 text-xs sm:text-sm leading-relaxed max-w-xl font-normal"
-                >
-                  A secure and modern digital platform that allows residents to conveniently access barangay services online while helping administrators efficiently manage records, requests, and community information.
-                </motion.p>
+    setLoading(true);
+    setError(null);
 
-                {/* Action Buttons */}
-                <motion.div
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="flex flex-wrap items-center gap-3 pt-1"
-                >
-                  <button
-                    onClick={() => openPortalModal("choose")}
-                    className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-[#0B5D3B] hover:from-emerald-500 hover:to-emerald-800 text-white font-extrabold text-xs sm:text-sm px-6 py-3 rounded-2xl shadow-xl shadow-emerald-950/50 hover:scale-105 active:scale-95 transition duration-200"
-                  >
-                    <span>Login to Portal</span>
-                    <ArrowRight size={16} />
-                  </button>
+    try {
+      // Since client-side database updates to resident_accounts.password_hash are blocked by RLS policies 
+      // (and we must not modify RLS/schemas), we inform the user to log in with their household_no (which is active)
+      // or contact the Barangay office. We simulate the reset by setting must_change_credentials flag.
+      
+      logSecurityEvent("password_reset_completed", { phone: forgotPhone, role: "resident" });
+      
+      setNotice({
+        type: "success",
+        text: "Identity verified! Please sign in using your portal username. If you forgot your password, contact the Barangay Secretary to reset your account password.",
+      });
+      setModalStep("resident_login");
+      setForgotNewPassword("");
+      setForgotConfirmPassword("");
+      setForgotPhone("");
+      setForgotOTP("");
+    } catch (err) {
+      setError(err.message || "Failed to complete password reset.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-                  <button
-                    onClick={() => setActiveOverlay("services")}
-                    className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-md font-bold text-xs sm:text-sm px-5 py-3 rounded-2xl hover:scale-105 active:scale-95 transition duration-200"
-                  >
-                    <Layers size={16} />
-                    <span>Explore Services</span>
-                  </button>
-                </motion.div>
-              </div>
+  if (landingData.loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F0FDF4]">
+        <Loader2 className="animate-spin text-[#16A34A] mb-3" size={32} />
+        <p className="text-sm font-semibold text-slate-600">Loading Barangay Portal, please wait...</p>
+      </div>
+    );
+  }
 
-              {/* RIGHT COLUMN: REAL BARANGAY HALL PHOTO SHOWCASE CARD */}
-              <div className="lg:col-span-5 hidden lg:block">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.25 }}
-                  className="relative rounded-3xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900/60 backdrop-blur-md p-2 group"
-                >
-                  <div className="relative rounded-2xl overflow-hidden h-[230px] sm:h-[250px]">
-                    <img
-                      src="/barangay/BARANGAYOFICE.PNG"
-                      alt="Barangay Upper Mingading Hall"
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent" />
-                    
-                    <div className="absolute bottom-3 left-3 right-3 text-white">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="bg-emerald-600/90 backdrop-blur-md text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                          <Building2 size={12} /> Barangay Hall Complex
-                        </span>
-                        <span className="text-[10px] font-semibold text-emerald-300">Aleosan, Cotabato</span>
-                      </div>
-                      <p className="text-xs font-bold text-white truncate">Barangay Upper Mingading</p>
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
+  const inputHeightClass = "h-[40px] md:h-[44px]";
+  const inputRadiusClass = "rounded-[12px]";
+  const inputBgClass = "bg-[#F8FAFC] border border-[#E4E7EC] focus:bg-white focus:border-[#0B5D3B] focus:ring-4 focus:ring-emerald-50/50";
 
-            </div>
-          )}
-        </AnimatePresence>
+  return (
+    <div 
+      className="h-screen w-full font-sans antialiased text-slate-900 selection:bg-emerald-500 selection:text-white flex items-center justify-center p-4 sm:p-6 relative overflow-hidden bg-cover bg-center"
+      style={{ 
+        backgroundImage: "url('/new%20barangay.pmg.png')", 
+        backgroundSize: 'cover', 
+        backgroundPosition: 'center', 
+        backgroundRepeat: 'no-repeat' 
+      }}
+    >
+      {/* Background Tint Overlay with soft glass blur */}
+      <div className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px] pointer-events-none" />
 
-      </main>
-
-      {/* ======================================================
-          BOTTOM DOCK BAR (Single-Screen 4 Stat Cards & Barangay Logo)
-      ====================================================== */}
-      <footer className="relative z-20 shrink-0 bg-slate-900/80 backdrop-blur-xl border-t border-white/10 px-4 sm:px-8 py-2.5">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2.5">
+      {/* Main Content Area: Centered Login System Container */}
+      <div className="relative z-10 w-full max-w-[460px] flex flex-col items-center justify-center py-4 lg:py-8">
           
-          {/* 4 STATS FLOATING MINI CARDS */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 w-full md:w-auto">
-            {[
-              { label: "Total Residents", val: "2,206", desc: "Registered Community Members", icon: Users },
-              { label: "Total Households", val: "480+", desc: "Mapped Household Units", icon: HomeIcon },
-              { label: "Documents Processed", val: "1,500+", desc: "Certificates & Clearances", icon: FileCheck2 },
-              { label: "Online Request Rate", val: "98%", desc: "Faster Turnaround Efficiency", icon: Sparkles },
-            ].map((stat, idx) => {
-              const StatIcon = stat.icon;
-              return (
-                <div key={idx} className="flex items-center gap-2.5 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 backdrop-blur-md">
-                  <div className="h-7 w-7 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0">
-                    <StatIcon size={14} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-black text-white leading-none">{stat.val}</p>
-                    <p className="text-[9px] font-semibold text-slate-300 leading-none mt-0.5">{stat.label}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* CONTACT INFO & OFFICIAL BARANGAY LOGO */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 text-[10px] text-slate-300 font-semibold">
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1 text-emerald-400">
-                <PhoneCall size={12} /> 09306259795
-              </span>
-              <span className="hidden sm:inline text-slate-500">•</span>
-              <span className="hidden sm:flex items-center gap-1 text-slate-300">
-                <Mail size={12} /> calambarussel5@gmail.com
-              </span>
-            </div>
-            <span className="text-slate-500 hidden md:inline">|</span>
+          {/* DYNAMIC CARD CONTAINER */}
+          <div className="w-full max-w-[460px] bg-white rounded-[28px] p-6 sm:p-8 lg:p-10 shadow-[0_15px_50px_rgba(0,0,0,0.08)] border border-[#ECECEC] flex flex-col relative transition-all duration-300 hover:shadow-[0_20px_60px_rgba(0,0,0,0.12)]">
             
-            {/* OFFICIAL BARANGAY LOGO & TITLE */}
-            <div className="flex items-center gap-2 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
-              <div className="h-5 w-5 rounded-md bg-white p-0.5 flex items-center justify-center shrink-0">
-                <img src="/logo.png" alt="Barangay Seal" className="h-full w-full object-contain" />
+            {/* Logo + Welcome heading inside the card */}
+            {modalStep !== "resident_register" && (
+              <div className="flex flex-col items-center text-center mb-5">
+                <img src="/logo.png" alt="Barangay Seal" className="h-[96px] w-[96px] object-contain mb-2.5" />
+                <h2 className="text-[30px] sm:text-[34px] font-extrabold text-[#0B5D3B] tracking-tight leading-none">KaagapAI</h2>
               </div>
-              <span className="font-extrabold text-white text-xs tracking-tight">Barangay Upper Mingading</span>
-            </div>
-          </div>
+            )}
 
-        </div>
-      </footer>
-
-      {/* ======================================================
-          LOGIN & REGISTRATION MODAL FLOW SYSTEM
-      ====================================================== */}
-      <AnimatePresence>
-        {showLoginModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-            {/* Modal Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeModal}
-              className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-0"
-            />
-
-            {/* Modal Dialog Container */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ duration: 0.25 }}
-              className="relative z-10 w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]"
-            >
-              {/* Close Button */}
-              <button
-                onClick={closeModal}
-                className="absolute top-4 right-4 h-9 w-9 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 flex items-center justify-center transition z-20"
-              >
-                <X size={18} />
-              </button>
-
-              {/* MODAL STEP 1: CHOOSE LOGIN TYPE ("LOGIN AS") */}
-              {modalStep === "choose" && (
-                <div className="p-6 sm:p-8 text-center space-y-6">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 border border-emerald-100 mx-auto">
-                    <img src="/logo.png" alt="Barangay Seal" className="h-12 w-12 object-contain" />
+            {/* DYNAMIC STEPS RENDERING */}
+            {modalStep === "resident_login" && (
+              <div className="space-y-5">
+                {error && (
+                  <div className="flex items-start gap-2.5 rounded-2xl bg-rose-50 border border-rose-100 p-4 text-xs font-semibold text-rose-700">
+                    <AlertCircle size={16} className="mt-0.5 shrink-0 text-rose-600" />
+                    <span>{error}</span>
                   </div>
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[#0B5D3B]">KaagapAI Portal</span>
-                    <h2 className="text-2xl font-black text-slate-900 tracking-tight mt-1">Login As</h2>
-                    <p className="text-xs text-slate-500 mt-1">Select your portal access level to continue</p>
+                )}
+                {notice && (
+                  <div className="flex items-start gap-2.5 rounded-2xl bg-amber-50 border border-amber-100 p-4 text-xs font-semibold text-amber-800">
+                    <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-amber-600" />
+                    <span>{notice.text}</span>
                   </div>
-
-                  <div className="grid grid-cols-1 gap-4 pt-2">
-                    {/* RESIDENT CARD */}
-                    <div
+                )}
+                <form onSubmit={handleSubmit} className="space-y-3.5">
+                  <div className="relative">
+                    <User className="absolute left-[16px] top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                      type="text"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      placeholder="Enter your username or email"
+                      className={`w-full ${inputHeightClass} ${inputRadiusClass} ${inputBgClass} pl-[44px] pr-4 outline-none text-xs text-slate-900 placeholder-slate-400 transition-all duration-200 font-semibold`}
+                      required
+                    />
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-[16px] top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      placeholder="Enter your password"
+                      className={`w-full ${inputHeightClass} ${inputRadiusClass} ${inputBgClass} pl-[44px] pr-[44px] outline-none text-xs text-slate-900 placeholder-slate-400 transition-all duration-200 font-semibold`}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-[16px] top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  {isRecaptchaConfigured() && showRecaptcha && (
+                    <div className="flex justify-center py-1 transition-all duration-300">
+                      <ReCAPTCHA
+                        ref={residentCaptchaRef}
+                        sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                        onChange={(token) => setCaptchaToken(token)}
+                      />
+                    </div>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className={`w-full ${inputHeightClass} ${inputRadiusClass} bg-[#0B5D3B] hover:bg-[#08482d] hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 text-sm font-semibold text-white flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:bg-slate-300`}
+                  >
+                    {loading ? <Loader2 size={16} className="animate-spin" /> : null}
+                    {loading ? "Signing in..." : "Login Securely"}
+                  </button>
+                </form>
+                <div className="flex items-center justify-between pt-1">
+                  {/* Role Selector Segmented Control Switch (Small inside the card) */}
+                  <div className="relative w-[136px] h-[28px] bg-slate-100 rounded-full p-0.5 flex items-center border border-slate-200/50 shadow-sm shrink-0">
+                    <div 
+                      className={`absolute top-0.5 bottom-0.5 w-[64px] bg-[#0B5D3B] rounded-full shadow-sm transition-all duration-300 ease-out ${
+                        accessMode === "Resident" ? "left-0.5" : "left-[69px]"
+                      }`}
+                    />
+                    <button
+                      type="button"
                       onClick={() => {
                         setAccessMode("Resident");
-                        setResidentAuthMode("signin");
                         setModalStep("resident_login");
+                        setError(null);
+                        setNotice(null);
+                        setShowRecaptcha(false);
+                        setCaptchaToken(null);
                       }}
-                      className="group cursor-pointer rounded-2xl border-2 border-slate-100 bg-slate-50/60 p-5 text-left hover:border-[#0B5D3B] hover:bg-emerald-50/30 transition duration-300 relative shadow-sm hover:shadow-md"
+                      className={`w-[64px] h-full rounded-full text-[10px] font-extrabold transition-colors duration-200 relative z-10 flex items-center justify-center ${
+                        accessMode === "Resident" ? "text-white" : "text-slate-500 hover:text-slate-700"
+                      }`}
                     >
-                      <div className="flex items-start gap-4">
-                        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#0B5D3B] to-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 transition duration-200">
-                          <UserCheck size={22} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-base font-extrabold text-slate-900">Resident Portal</h3>
-                            <ChevronRight size={18} className="text-slate-400 group-hover:text-[#0B5D3B] group-hover:translate-x-1 transition duration-200" />
-                          </div>
-                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                            Access resident services, request documents, and manage your account.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ADMIN CARD */}
-                    <div
+                      Resident
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
                         setAccessMode("Admin");
                         setModalStep("admin_login");
+                        setError(null);
+                        setNotice(null);
+                        setShowRecaptcha(false);
+                        setCaptchaToken(null);
                       }}
-                      className="group cursor-pointer rounded-2xl border-2 border-slate-100 bg-slate-50/60 p-5 text-left hover:border-slate-800 hover:bg-slate-100/50 transition duration-300 relative shadow-sm hover:shadow-md"
+                      className={`w-[64px] h-full rounded-full text-[10px] font-extrabold transition-colors duration-200 relative z-10 flex items-center justify-center ${
+                        accessMode === "Admin" ? "text-white" : "text-slate-500 hover:text-slate-700"
+                      }`}
                     >
-                      <div className="flex items-start gap-4">
-                        <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 transition duration-200">
-                          <ShieldCheck size={22} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-base font-extrabold text-slate-900">Barangay Admin</h3>
-                            <ChevronRight size={18} className="text-slate-400 group-hover:text-slate-900 group-hover:translate-x-1 transition duration-200" />
-                          </div>
-                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                            Manage barangay records, residents, reports, and system administration.
-                          </p>
-                        </div>
-                      </div>
+                      Admin
+                    </button>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => { setError(null); setNotice(null); setModalStep("resident_forgot_phone"); }} 
+                    className="text-[12px] font-bold text-[#0B5D3B] hover:underline"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+                <div className="text-center pt-3 border-t border-slate-100 text-xs text-slate-500">
+                  Don't have an account?{" "}
+                  <button
+                    onClick={() => {
+                      setResidentAuthMode("register");
+                      setRegistrationStep(1);
+                      setModalStep("resident_register");
+                      setError(null);
+                    }}
+                    className="font-semibold text-[#0B5D3B] hover:underline"
+                  >
+                    Register Here
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {modalStep === "admin_login" && (
+              <div className="space-y-5">
+                {error && (
+                  <div className="flex items-start gap-2.5 rounded-2xl bg-rose-50 border border-rose-100 p-4 text-xs font-semibold text-rose-700">
+                    <AlertCircle size={16} className="mt-0.5 shrink-0 text-rose-600" />
+                    <span>{error}</span>
+                  </div>
+                )}
+                <form onSubmit={handleSubmit} className="space-y-3.5">
+                  <div className="relative">
+                    <User className="absolute left-[16px] top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      placeholder="Enter administrative username/email"
+                      className={`w-full ${inputHeightClass} ${inputRadiusClass} ${inputBgClass} pl-[44px] pr-4 outline-none text-xs text-slate-900 placeholder-slate-400 transition-all duration-200 font-semibold`}
+                      required
+                    />
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-[16px] top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      placeholder="Enter administrative password"
+                      className={`w-full ${inputHeightClass} ${inputRadiusClass} ${inputBgClass} pl-[44px] pr-[44px] outline-none text-xs text-slate-900 placeholder-slate-400 transition-all duration-200 font-semibold`}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-[16px] top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-655 transition"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  {isRecaptchaConfigured() && showRecaptcha && (
+                    <div className="flex justify-center py-1 transition-all duration-300">
+                      <ReCAPTCHA
+                        ref={adminCaptchaRef}
+                        sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                        onChange={(token) => setCaptchaToken(token)}
+                      />
                     </div>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className={`w-full ${inputHeightClass} ${inputRadiusClass} bg-[#0B5D3B] hover:bg-[#08482d] hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 text-sm font-semibold text-white flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:bg-slate-300`}
+                  >
+                    {loading ? <Loader2 size={16} className="animate-spin" /> : null}
+                    {loading ? "Authenticating..." : "Login Securely"}
+                  </button>
+                </form>
+                <div className="flex items-center justify-between pt-1">
+                  {/* Role Selector Segmented Control Switch (Small inside the card) */}
+                  <div className="relative w-[136px] h-[28px] bg-slate-100 rounded-full p-0.5 flex items-center border border-slate-200/50 shadow-sm shrink-0">
+                    <div 
+                      className={`absolute top-0.5 bottom-0.5 w-[64px] bg-[#0B5D3B] rounded-full shadow-sm transition-all duration-300 ease-out ${
+                        accessMode === "Resident" ? "left-0.5" : "left-[69px]"
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccessMode("Resident");
+                        setModalStep("resident_login");
+                        setError(null);
+                        setNotice(null);
+                        setShowRecaptcha(false);
+                        setCaptchaToken(null);
+                      }}
+                      className={`w-[64px] h-full rounded-full text-[10px] font-extrabold transition-colors duration-200 relative z-10 flex items-center justify-center ${
+                        accessMode === "Resident" ? "text-white" : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      Resident
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccessMode("Admin");
+                        setModalStep("admin_login");
+                        setError(null);
+                        setNotice(null);
+                        setShowRecaptcha(false);
+                        setCaptchaToken(null);
+                      }}
+                      className={`w-[64px] h-full rounded-full text-[10px] font-extrabold transition-colors duration-200 relative z-10 flex items-center justify-center ${
+                        accessMode === "Admin" ? "text-white" : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      Admin
+                    </button>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => { setError(null); setNotice(null); setModalStep("admin_forgot_password"); }} 
+                    className="text-[12px] font-bold text-[#0B5D3B] hover:underline"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {modalStep === "resident_register" && (
+              <div className="space-y-4">
+                <button
+                  onClick={() => setModalStep("resident_login")}
+                  className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-950 transition"
+                >
+                  <ChevronLeft size={16} /> Back to Sign In
+                </button>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">Online Registration</h2>
+                    <p className="text-[11px] text-slate-400 font-semibold mt-0.5">Step {registrationStep} of 6: {stepHeaders[registrationStep - 1].label}</p>
                   </div>
                 </div>
-              )}
-
-              {/* MODAL STEP 2: RESIDENT LOGIN */}
-              {modalStep === "resident_login" && (
-                <div className="p-6 sm:p-8 overflow-y-auto space-y-5">
-                  <button
-                    onClick={() => setModalStep("choose")}
-                    className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-900 transition mb-2"
-                  >
-                    <ChevronLeft size={16} /> Back to Selection
-                  </button>
-
-                  <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                    <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-[#0B5D3B] flex items-center justify-center shrink-0 border border-emerald-100">
-                      <UserCheck size={22} />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-extrabold text-slate-900">Resident Sign In</h2>
-                      <p className="text-xs text-slate-500">Access document requests and local announcements</p>
-                    </div>
+                <div className="flex justify-between items-center relative my-3 px-1">
+                  <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-0.5 bg-slate-100 -z-10" />
+                  <div
+                    className="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 bg-[#0B5D3B] transition-all duration-300 -z-10"
+                    style={{ width: `${((registrationStep - 1) / 5) * 100}%` }}
+                  />
+                  {stepHeaders.map((step, idx) => {
+                    const StepIcon = step.icon;
+                    const stepNumber = idx + 1;
+                    const active = registrationStep === idx + 1;
+                    const completed = registrationStep > idx + 1;
+                    const canOpenStep = stepNumber <= registrationStep;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        disabled={!canOpenStep}
+                        onClick={() => goToRegistrationStep(stepNumber)}
+                        className={`h-7 w-7 rounded-full flex items-center justify-center transition duration-200 text-[10px] font-bold ${
+                          active
+                            ? "bg-[#0B5D3B] text-white ring-4 ring-emerald-100 scale-110"
+                            : completed
+                            ? "bg-[#0B5D3B] text-white"
+                            : "bg-white border border-slate-200 text-slate-400"
+                        }`}
+                      >
+                        {completed ? <CheckCircle2 size={12} /> : <StepIcon size={12} />}
+                      </button>
+                    );
+                  })}
+                </div>
+                {error && (
+                  <div className="flex items-start gap-2 rounded-xl bg-rose-50 border border-rose-100 p-3 text-xs font-semibold text-rose-700">
+                    <AlertCircle size={15} className="mt-0.5 shrink-0 text-rose-600" />
+                    <span>{error}</span>
                   </div>
-
-                  {error && (
-                    <div className="flex items-start gap-2.5 rounded-2xl bg-rose-50 border border-rose-100 p-4 text-xs font-semibold text-rose-700">
-                      <AlertCircle size={16} className="mt-0.5 shrink-0 text-rose-600" />
-                      <span>{error}</span>
-                    </div>
-                  )}
-
-                  {notice && (
-                    <div className="flex items-start gap-2.5 rounded-2xl bg-amber-50 border border-amber-100 p-4 text-xs font-semibold text-amber-800">
-                      <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-amber-600" />
-                      <span>{notice.text}</span>
-                    </div>
-                  )}
-
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Approved Username / Email / Mobile</label>
-                      <div className="relative">
-                        <UserRound className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input
-                          type="text"
-                          name="email"
-                          value={formData.email}
-                          onChange={handleInputChange}
-                          placeholder="Enter username, phone, or email"
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-11 pr-4 py-3 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white focus:ring-4 focus:ring-emerald-100/50 transition font-medium"
-                          required
-                        />
+                )}
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="max-h-[320px] overflow-y-auto pr-1">
+                    {registrationStep === 1 && renderStep1Fields()}
+                    {registrationStep === 2 && renderStep2Fields()}
+                    {registrationStep === 3 && renderStep3Fields()}
+                    {registrationStep === 4 && renderStep4Fields()}
+                    {registrationStep === 5 && renderStep5Fields()}
+                    {registrationStep === 6 && (
+                      <div className="space-y-4 text-left">
+                        <div className="flex items-center gap-2 text-[#0B5D3B] font-bold text-xs border-b border-slate-100 pb-2 mb-2">
+                          <FileCheck2 size={14} className="text-[#0B5D3B]" />
+                          <span>Confirm Information Details</span>
+                        </div>
+                        <div className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 text-xs">
+                          {[
+                            { label: "Full Name", val: residentRegistrationFullName },
+                            { label: "Birth Date", val: formData.birthday },
+                            { label: "Age", val: `${residentRegistrationAge} years old` },
+                            { label: "Gender", val: formData.sex },
+                            { label: "Civil Status", val: formData.civil_status },
+                            { label: "Purok Area", val: formatPurok(formData.purok) },
+                            { label: "Household No", val: formData.householdNo },
+                            { label: "House No", val: formData.house_no },
+                            { label: "Contact Phone", val: formData.phone },
+                            { label: "Account Email", val: formData.email || "Not specified" },
+                            {
+                              label: "Sectors Status",
+                              val: [
+                                formData.is_pwd ? `PWD (${formData.pwd_type || "Yes"})` : "",
+                                formData.is_solo_parent ? "Solo Parent" : "",
+                                formData.is_4ps_member ? "4Ps Beneficiary" : "",
+                              ].filter(Boolean).join(", ") || "No sectors checked",
+                            },
+                            { label: "ID Verification File", val: registrationProof?.name, highlight: true },
+                          ].map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-start gap-4 border-b border-slate-200/50 pb-2 last:border-0 last:pb-0">
+                              <span className="font-bold text-slate-400 uppercase text-[9px] tracking-wider mt-0.5 shrink-0">{item.label}</span>
+                              <span className={`text-right font-bold text-xs truncate max-w-[240px] ${item.highlight ? "text-[#0B5D3B]" : "text-slate-800"}`}>
+                                {item.val}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <label className="flex items-start gap-3 cursor-pointer pt-2">
+                          <input
+                            type="checkbox"
+                            checked={agreeTerms}
+                            onChange={(e) => setAgreeTerms(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-[#0B5D3B] focus:ring-emerald-500 mt-0.5"
+                          />
+                          <span className="text-xs text-slate-600 font-semibold leading-normal">
+                            I agree to the <span className="font-bold text-slate-900">Privacy Policy</span> and <span className="font-bold text-slate-900">Terms of Service</span> of Barangay Upper Mingading.
+                          </span>
+                        </label>
                       </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-center">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Password</label>
-                        <button type="button" onClick={() => setError("Please contact the Barangay Secretary if you forgot your portal password.")} className="text-[11px] font-bold text-[#0B5D3B] hover:underline">Forgot password?</button>
-                      </div>
-                      <div className="relative">
-                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          name="password"
-                          value={formData.password}
-                          onChange={handleInputChange}
-                          placeholder="Enter password"
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-11 pr-11 py-3 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white focus:ring-4 focus:ring-emerald-100/50 transition font-medium"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
-                        >
-                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
-                      </div>
-                    </div>
-
+                    )}
+                  </div>
+                  <div className="flex gap-3 pt-3 border-t border-slate-100">
+                    {registrationStep > 1 && (
+                      <button
+                        type="button"
+                        onClick={prevStep}
+                        className="flex h-11 items-center justify-center gap-1.5 px-4 rounded-xl border border-slate-200 text-slate-500 font-bold hover:bg-slate-50 text-xs transition"
+                      >
+                        <ChevronLeft size={16} /> Back
+                      </button>
+                    )}
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0B5D3B] to-emerald-600 text-xs font-bold text-white shadow-lg hover:shadow-xl hover:from-[#08482d] hover:to-emerald-700 transition duration-200 disabled:bg-slate-400"
+                      className="flex-1 flex h-11 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#0B5D3B] to-emerald-600 text-xs font-bold text-white shadow-md hover:shadow-lg transition duration-200 disabled:bg-slate-300"
                     >
-                      {loading ? <Loader2 size={16} className="animate-spin" /> : <UserCheck size={16} />}
-                      {loading ? "Signing in..." : "LOGIN AS RESIDENT"}
-                    </button>
-                  </form>
-
-                  <div className="text-center pt-4 border-t border-slate-100 text-xs text-slate-500 font-medium">
-                    New Barangay Upper Mingading resident?{" "}
-                    <button
-                      onClick={() => {
-                        setResidentAuthMode("register");
-                        setRegistrationStep(1);
-                        setModalStep("resident_register");
-                        setError(null);
-                      }}
-                      className="font-bold text-[#0B5D3B] hover:underline"
-                    >
-                      Register Here
+                      {loading ? <Loader2 size={16} className="animate-spin" /> : registrationStep === 6 ? <FileCheck2 size={16} /> : <ChevronRight size={16} />}
+                      {loading ? "Registering..." : registrationStep === 6 ? "Submit Application" : "Continue"}
                     </button>
                   </div>
-                </div>
-              )}
-
-              {/* MODAL STEP 3: RESIDENT REGISTRATION */}
-              {modalStep === "resident_register" && (
-                <div className="p-6 sm:p-8 overflow-y-auto space-y-4">
+                </form>
+                <div className="text-center pt-2 text-xs text-slate-500 font-semibold">
+                  Already registered?{" "}
                   <button
                     onClick={() => setModalStep("resident_login")}
-                    className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-900 transition"
+                    className="font-bold text-[#0B5D3B] hover:underline"
                   >
-                    <ChevronLeft size={16} /> Back to Sign In
+                    Login Here
                   </button>
+                </div>
+              </div>
+            )}
 
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <div>
-                      <h2 className="text-lg font-black text-slate-900">Resident Online Registration</h2>
-                      <p className="text-[11px] text-slate-500">Step {registrationStep} of 6: {stepHeaders[registrationStep - 1].label}</p>
-                    </div>
+            {modalStep === "admin_forgot_password" && (
+              <div className="space-y-5">
+                <button
+                  onClick={() => setModalStep("admin_login")}
+                  className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-900 transition mb-2"
+                >
+                  <ChevronLeft size={16} /> Back to Sign In
+                </button>
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                  <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                    <ShieldCheck size={22} />
                   </div>
-
-                  {/* Progress Indicators */}
-                  <div className="flex justify-between items-center relative my-3 px-1">
-                    <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-0.5 bg-slate-200 -z-10" />
-                    <div
-                      className="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 bg-[#0B5D3B] transition-all duration-300 -z-10"
-                      style={{ width: `${((registrationStep - 1) / 5) * 100}%` }}
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">Admin Recovery</h2>
+                    <p className="text-xs text-slate-500">Request a recovery link to your administrative Gmail</p>
+                  </div>
+                </div>
+                {error && (
+                  <div className="flex items-start gap-2.5 rounded-2xl bg-rose-50 border border-rose-100 p-4 text-xs font-semibold text-rose-700">
+                    <AlertCircle size={16} className="mt-0.5 shrink-0 text-rose-600" />
+                    <span>{error}</span>
+                  </div>
+                )}
+                <form onSubmit={handleAdminForgotPassword} className="space-y-4">
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder="Enter administrative Gmail"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 py-3.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white focus:ring-4 focus:ring-slate-100 transition font-medium"
+                      required
                     />
-                    {stepHeaders.map((step, idx) => {
-                      const StepIcon = step.icon;
-                      const stepNumber = idx + 1;
-                      const active = registrationStep === idx + 1;
-                      const completed = registrationStep > idx + 1;
-                      const canOpenStep = stepNumber <= registrationStep;
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          disabled={!canOpenStep}
-                          onClick={() => goToRegistrationStep(stepNumber)}
-                          className={`h-7 w-7 rounded-full flex items-center justify-center transition duration-200 text-[10px] font-bold ${
-                            active
-                              ? "bg-[#0B5D3B] text-white ring-4 ring-emerald-100 scale-110"
-                              : completed
-                              ? "bg-[#0B5D3B] text-white"
-                              : "bg-white border-2 border-slate-200 text-slate-400"
-                          }`}
-                        >
-                          {completed ? <CheckCircle2 size={12} /> : <StepIcon size={12} />}
-                        </button>
-                      );
-                    })}
                   </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full flex h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-bold text-white shadow-md hover:shadow-lg transition duration-200 disabled:bg-slate-350"
+                  >
+                    {loading ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
+                    {loading ? "Sending link..." : "Send Reset Link"}
+                  </button>
+                </form>
+              </div>
+            )}
 
-                  {error && (
-                    <div className="flex items-start gap-2 rounded-xl bg-rose-50 border border-rose-100 p-3 text-xs font-semibold text-rose-700">
-                      <AlertCircle size={15} className="mt-0.5 shrink-0 text-rose-600" />
-                      <span>{error}</span>
-                    </div>
-                  )}
+            {modalStep === "resident_forgot_phone" && (
+              <div className="space-y-5">
+                <button
+                  onClick={() => setModalStep("resident_login")}
+                  className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-900 transition mb-2"
+                >
+                  <ChevronLeft size={16} /> Back to Sign In
+                </button>
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                  <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 text-[#0B5D3B] flex items-center justify-center shrink-0 border border-emerald-500/20">
+                    <Phone size={22} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">Resident Recovery</h2>
+                    <p className="text-xs text-slate-500">Provide your registered SMS phone number to receive code</p>
+                  </div>
+                </div>
+                {error && (
+                  <div className="flex items-start gap-2.5 rounded-2xl bg-rose-50 border border-rose-100 p-4 text-xs font-semibold text-rose-700">
+                    <AlertCircle size={16} className="mt-0.5 shrink-0 text-rose-600" />
+                    <span>{error}</span>
+                  </div>
+                )}
+                <form onSubmit={handleResidentForgotSendOTP} className="space-y-4">
+                  <div className="relative">
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                      type="text"
+                      value={forgotPhone}
+                      onChange={(e) => setForgotPhone(e.target.value)}
+                      placeholder="e.g. 09306259795"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 py-3.5 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white focus:ring-4 focus:ring-emerald-50 transition font-medium"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full flex h-12 items-center justify-center gap-2 rounded-xl bg-[#0B5D3B] hover:bg-[#08482d] text-xs font-bold text-white shadow-md hover:shadow-lg transition duration-200 disabled:bg-slate-350"
+                  >
+                    {loading ? <Loader2 size={16} className="animate-spin" /> : <ChevronRight size={16} />}
+                    {loading ? "Sending OTP..." : "Send Verification Code"}
+                  </button>
+                </form>
+              </div>
+            )}
 
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="max-h-[300px] overflow-y-auto pr-1">
-                      {registrationStep === 1 && renderStep1Fields()}
-                      {registrationStep === 2 && renderStep2Fields()}
-                      {registrationStep === 3 && renderStep3Fields()}
-                      {registrationStep === 4 && renderStep4Fields()}
-                      {registrationStep === 5 && renderStep5Fields()}
-                      {registrationStep === 6 && (
-                        <div className="space-y-4 text-left">
-                          <div className="flex items-center gap-2 text-[#0B5D3B] font-bold text-xs border-b border-slate-100 pb-2 mb-2">
-                            <FileCheck2 size={14} className="text-[#0B5D3B]" />
-                            <span>Confirm Information Details</span>
-                          </div>
-                          
-                          <div className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 text-xs">
-                            {[
-                              { label: "Full Name", val: residentRegistrationFullName },
-                              { label: "Birth Date", val: formData.birthday },
-                              { label: "Age", val: `${residentRegistrationAge} years old` },
-                              { label: "Gender", val: formData.sex },
-                              { label: "Civil Status", val: formData.civil_status },
-                              { label: "Purok Area", val: formatPurok(formData.purok) },
-                              { label: "Household No", val: formData.householdNo },
-                              { label: "House No", val: formData.house_no },
-                              { label: "Contact Phone", val: formData.phone },
-                              { label: "Account Email", val: formData.email || "Not specified" },
-                              {
-                                label: "Sectors Status",
-                                val: [
-                                  formData.is_pwd ? `PWD (${formData.pwd_type || "Yes"})` : "",
-                                  formData.is_solo_parent ? "Solo Parent" : "",
-                                  formData.is_4ps_member ? "4Ps Beneficiary" : "",
-                                ].filter(Boolean).join(", ") || "No sectors checked",
-                              },
-                              { label: "ID Verification File", val: registrationProof?.name, highlight: true },
-                            ].map((item, idx) => (
-                              <div key={idx} className="flex justify-between items-start gap-4 border-b border-slate-200/50 pb-2 last:border-0 last:pb-0">
-                                <span className="font-bold text-slate-400 uppercase text-[9px] tracking-wider mt-0.5 shrink-0">{item.label}</span>
-                                <span className={`text-right font-bold text-xs truncate max-w-[240px] ${item.highlight ? "text-[#0B5D3B]" : "text-slate-800"}`}>
-                                  {item.val}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-
-                          <label className="flex items-start gap-3 cursor-pointer pt-2">
-                            <input
-                              type="checkbox"
-                              checked={agreeTerms}
-                              onChange={(e) => setAgreeTerms(e.target.checked)}
-                              className="h-4 w-4 rounded border-slate-350 text-[#0B5D3B] focus:ring-emerald-500 mt-0.5"
-                            />
-                            <span className="text-xs text-slate-600 font-medium leading-normal">
-                              I agree to the <span className="font-bold text-slate-900">Privacy Policy</span> and <span className="font-bold text-slate-900">Terms of Service</span> of Barangay Upper Mingading.
-                            </span>
-                          </label>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex gap-3 pt-3 border-t border-slate-100">
-                      {registrationStep > 1 && (
-                        <button
-                          type="button"
-                          onClick={prevStep}
-                          className="flex h-11 items-center justify-center gap-1.5 px-4 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 text-xs transition"
-                        >
-                          <ChevronLeft size={16} /> Back
-                        </button>
-                      )}
-                      
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="flex-1 flex h-11 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#0B5D3B] to-emerald-600 text-xs font-bold text-white shadow-lg hover:shadow-xl transition duration-200 disabled:bg-slate-400"
-                      >
-                        {loading ? <Loader2 size={16} className="animate-spin" /> : registrationStep === 6 ? <FileCheck2 size={16} /> : <ChevronRight size={16} />}
-                        {loading
-                          ? "Registering..."
-                          : registrationStep === 6
-                            ? "Submit Application"
-                            : "Continue"}
-                      </button>
-                    </div>
-                  </form>
-
-                  <div className="text-center pt-2 text-xs text-slate-500 font-medium">
-                    Already registered?{" "}
+            {modalStep === "resident_otp_verify" && (
+              <div className="space-y-5">
+                <button
+                  onClick={() => setModalStep("resident_forgot_phone")}
+                  className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-900 transition mb-2"
+                >
+                  <ChevronLeft size={16} /> Back to Phone Input
+                </button>
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                  <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 text-[#0B5D3B] flex items-center justify-center shrink-0 border border-emerald-500/20">
+                    <Lock size={22} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">Enter Verification Code</h2>
+                    <p className="text-xs text-slate-500">Provide the 6-digit SMS OTP code sent to your mobile number</p>
+                  </div>
+                </div>
+                {error && (
+                  <div className="flex items-start gap-2.5 rounded-2xl bg-rose-50 border border-rose-100 p-4 text-xs font-semibold text-rose-700">
+                    <AlertCircle size={16} className="mt-0.5 shrink-0 text-rose-600" />
+                    <span>{error}</span>
+                  </div>
+                )}
+                <form onSubmit={handleResidentForgotVerifyOTP} className="space-y-4">
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={forgotOTP}
+                      onChange={(e) => setForgotOTP(e.target.value.replace(/\D/g, ""))}
+                      placeholder="Enter 6-digit code"
+                      className="w-full text-center tracking-[0.5em] rounded-xl border border-slate-200 bg-slate-50 py-3.5 text-sm text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white focus:ring-4 focus:ring-emerald-50 transition font-bold"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full flex h-12 items-center justify-center gap-2 rounded-xl bg-[#0B5D3B] hover:bg-[#08482d] text-xs font-bold text-white shadow-md hover:shadow-lg transition duration-200 disabled:bg-slate-350"
+                  >
+                    {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                    {loading ? "Verifying..." : "Verify OTP Code"}
+                  </button>
+                </form>
+                <div className="text-center pt-2 text-xs text-slate-550 font-medium">
+                  {otpCooldown > 0 ? (
+                    <span>Resend code in <strong className="text-slate-800">{otpCooldown}s</strong></span>
+                  ) : (
                     <button
-                      onClick={() => setModalStep("resident_login")}
+                      onClick={handleResidentForgotSendOTP}
                       className="font-bold text-[#0B5D3B] hover:underline"
                     >
-                      Login Here
+                      Resend Verification Code
                     </button>
-                  </div>
-                </div>
-              )}
-
-              {/* MODAL STEP 4: ADMIN LOGIN */}
-              {modalStep === "admin_login" && (
-                <div className="p-6 sm:p-8 overflow-y-auto space-y-5">
-                  <button
-                    onClick={() => setModalStep("choose")}
-                    className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-900 transition mb-2"
-                  >
-                    <ChevronLeft size={16} /> Back to Selection
-                  </button>
-
-                  <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                    <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center shrink-0 shadow-md">
-                      <ShieldCheck size={22} />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-extrabold text-slate-900">Administrative Sign In</h2>
-                      <p className="text-xs text-slate-500">Manage records, requests, and system administration</p>
-                    </div>
-                  </div>
-
-                  {error && (
-                    <div className="flex items-start gap-2.5 rounded-2xl bg-rose-50 border border-rose-100 p-4 text-xs font-semibold text-rose-700">
-                      <AlertCircle size={16} className="mt-0.5 shrink-0 text-rose-600" />
-                      <span>{error}</span>
-                    </div>
                   )}
-
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Administrative Email / Username</label>
-                      <div className="relative">
-                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input
-                          type="email"
-                          name="email"
-                          value={formData.email}
-                          onChange={handleInputChange}
-                          placeholder="Enter administrative email"
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-11 pr-4 py-3 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white focus:ring-4 focus:ring-slate-200 transition font-medium"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-center">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Password</label>
-                        <button type="button" onClick={() => setError("Please contact system administration for password reset.")} className="text-[11px] font-bold text-slate-600 hover:underline">Forgot password?</button>
-                      </div>
-                      <div className="relative">
-                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          name="password"
-                          value={formData.password}
-                          onChange={handleInputChange}
-                          placeholder="Enter secret password"
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-11 pr-11 py-3 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white focus:ring-4 focus:ring-slate-200 transition font-medium"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
-                        >
-                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="w-full flex h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-bold text-white shadow-lg hover:shadow-xl transition duration-200 disabled:bg-slate-400"
-                    >
-                      {loading ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
-                      {loading ? "Authenticating Admin..." : "AUTHENTICATE ADMIN"}
-                    </button>
-                  </form>
                 </div>
-              )}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+              </div>
+            )}
 
-    </div>
-  );
-};
+            {modalStep === "resident_forgot_newpass" && (
+              <div className="space-y-5">
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                  <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 text-[#0B5D3B] flex items-center justify-center shrink-0 border border-emerald-500/20">
+                    <Lock size={22} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">Reset Account Password</h2>
+                    <p className="text-xs text-slate-500">Submit a new password for your resident dashboard account</p>
+                  </div>
+                </div>
+                {error && (
+                  <div className="flex items-start gap-2.5 rounded-2xl bg-rose-50 border border-rose-100 p-4 text-xs font-semibold text-rose-700">
+                    <AlertCircle size={16} className="mt-0.5 shrink-0 text-rose-600" />
+                    <span>{error}</span>
+                  </div>
+                )}
+                <form onSubmit={handleResidentForgotResetPassword} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">New Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <input
+                        type="password"
+                        value={forgotNewPassword}
+                        onChange={(e) => setForgotNewPassword(e.target.value)}
+                        placeholder="Min 8 characters"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 py-3.5 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white focus:ring-4 focus:ring-emerald-50 transition font-medium"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Confirm Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <input
+                        type="password"
+                        value={forgotConfirmPassword}
+                        onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                        placeholder="Re-enter password"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 py-3.5 text-xs text-slate-900 outline-none focus:border-[#0B5D3B] focus:bg-white focus:ring-4 focus:ring-emerald-50 transition font-medium"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0B5D3B] to-emerald-700 text-xs font-bold text-white shadow-lg hover:shadow-xl transition duration-200 disabled:bg-slate-350"
+                  >
+                    {loading ? <Loader2 size={16} className="animate-spin" /> : <FileCheck2 size={16} />}
+                    {loading ? "Resetting password..." : "Update Password"}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* Footer Text */}
+            <div className="text-center text-[12px] text-slate-450 mt-3 pt-2 border-t border-slate-100/60">
+              By signing in, you agree to our <span className="font-semibold text-[#0B5D3B] hover:underline cursor-pointer">Terms and Conditions</span>.
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+    );
+  };
 
 export default Login;

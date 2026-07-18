@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import html2canvas from "html2canvas";
 import {
   Accessibility,
   BarChart3,
@@ -11,6 +12,7 @@ import {
   RefreshCw,
   SlidersHorizontal,
   Users,
+  X,
 } from "lucide-react";
 import {
   Bar,
@@ -467,33 +469,33 @@ const StatCard = ({ label, value, icon: Icon, tone = "green" }) => {
   };
 
   return (
-    <div className="rounded-xl border bg-white p-5 shadow-sm transition hover:shadow-md duration-200">
-      <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-lg border ${tones[tone]}`}>
-        <Icon size={21} />
+    <div className="rounded-xl border bg-white p-3.5 shadow-sm transition hover:shadow-md duration-200">
+      <div className={`mb-2 flex h-8 w-8 items-center justify-center rounded-lg border ${tones[tone]}`}>
+        <Icon size={16} />
       </div>
-      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
-      <p className="mt-2 text-3xl font-bold text-[#081c15]">{value}</p>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
+      <p className="mt-1 text-2xl font-black text-[#081c15]">{value}</p>
     </div>
   );
 };
 
 const BreakdownTable = ({ title, rows, total }) => (
-  <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-    <h3 className="text-base font-bold text-[#1b4332] border-b pb-2 mb-4 uppercase tracking-wider">{title}</h3>
-    <div className="space-y-3">
+  <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <h3 className="text-xs font-extrabold text-[#1b4332] border-b pb-2 mb-3 uppercase tracking-wider">{title}</h3>
+    <div className="space-y-2.5">
       {rows.length === 0 ? (
-        <p className="text-sm text-slate-500">No data available.</p>
+        <p className="text-xs text-slate-500">No data available.</p>
       ) : (
         rows.map(([label, count]) => {
           const percent = total ? Math.round((count / total) * 100) : 0;
           return (
             <div key={label}>
-              <div className="mb-1 flex items-center justify-between text-sm">
-                <span className="font-semibold text-slate-700">{label}</span>
+              <div className="mb-0.5 flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-600">{label}</span>
                 <span className="text-slate-500 font-mono">{count} ({percent}%)</span>
               </div>
-              <div className="h-2 rounded-full bg-slate-100">
-                <div className="h-2 rounded-full bg-[#1b4332]" style={{ width: `${percent}%` }} />
+              <div className="h-1.5 rounded-full bg-slate-100">
+                <div className="h-1.5 rounded-full bg-[#1b4332]" style={{ width: `${percent}%` }} />
               </div>
             </div>
           );
@@ -510,14 +512,14 @@ const toChartData = (rows = []) =>
   }));
 
 const ChartPanel = ({ title, subtitle, children }) => (
-  <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div className="mb-4 flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+  <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="mb-3 flex items-start justify-between gap-3 border-b border-slate-100 pb-2">
       <div>
-        <h3 className="text-sm font-extrabold uppercase tracking-wide text-[#1b4332]">{title}</h3>
-        {subtitle ? <p className="mt-1 text-xs text-slate-500">{subtitle}</p> : null}
+        <h3 className="text-xs font-extrabold uppercase tracking-wide text-[#1b4332]">{title}</h3>
+        {subtitle ? <p className="mt-0.5 text-[10px] font-semibold text-slate-400">{subtitle}</p> : null}
       </div>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f0f7f4] text-[#1b4332]">
-        <BarChart3 size={17} />
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#f0f7f4] text-[#1b4332]">
+        <BarChart3 size={14} />
       </span>
     </div>
     {children}
@@ -529,14 +531,14 @@ const BarChartPanel = ({ title, subtitle, rows, dataKeyLabel = "Count" }) => {
 
   return (
     <ChartPanel title={title} subtitle={subtitle}>
-      <div className="h-[260px]">
+      <div className="h-[190px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 10, left: -20, bottom: 16 }}>
+          <BarChart data={data} margin={{ top: 4, right: 8, left: -24, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-            <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-10} textAnchor="end" height={54} />
-            <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+            <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} angle={-10} textAnchor="end" height={40} />
+            <YAxis tick={{ fontSize: 9 }} allowDecimals={false} />
             <Tooltip formatter={(value) => [value, dataKeyLabel]} />
-            <Bar dataKey="value" radius={[5, 5, 0, 0]}>
+            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
               {data.map((entry, index) => (
                 <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
               ))}
@@ -553,11 +555,11 @@ const PieChartPanel = ({ title, subtitle, rows }) => {
 
   return (
     <ChartPanel title={title} subtitle={subtitle}>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_180px]">
-        <div className="h-[260px]">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px]">
+        <div className="h-[190px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={data} dataKey="value" nameKey="name" innerRadius={58} outerRadius={92} paddingAngle={2}>
+              <Pie data={data} dataKey="value" nameKey="name" innerRadius={42} outerRadius={70} paddingAngle={2}>
                 {data.map((entry, index) => (
                   <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                 ))}
@@ -566,14 +568,14 @@ const PieChartPanel = ({ title, subtitle, rows }) => {
             </PieChart>
           </ResponsiveContainer>
         </div>
-        <div className="space-y-2 self-center">
+        <div className="space-y-1.5 self-center">
           {data.map((item, index) => (
-            <div key={item.name} className="flex items-center justify-between gap-3 text-xs">
-              <span className="flex min-w-0 items-center gap-2 font-semibold text-slate-600">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
+            <div key={item.name} className="flex items-center justify-between gap-2.5 text-[10px]">
+              <span className="flex min-w-0 items-center gap-1.5 font-semibold text-slate-500">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
                 <span className="truncate">{item.name}</span>
               </span>
-              <span className="font-bold text-slate-900">{item.value}</span>
+              <span className="font-bold text-slate-800">{item.value}</span>
             </div>
           ))}
         </div>
@@ -584,7 +586,7 @@ const PieChartPanel = ({ title, subtitle, rows }) => {
 
 const getTableCellClass = (value) => {
   const normalized = String(value ?? "").trim();
-  return /^-?\d+(\.\d+)?%?$/.test(normalized) ? "print-report-number" : "";
+  return /^-?\d+(\.\d+)?%?$/.test(normalized) ? "text-center" : "text-left";
 };
 
 const sumNumericColumn = (rows, columnIndex) =>
@@ -593,131 +595,353 @@ const sumNumericColumn = (rows, columnIndex) =>
     return Number.isFinite(value) ? total + value : total;
   }, 0);
 
-const PrintSection = ({ title, headers, rows, footerRows = [], emptyText = "No data available.", className = "" }) => (
-  <section className={`print-report-section ${className}`}>
-    <h2>{title}</h2>
-    {rows.length === 0 ? (
-      <p className="print-report-empty">{emptyText}</p>
-    ) : (
-      <table>
-        <thead>
-          <tr>
-            {headers.map((header) => (
-              <th key={header}>{header}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, rowIndex) => (
-            <tr key={`${title}-${rowIndex}`}>
-              {row.map((cell, cellIndex) => (
-                <td key={`${title}-${rowIndex}-${cellIndex}`} className={getTableCellClass(cell)}>
-                  {cell}
-                </td>
+// REPORT STYLING CONTEXT — defaults tuned to match the official reference template
+const ReportStyleContext = createContext({
+  fontSize: 7,      // in pt — matches reference
+  rowPadding: 2,    // in px — tight like reference
+  margin: 5         // in mm — minimal margins
+});
+
+// REUSABLE REPORT LAYOUT COMPONENT
+const ReportLayout = ({ children, paperSize = "a4", orientation = "portrait", fontSize = 7, rowPadding = 2, margin = 5 }) => {
+  const pageStyle = `
+    @media print {
+      @page {
+        size: ${paperSize.toUpperCase()} ${orientation};
+        margin: ${margin}mm !important;
+      }
+    }
+  `;
+  return (
+    <ReportStyleContext.Provider value={{ fontSize, rowPadding, margin }}>
+      <style dangerouslySetInnerHTML={{ __html: pageStyle }} />
+      <div 
+        className={`report-layout-container ${paperSize.toLowerCase()} ${orientation.toLowerCase()}`}
+        style={{
+          fontSize: `${fontSize}pt`,
+          fontFamily: "Arial, 'Segoe UI', Calibri, Helvetica, sans-serif",
+          padding: `${margin}mm`
+        }}
+      >
+        {children}
+      </div>
+    </ReportStyleContext.Provider>
+  );
+};
+
+// REUSABLE REPORT HEADER COMPONENT — uses context fontSize so sliders work
+const ReportHeader = ({ title, year = 2026, purokLabel = "" }) => {
+  const { fontSize } = useContext(ReportStyleContext);
+  const logoSize = Math.max(36, fontSize * 6);
+  const titleSize = Math.max(10, fontSize + 4);
+  const subSize = Math.max(7, fontSize);
+  return (
+    <div className="gov-report-header" style={{ marginBottom: '4px' }}>
+      <div className="gov-report-masthead" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '2px' }}>
+        <img src="/logo.png" className="gov-report-logo" alt="Barangay Logo" style={{ width: `${logoSize}px`, height: `${logoSize}px`, objectFit: 'contain' }} />
+        <div className="gov-report-info" style={{ textAlign: 'center', lineHeight: 1.2 }}>
+          <p style={{ fontSize: `${subSize}pt`, margin: 0, fontWeight: 500 }}>Republic of the Philippines</p>
+          <p style={{ fontSize: `${subSize}pt`, margin: 0, fontWeight: 500 }}>Province of Cotabato</p>
+          <p style={{ fontSize: `${subSize}pt`, margin: 0, fontWeight: 500 }}>Municipality of Aleosan</p>
+          <p style={{ fontSize: `${subSize + 1}pt`, margin: '1px 0', fontWeight: 900, letterSpacing: '0.5px' }}>BARANGAY UPPER MINGADING</p>
+          <p style={{ fontSize: `${subSize - 0.5}pt`, margin: 0, fontWeight: 600 }}>OFFICE OF THE PUNONG BARANGAY</p>
+        </div>
+        <img src="/aleosan.logo.png" className="gov-report-logo" alt="Aleosan Municipality Logo" style={{ width: `${logoSize}px`, height: `${logoSize}px`, objectFit: 'contain' }} />
+      </div>
+      <div className="gov-report-divider" style={{ borderTop: '1.5px solid #14532D', height: '0', margin: '3px 0' }} />
+      <h2 className="gov-report-title" style={{ fontSize: `${titleSize}pt`, fontWeight: 900, textAlign: 'center', margin: '3px 0 2px', letterSpacing: '1px' }}>{title} C.Y. {year}</h2>
+      {purokLabel ? (
+        <p className="gov-report-filter" style={{ fontSize: `${subSize + 0.5}pt`, textAlign: 'center', margin: 0, fontWeight: 700, color: '#14532D' }}>PUROK: {purokLabel.toUpperCase()}</p>
+      ) : null}
+    </div>
+  );
+};
+
+// REUSABLE REPORT TABLE COMPONENT
+const ReportTable = ({ title, headers, rows, footerRows = [], emptyText = "No data available." }) => {
+  const { fontSize, rowPadding } = useContext(ReportStyleContext);
+  const cellPad = `${rowPadding}px ${rowPadding + 1}px`;
+  return (
+    <section className="gov-report-table-section" style={{ marginBottom: '6px' }}>
+      {title && (
+        <h3 className="gov-report-table-title" style={{ fontSize: `${fontSize + 1}pt`, paddingLeft: '4px', marginBottom: '2px' }}>
+          {title}
+        </h3>
+      )}
+      {rows.length === 0 ? (
+        <p className="print-report-empty" style={{ fontSize: `${fontSize}pt` }}>{emptyText}</p>
+      ) : (
+        <table className="gov-report-table" style={{ fontSize: `${fontSize}pt` }}>
+          <thead>
+            <tr>
+              {headers.map((h, i) => (
+                <th key={i} style={{ fontSize: `${fontSize}pt`, padding: cellPad }}>{h}</th>
               ))}
             </tr>
-          ))}
-        </tbody>
-        {footerRows.length > 0 ? (
-          <tfoot>
-            {footerRows.map((row, rowIndex) => (
-              <tr key={`${title}-footer-${rowIndex}`}>
-                {row.map((cell, cellIndex) => (
-                  <td key={`${title}-footer-${rowIndex}-${cellIndex}`} className={getTableCellClass(cell)}>
-                    {cell}
-                  </td>
-                ))}
+          </thead>
+          <tbody>
+            {rows.map((row, rIndex) => (
+              <tr key={rIndex}>
+                {row.map((cell, cIndex) => {
+                  const numeric = /^-?\d+(\.\d+)?%?$/.test(String(cell ?? "").trim());
+                  const alignClass = cIndex === 0 ? "text-left font-bold" : (numeric ? "text-center" : "text-left");
+                  return (
+                    <td key={cIndex} className={alignClass} style={{ padding: cellPad, fontSize: `${fontSize}pt` }}>
+                      {cell}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
-          </tfoot>
-        ) : null}
-      </table>
-    )}
-  </section>
+          </tbody>
+          {footerRows.length > 0 && (
+            <tfoot>
+              {footerRows.map((row, rIndex) => (
+                <tr key={rIndex} className="gov-table-totals">
+                  {row.map((cell, cIndex) => {
+                    const alignClass = cIndex === 0 ? "text-left font-bold" : "text-center";
+                    return (
+                      <td key={cIndex} className={alignClass} style={{ padding: cellPad, fontSize: `${fontSize}pt` }}>
+                        {cell}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tfoot>
+          )}
+        </table>
+      )}
+    </section>
+  );
+};
+
+// REUSABLE REPORT SUMMARY COMPONENT
+const ReportSummary = ({ title, items = [] }) => {
+  const { fontSize } = useContext(ReportStyleContext);
+  if (!items.length) return null;
+  return (
+    <div className="gov-report-summary-box" style={{ padding: '4px 8px', margin: '4px 0' }}>
+      <h4 className="gov-report-summary-title" style={{ fontSize: `${fontSize + 1}pt`, marginBottom: '3px' }}>{title}</h4>
+      <div className="gov-report-summary-grid">
+        {items.map((item, index) => (
+          <div key={index} className="gov-report-summary-item" style={{ fontSize: `${fontSize}pt`, paddingBottom: '1px' }}>
+            <span className="label">{item.label}</span>
+            <span className="value">{item.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// REUSABLE REPORT FOOTER COMPONENT
+const ReportFooter = ({
+  preparedBy = "JOVELYN C. CABAYA",
+  preparedByTitle = "Barangay Secretary",
+  certifiedBy = "HON. MAMERTO C. CLARITO",
+  certifiedByTitle = "Punong Barangay"
+}) => {
+  return (
+    <footer className="gov-report-footer" style={{ marginTop: '12px' }}>
+      <div className="gov-report-signatory">
+        <p style={{ fontSize: '7.5pt', marginBottom: '18px' }}>Prepared by:</p>
+        <div className="gov-report-signatory-name" style={{ fontSize: '9pt', minWidth: '160px' }}>{preparedBy}</div>
+        <div className="gov-report-signatory-title" style={{ fontSize: '7pt' }}>{preparedByTitle}</div>
+      </div>
+      <div className="gov-report-signatory">
+        <p style={{ fontSize: '7.5pt', marginBottom: '18px' }}>Certified by:</p>
+        <div className="gov-report-signatory-name" style={{ fontSize: '9pt', minWidth: '160px' }}>{certifiedBy}</div>
+        <div className="gov-report-signatory-title" style={{ fontSize: '7pt' }}>{certifiedByTitle}</div>
+      </div>
+    </footer>
+  );
+};
+
+// BACKWARDS COMPATIBILITY WRAPPER FOR OLD PRINTSECTION
+const PrintSection = ({ title, headers, rows, footerRows = [], emptyText = "No data available.", className = "" }) => (
+  <ReportTable
+    title={title}
+    headers={headers}
+    rows={rows}
+    footerRows={footerRows}
+    emptyText={emptyText}
+  />
 );
 
+const getPurokHeaderStyle = (purokKey) => {
+  const norm = String(purokKey ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (norm.includes("kamonsil")) return { backgroundColor: "#fee2e2", color: "#991b1b" };
+  if (norm.includes("payhod")) return { backgroundColor: "#fef9c3", color: "#854d0e" };
+  if (norm.includes("muslim")) return { backgroundColor: "#dcfce7", color: "#166534" };
+  if (norm.includes("malipayon")) return { backgroundColor: "#ffe4e6", color: "#9f1239" };
+  if (norm.includes("purok3") || norm.includes("purokthree")) return { backgroundColor: "#ccfbf1", color: "#115e59" };
+  if (norm.includes("buklod")) return { backgroundColor: "#f3e8ff", color: "#6b21a8" };
+  if (norm.includes("azucena")) return { backgroundColor: "#fef08a", color: "#854d0e" };
+  return { backgroundColor: "#f0fdf4", color: "#14532D" };
+};
+
+const getPurokSubHeaderStyle = (purokKey) => {
+  const norm = String(purokKey ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (norm.includes("kamonsil")) return { backgroundColor: "#fef2f2", color: "#1f2937" };
+  if (norm.includes("payhod")) return { backgroundColor: "#fefce8", color: "#1f2937" };
+  if (norm.includes("muslim")) return { backgroundColor: "#f0fdf4", color: "#1f2937" };
+  if (norm.includes("malipayon")) return { backgroundColor: "#fff5f5", color: "#1f2937" };
+  if (norm.includes("purok3") || norm.includes("purokthree")) return { backgroundColor: "#f0fdfa", color: "#1f2937" };
+  if (norm.includes("buklod")) return { backgroundColor: "#faf5ff", color: "#1f2937" };
+  if (norm.includes("azucena")) return { backgroundColor: "#fefce8", color: "#1f2937" };
+  return { backgroundColor: "#f8fafc", color: "#1f2937" };
+};
+
 const PopulationMatrixSection = ({ familyProfile, puroks }) => {
+  const { fontSize, rowPadding } = useContext(ReportStyleContext);
   const grandTotal = familyProfile.grandTotals.male + familyProfile.grandTotals.female;
+  const cellPad = `${rowPadding}px 1px`;
 
   return (
-    <section className="print-report-section print-family-profile">
-      <h2>Population by Age Group and Purok</h2>
-      <table>
+    <section className="gov-report-table-section" style={{ marginBottom: '4px' }}>
+      <h3 className="gov-report-table-title" style={{ fontSize: `${fontSize + 1}pt`, paddingLeft: '2px', marginBottom: '2px' }}>
+        Population by Age Group and Purok
+      </h3>
+      <table className="gov-report-table" style={{ fontSize: `${fontSize}pt`, tableLayout: 'fixed', width: '100%' }}>
         <thead>
           <tr>
-            <th rowSpan="2" className="print-family-age-heading">Age</th>
-            {puroks.map((purok, index) => (
+            <th rowSpan="2" className="text-center font-bold" style={{ fontSize: `${fontSize}pt`, padding: cellPad, verticalAlign: "middle", width: '60px' }}>Age</th>
+            {puroks.map((purok) => (
               <th
                 key={purok.value}
                 colSpan="3"
-                className={`print-family-purok-group-heading print-purok-color-${index % 8}`}
+                className="text-center font-bold"
+                style={{
+                  ...getPurokHeaderStyle(purok.value),
+                  fontSize: `${fontSize}pt`,
+                  padding: cellPad,
+                  border: "1px solid #111827"
+                }}
               >
-                {purok.label}
+                {purok.label.toUpperCase()}
               </th>
             ))}
           </tr>
           <tr>
-            {puroks.flatMap((purok, index) => [
-              <th key={`${purok.value}-male`} className={`print-family-sub-heading print-purok-sub-color-${index % 8}`}>MALE</th>,
-              <th key={`${purok.value}-female`} className={`print-family-sub-heading print-purok-sub-color-${index % 8}`}>FEMALE</th>,
-              <th key={`${purok.value}-total`} className={`print-family-sub-heading print-purok-sub-color-${index % 8}`}>TOTAL</th>,
-            ])}
+            {puroks.flatMap((purok) => {
+              const subStyle = {
+                ...getPurokSubHeaderStyle(purok.value),
+                fontSize: `${fontSize - 0.5}pt`,
+                padding: `${rowPadding}px 0px`,
+                border: "1px solid #cbd5e1",
+                textAlign: 'center'
+              };
+              return [
+                <th key={`${purok.value}-male`} style={subStyle}>M</th>,
+                <th key={`${purok.value}-female`} style={subStyle}>F</th>,
+                <th key={`${purok.value}-total`} style={{ ...subStyle, fontWeight: "800" }}>T</th>,
+              ];
+            })}
           </tr>
         </thead>
         <tbody>
           {familyProfile.rows.map((row) => (
             <tr key={row.label}>
-              <td>{row.label}</td>
+              <td className="text-left font-bold" style={{ padding: cellPad, fontSize: `${fontSize - 0.5}pt`, whiteSpace: 'nowrap' }}>{row.label}</td>
               {puroks.flatMap((purok) => {
                 const counts = row.counts[purok.value] || { male: 0, female: 0 };
                 return [
-                  <td key={`${row.label}-${purok.value}-male`} className="print-report-number">{counts.male}</td>,
-                  <td key={`${row.label}-${purok.value}-female`} className="print-report-number">{counts.female}</td>,
-                  <td key={`${row.label}-${purok.value}-total`} className="print-report-number">{counts.male + counts.female}</td>,
+                  <td key={`${row.label}-${purok.value}-male`} className="text-center" style={{ padding: cellPad }}>{counts.male}</td>,
+                  <td key={`${row.label}-${purok.value}-female`} className="text-center" style={{ padding: cellPad }}>{counts.female}</td>,
+                  <td key={`${row.label}-${purok.value}-total`} className="text-center font-semibold" style={{ padding: cellPad, backgroundColor: "#f8fafc" }}>{counts.male + counts.female}</td>,
                 ];
               })}
             </tr>
           ))}
         </tbody>
         <tfoot>
-          <tr>
-            <td>Total</td>
+          <tr className="gov-table-totals">
+            <td className="text-left font-bold" style={{ padding: cellPad, fontSize: `${fontSize}pt` }}>Total</td>
             {puroks.flatMap((purok) => {
               const totals = familyProfile.purokTotals[purok.value] || { male: 0, female: 0 };
+              const totalCellStyle = {
+                padding: cellPad,
+                fontSize: `${fontSize}pt`,
+                backgroundColor: "#fef9c3",
+                color: "#1f2937",
+                border: "1px solid #14532D"
+              };
               return [
-                <td key={`${purok.value}-total-male`} className="print-report-number">{totals.male}</td>,
-                <td key={`${purok.value}-total-female`} className="print-report-number">{totals.female}</td>,
-                <td key={`${purok.value}-total-all`} className="print-report-number">{totals.male + totals.female}</td>,
+                <td key={`${purok.value}-total-male`} className="text-center font-bold" style={totalCellStyle}>{totals.male}</td>,
+                <td key={`${purok.value}-total-female`} className="text-center font-bold" style={totalCellStyle}>{totals.female}</td>,
+                <td key={`${purok.value}-total-all`} className="text-center font-extrabold" style={{ ...totalCellStyle, backgroundColor: "#ded260" }}>{totals.male + totals.female}</td>,
               ];
             })}
           </tr>
         </tfoot>
       </table>
-      <div className="print-family-grand-total">Grand Total: {grandTotal}</div>
+      <div 
+        className="text-right font-bold uppercase text-[#14532D]"
+        style={{ fontSize: `${fontSize + 1}pt`, marginTop: '2px' }}
+      >
+        Grand Total: {grandTotal}
+      </div>
     </section>
   );
 };
 
 const PrintPurokTotals = ({ rows, grandTotalLabel = "Grand Total" }) => {
+  const { fontSize, rowPadding } = useContext(ReportStyleContext);
   const maleTotal = sumNumericColumn(rows, 1);
   const femaleTotal = sumNumericColumn(rows, 2);
   const overallTotal = sumNumericColumn(rows, 3);
+  const cellPad = `${rowPadding}px ${rowPadding + 1}px`;
+  const allRows = [...rows, [grandTotalLabel, maleTotal, femaleTotal, overallTotal]];
+  const headers = ["Purok Name", "Male Total", "Female Total", "Overall Total"];
 
   return (
-    <PrintSection
-      title="Summary by Purok"
-      headers={["Purok Name", "Male Total", "Female Total", "Overall Total"]}
-      rows={rows}
-      footerRows={[[grandTotalLabel, maleTotal, femaleTotal, overallTotal]]}
-      emptyText="No purok summary available."
-      className="print-summary-section"
-    />
+    <section className="gov-report-table-section" style={{ marginBottom: '6px' }}>
+      <h3 className="gov-report-table-title" style={{ fontSize: `${fontSize + 1}pt`, paddingLeft: '4px', marginBottom: '2px' }}>
+        Summary by Purok
+      </h3>
+      {rows.length === 0 ? (
+        <p style={{ fontSize: `${fontSize}pt` }}>No purok summary available.</p>
+      ) : (
+        <table className="gov-report-table gov-report-table-light" style={{ fontSize: `${fontSize}pt` }}>
+          <thead>
+            <tr>
+              {headers.map((h, i) => (
+                <th key={i} style={{ fontSize: `${fontSize}pt`, padding: cellPad, backgroundColor: '#dcfce7', color: '#14532D', border: '1px solid #86efac', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, rIndex) => (
+              <tr key={rIndex}>
+                {row.map((cell, cIndex) => {
+                  const alignClass = cIndex === 0 ? "text-left font-bold" : "text-center";
+                  return (
+                    <td key={cIndex} className={alignClass} style={{ padding: cellPad, fontSize: `${fontSize}pt` }}>
+                      {cell}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="gov-table-totals">
+              {[grandTotalLabel, maleTotal, femaleTotal, overallTotal].map((cell, cIndex) => (
+                <td key={cIndex} className={cIndex === 0 ? "text-left font-bold" : "text-center"} style={{ padding: cellPad, fontSize: `${fontSize}pt` }}>
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        </table>
+      )}
+    </section>
   );
 };
 
 const Analytics = () => {
   const [selectedReport, setSelectedReport] = useState("residents");
-  const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [reportFilters, setReportFilters] = useState({
     dateFrom: "",
     dateTo: "",
@@ -727,6 +951,12 @@ const Analytics = () => {
   const [pwdColumnReady, setPwdColumnReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [activeTab, setActiveTab] = useState("analytics");
+  const [paperSize, setPaperSize] = useState("a4");
+  const [paperOrientation, setPaperOrientation] = useState("");
+  const [fontSize, setFontSize] = useState(7);
+  const [rowPadding, setRowPadding] = useState(2);
+  const [margin, setMargin] = useState(5);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -1176,40 +1406,38 @@ const Analytics = () => {
     window.print();
   };
 
-  const handleExportWord = () => {
-    const printableReport = document.querySelector(".print-report-document");
-    const reportHtml = printableReport?.innerHTML || "";
-    const html = `
-      <!doctype html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>${selectedReportInfo.title}</title>
-          <style>
-            @page { size: A4 landscape; margin: 10mm; }
-            body { font-family: Arial, Calibri, sans-serif; color: #222; }
-            table { width: 100%; border-collapse: collapse; font-size: 10px; }
-            th, td { border: 1px solid #333; padding: 4px; text-align: center; }
-            th { background: #7da65d; font-weight: 700; }
-            tfoot td { background: #d8cd2f; font-weight: 700; }
-            .print-report-masthead { text-align: center; }
-            .print-report-masthead img { width: 56px; height: 56px; object-fit: contain; }
-            .print-report-title, h1, h2 { text-align: center; text-transform: uppercase; }
-            .print-report-footer { display: table; width: 100%; margin-top: 40px; }
-            .print-report-signature { display: table-cell; width: 50%; text-align: center; }
-            .print-report-signature strong { border-top: 1px solid #222; padding-top: 4px; text-transform: uppercase; }
-          </style>
-        </head>
-        <body>${reportHtml}</body>
-      </html>
-    `;
-    const blob = new Blob([html], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `kaagapai-${selectedReportInfo.filename}-${new Date().toISOString().slice(0, 10)}.docx`;
-    link.click();
-    URL.revokeObjectURL(url);
+  const handleDownloadImage = async () => {
+    const element = document.querySelector(".report-preview-workspace .report-layout-container") || document.querySelector(".report-layout-container");
+    if (!element) {
+      alert("Report preview container not found.");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      // Use html2canvas to capture the element
+      const canvas = await html2canvas(element, {
+        scale: 2, // High resolution
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff"
+      });
+      
+      const imgData = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      const filename = `${selectedReportInfo.title.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.png`;
+      link.download = filename;
+      link.href = imgData;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Failed to export image:", error);
+      alert("Failed to export image. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderPrintSummary = () => {
@@ -1305,17 +1533,7 @@ const Analytics = () => {
     }
 
     return (
-      <div className="print-report-summary-box">
-        <h4 className="print-report-summary-title">{title}</h4>
-        <div className="print-report-summary-grid">
-          {summaryItems.map((item) => (
-            <div key={item.label} className="flex justify-between border-b pb-1 border-slate-100 text-[10px]">
-              <span className="text-slate-500 font-medium">{item.label}:</span>
-              <span className="font-bold text-[#1b4332]">{item.value}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <ReportSummary title={title} items={summaryItems} />
     );
   };
 
@@ -1700,202 +1918,385 @@ const Analytics = () => {
   const renderScreenReport = () => renderDemographicScreenReport();
 
   const SelectedReportIcon = selectedReportInfo.icon;
+  const activeOrientation = paperOrientation || (selectedReport === "residents" || selectedReport === "age-distribution" ? "landscape" : "portrait");
 
   return (
     <div className="min-h-screen bg-[#eef3f8]">
       <Header title="Reports & Analytics" subtitle="Generate demographics and barangay data reports" />
-      <main className="report-screen mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8">
-        <section className="mb-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3">
-              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#f0f7f4] text-[#1b4332] border border-[#1b4332]/10 shadow-sm">
-                <SelectedReportIcon size={24} />
-              </span>
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-[#c5a059]">Active Analytics View</p>
-                <h2 className="text-xl font-bold text-[#081c15] uppercase tracking-wide">{selectedReportInfo.title}</h2>
-                <p className="text-xs text-slate-500 mt-0.5">{selectedReportInfo.description}</p>
-              </div>
+      <main className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8 no-print">
+        {/* Unified Workspace Panel */}
+        <div className="gov-workspace-panel rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden mb-6">
+          {/* Toolbar */}
+          <div className="flex flex-col gap-4 border-b border-slate-200 bg-slate-50/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+            {/* Tabs */}
+            <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setActiveTab("analytics")}
+                className={`inline-flex items-center gap-2 rounded-md px-4 py-1.5 text-xs font-bold transition duration-200 ${
+                  activeTab === "analytics"
+                    ? "bg-[#14532D] text-white shadow-sm"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`}
+              >
+                <BarChart3 size={14} />
+                Interactive Charts
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("preview")}
+                className={`inline-flex items-center gap-2 rounded-md px-4 py-1.5 text-xs font-bold transition duration-200 ${
+                  activeTab === "preview"
+                    ? "bg-[#14532D] text-white shadow-sm"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`}
+              >
+                <FileText size={14} />
+                Print Preview (WYSIWYG)
+              </button>
             </div>
 
+            {/* Quick Actions (e.g. Export, Print) */}
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={loadData}
                 disabled={loading}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
               >
-                <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+                <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
                 Refresh
               </button>
-              <button
-                type="button"
-                onClick={() => setShowGenerateModal(true)}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1b4332] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#0f2d19]"
-              >
-                <SlidersHorizontal size={14} />
-                Generate Report
-              </button>
+
+              {activeTab !== "analytics" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleExport}
+                    disabled={loading}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    <Download size={13} />
+                    Export CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadImage}
+                    disabled={loading}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    <Download size={13} />
+                    Download Image
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    disabled={loading}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#14532D] hover:bg-[#0f3e21] px-4.5 py-1.5 text-xs font-bold text-white shadow-sm transition active:scale-95"
+                  >
+                    <Printer size={13} />
+                    Print Report
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
-          {message ? (
-            <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">
-              {message}
-            </div>
-          ) : null}
-        </section>
+          {/* Direct Report Generator Filter Bar */}
+          {activeTab === "analytics" && (
+            <div className="border-b border-slate-200 bg-slate-50/50 p-4 grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-5 items-end">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Report Type</span>
+                <select
+                  value={selectedReport}
+                  onChange={(event) => setSelectedReport(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none transition focus:border-[#14532D]"
+                >
+                  {REPORT_TYPES.map((item) => (
+                    <option key={item.key} value={item.key}>{item.label}</option>
+                  ))}
+                </select>
+              </label>
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white py-20 shadow-sm">
-            <RefreshCw size={32} className="animate-spin text-[#1b4332] mb-3" />
-            <p className="text-sm font-semibold text-slate-500">Querying database, please wait...</p>
-          </div>
-        ) : (
-          renderScreenReport()
-        )}
-      </main>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Purok Filter</span>
+                <select
+                  value={reportFilters.purok}
+                  onChange={(event) => setReportFilters((current) => ({ ...current, purok: event.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none transition focus:border-[#14532D]"
+                >
+                  <option value="all">All Puroks/Sitios</option>
+                  {report.availablePuroks.map((purok) => (
+                    <option key={purok.value} value={purok.value}>{purok.label}</option>
+                  ))}
+                </select>
+              </label>
 
-      <FloatingModal
-        open={showGenerateModal}
-        eyebrow="Report Generation"
-        title="Generate Report"
-        description="Choose a report, review options, then export or print from one focused panel."
-        onClose={() => setShowGenerateModal(false)}
-        footer={(
-          <div className="flex justify-end w-full">
-            <button type="button" onClick={() => window.print()} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#14532D] hover:bg-[#0f3e21] px-5 py-2.5 text-xs font-bold text-white transition active:scale-95 shadow-md">
-              <Printer size={14} />
-              Print Report
-            </button>
-          </div>
-        )}
-      >
-        <div className="space-y-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Report Type</span>
-              <select
-                value={selectedReport}
-                onChange={(event) => setSelectedReport(event.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#1b4332] focus:ring-4 focus:ring-emerald-100"
-              >
-                {REPORT_TYPES.map((item) => (
-                  <option key={item.key} value={item.key}>{item.label}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Purok Filter</span>
-              <select
-                value={reportFilters.purok}
-                onChange={(event) => setReportFilters((current) => ({ ...current, purok: event.target.value }))}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#1b4332] focus:ring-4 focus:ring-emerald-100"
-              >
-                <option value="all">All Puroks/Sitios</option>
-                {report.availablePuroks.map((purok) => (
-                  <option key={purok.value} value={purok.value}>{purok.label}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Date From</span>
-              <div className="relative">
-                <CalendarDays size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Date From</span>
                 <input
                   type="date"
                   value={reportFilters.dateFrom}
                   onChange={(event) => setReportFilters((current) => ({ ...current, dateFrom: event.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#1b4332] focus:ring-4 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none transition focus:border-[#14532D]"
                 />
-              </div>
-            </label>
+              </label>
 
-            <label className="space-y-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Date To</span>
-              <div className="relative">
-                <CalendarDays size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Date To</span>
                 <input
                   type="date"
                   value={reportFilters.dateTo}
                   onChange={(event) => setReportFilters((current) => ({ ...current, dateTo: event.target.value }))}
-                  className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#1b4332] focus:ring-4 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none transition focus:border-[#14532D]"
                 />
-              </div>
-            </label>
-          </div>
+              </label>
 
-          <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-            <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-[#1b4332] shadow-sm">
-                <SelectedReportIcon size={20} />
-              </span>
-              <div>
-                <h3 className="text-base font-black uppercase tracking-wide text-[#081c15]">{selectedReportInfo.title}</h3>
-                <p className="mt-1 text-sm text-slate-500">{selectedReportInfo.description}</p>
-                <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  <span className="rounded-full bg-white px-3 py-1 shadow-sm">{report.current.length} current residents</span>
-                  <span className="rounded-full bg-white px-3 py-1 shadow-sm">{report.householdGroups.length} households</span>
-                  <span className="rounded-full bg-white px-3 py-1 shadow-sm">
-                    {reportFilters.purok === "all" ? `${report.availablePuroks.length} puroks` : `${report.purokSummary[0]?.label || "Selected Purok"} only`}
-                  </span>
+              <button
+                type="button"
+                onClick={() => setActiveTab("preview")}
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#14532D] hover:bg-[#0f3e21] px-4 py-2.5 text-xs font-bold text-white shadow-sm transition active:scale-95"
+              >
+                <SlidersHorizontal size={13} />
+                Generate Report
+              </button>
+            </div>
+          )}
+
+          {/* Main Data Area */}
+          <div className="p-0">
+            {message ? (
+              <div className="m-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">
+                {message}
+              </div>
+            ) : null}
+
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-white">
+                <RefreshCw size={32} className="animate-spin text-[#14532D] mb-3" />
+                <p className="text-sm font-semibold text-slate-500">Querying database, please wait...</p>
+              </div>
+            ) : (
+              /* Original Charts/Dashboard View */
+              <div className="p-6 bg-slate-50">
+                {renderScreenReport()}
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+
+      {/* WYSIWYG Print Preview View — Fullscreen Floating at Root Level */}
+      {!loading && activeTab === "preview" && (
+        <div className="fixed inset-0 z-50 flex bg-slate-900/60 backdrop-blur-sm" style={{ top: 0, left: 0 }}>
+          {/* Control Sidebar */}
+          <div className="w-80 shrink-0 bg-white border-r border-slate-200 p-5 space-y-5 report-controls overflow-y-auto">
+            {/* Actions Header */}
+            <div className="flex flex-col gap-2 pb-4 border-b border-slate-100">
+              <button
+                type="button"
+                onClick={() => setActiveTab("analytics")}
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-rose-600"
+              >
+                <X size={14} />
+                Exit Print Preview
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                disabled={loading}
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#14532D] hover:bg-[#0f3e21] px-4 py-2 text-xs font-bold text-white shadow-sm transition active:scale-95"
+              >
+                <Printer size={13} />
+                Print Report
+              </button>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={loading}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                >
+                  <Download size={11} />
+                  CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadImage}
+                  disabled={loading}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                >
+                  <Download size={11} />
+                  Image
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Report Settings</h3>
+              
+              <div className="space-y-4">
+                {/* Select Report */}
+                <label className="block space-y-1">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">Report Module</span>
+                  <select
+                    value={selectedReport}
+                    onChange={(e) => setSelectedReport(e.target.value)}
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-[#14532D] focus:ring-2 focus:ring-green-100"
+                  >
+                    {REPORT_TYPES.map((item) => (
+                      <option key={item.key} value={item.key}>{item.label}</option>
+                    ))}
+                  </select>
+                </label>
+
+                {/* Select Purok */}
+                <label className="block space-y-1">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">Purok/Sitio</span>
+                  <select
+                    value={reportFilters.purok}
+                    onChange={(e) => setReportFilters((curr) => ({ ...curr, purok: e.target.value }))}
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-[#14532D] focus:ring-2 focus:ring-green-100"
+                  >
+                    <option value="all">All Puroks/Sitios</option>
+                    {report.availablePuroks.map((purok) => (
+                      <option key={purok.value} value={purok.value}>{purok.label}</option>
+                    ))}
+                  </select>
+                </label>
+
+                {/* Paper Size */}
+                <label className="block space-y-1">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">Paper Standard</span>
+                  <select
+                    value={paperSize}
+                    onChange={(e) => setPaperSize(e.target.value)}
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-[#14532D] focus:ring-2 focus:ring-green-100"
+                  >
+                    <option value="a4">A4 (210mm × 297mm)</option>
+                    <option value="letter">Letter (8.5" × 11")</option>
+                  </select>
+                </label>
+
+                {/* Orientation */}
+                <label className="block space-y-1">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">Orientation</span>
+                  <select
+                    value={paperOrientation}
+                    onChange={(e) => setPaperOrientation(e.target.value)}
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-[#14532D] focus:ring-2 focus:ring-green-100"
+                  >
+                    <option value="">Auto (Recommended)</option>
+                    <option value="portrait">Portrait</option>
+                    <option value="landscape">Landscape</option>
+                  </select>
+                </label>
+
+                {/* Font Size Slider */}
+                <label className="block space-y-1">
+                  <div className="flex justify-between text-[10px] font-bold uppercase text-slate-500">
+                    <span>Font Size</span>
+                    <span className="font-mono text-green-700">{fontSize}pt</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="5"
+                    max="14"
+                    step="0.5"
+                    value={fontSize}
+                    onChange={(e) => setFontSize(Number(e.target.value))}
+                    className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#14532D]"
+                  />
+                </label>
+
+                {/* Spacing / Padding Slider */}
+                <label className="block space-y-1">
+                  <div className="flex justify-between text-[10px] font-bold uppercase text-slate-500">
+                    <span>Row Spacing</span>
+                    <span className="font-mono text-green-700">{rowPadding}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={rowPadding}
+                    onChange={(e) => setRowPadding(Number(e.target.value))}
+                    className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#14532D]"
+                  />
+                </label>
+
+                {/* Margins Slider */}
+                <label className="block space-y-1">
+                  <div className="flex justify-between text-[10px] font-bold uppercase text-slate-500">
+                    <span>Page Margins</span>
+                    <span className="font-mono text-green-700">{margin}mm</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="3"
+                    max="25"
+                    value={margin}
+                    onChange={(e) => setMargin(Number(e.target.value))}
+                    className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#14532D]"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-4 space-y-3">
+              <h4 className="text-[10px] font-bold uppercase text-slate-400">Live Statistics</h4>
+              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                <div className="bg-slate-50 p-2 rounded">
+                  <div className="text-slate-500 font-semibold">Residents</div>
+                  <div className="text-sm font-bold text-slate-800">{report.current.length}</div>
+                </div>
+                <div className="bg-slate-50 p-2 rounded">
+                  <div className="text-slate-500 font-semibold">Households</div>
+                  <div className="text-sm font-bold text-slate-800">{report.householdGroups.length}</div>
                 </div>
               </div>
             </div>
-          </section>
+          </div>
+
+          {/* Live Sheet View — fullscreen scrollable area */}
+          <div className="flex-1 report-preview-workspace overflow-auto" style={{ padding: '24px', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', background: '#64748b' }}>
+            <ReportLayout paperSize={paperSize} orientation={activeOrientation} fontSize={fontSize} rowPadding={rowPadding} margin={margin}>
+              <ReportHeader
+                title={selectedReportInfo.title}
+                year={reportYear}
+                purokLabel={selectedPurokLabel}
+              />
+              
+              {renderPrintReportSections()}
+              {renderPrintSummary()}
+              
+              <ReportFooter
+                preparedBy={BARANGAY_SECRETARY}
+                certifiedBy={PUNONG_BARANGAY}
+              />
+            </ReportLayout>
+          </div>
         </div>
-      </FloatingModal>
-
-      {/* Official Government Printable Document Markup */}
-      {PRINTABLE_REPORTS.has(selectedReport) && (
-        <section
-          className="print-report-document"
-          aria-label={`Printable ${selectedReportInfo.title} Report`}
-        >
-          <header className="print-report-header">
-            <div className="print-report-masthead">
-              <img src="/logo.png" alt="Barangay Upper Mingading seal" />
-              <div>
-                <p>Republic of the Philippines</p>
-                <p>Province of Cotabato</p>
-                <p>Municipality of Aleosan</p>
-                <p className="print-report-barangay">BARANGAY UPPER MINGADING</p>
-                <p className="print-report-office">OFFICE OF THE PUNONG BARANGAY</p>
-              </div>
-              <img src="/aleosan.logo.png" alt="Municipality of Aleosan seal" />
-            </div>
-
-            <div className="print-report-divider" />
-
-            <h1 className="print-report-title">
-              {selectedReportInfo.title.toUpperCase()} C.Y. {reportYear}
-            </h1>
-            {selectedPurokLabel ? (
-              <p className="print-report-filter">PUROK: {selectedPurokLabel.toUpperCase()}</p>
-            ) : null}
-          </header>
-
-          {renderPrintReportSections()}
-
-          {/* Dynamic Summary Section inside Printable Report */}
-          {renderPrintSummary()}
-
-          <footer className="print-report-footer">
-            <div className="print-report-signature">
-              <p>Prepared by:</p>
-              <strong>{BARANGAY_SECRETARY}</strong>
-              <span>Barangay Secretary</span>
-            </div>
-            <div className="print-report-signature">
-              <p>Certified by:</p>
-              <strong>{PUNONG_BARANGAY}</strong>
-              <span>Punong Barangay</span>
-            </div>
-          </footer>
-        </section>
       )}
+
+      {/* Hidden Print Wrapper (Prints exactly the active layout, styled via index.css) */}
+      <div className="hidden print:block">
+        <ReportLayout paperSize={paperSize} orientation={activeOrientation} fontSize={fontSize} rowPadding={rowPadding} margin={margin}>
+          <ReportHeader
+            title={selectedReportInfo.title}
+            year={reportYear}
+            purokLabel={selectedPurokLabel}
+          />
+          
+          {renderPrintReportSections()}
+          {renderPrintSummary()}
+          
+          <ReportFooter
+            preparedBy={BARANGAY_SECRETARY}
+            certifiedBy={PUNONG_BARANGAY}
+          />
+        </ReportLayout>
+      </div>
     </div>
   );
 };

@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { getSystemSettings } from "../services/adminActivityService";
+import { checkAndRunAutoBackup, enforceRetentionPolicy } from "../services/backupService";
 
 const adminThemes = new Set(["light", "favorite"]);
 const normalizeAdminTheme = (theme) => (adminThemes.has(theme) ? theme : "favorite");
@@ -11,9 +12,29 @@ const MainLayout = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const shouldReduceMotion = useReducedMotion();
   const location = useLocation();
+  const backupCheckRan = useRef(false);
   const [adminTheme, setAdminTheme] = useState(() =>
     normalizeAdminTheme(getSystemSettings().adminTheme)
   );
+
+  // Silent auto-backup check + retention policy enforcement on app load
+  useEffect(() => {
+    if (backupCheckRan.current) return;
+    backupCheckRan.current = true;
+
+    const runBackupMaintenance = async () => {
+      try {
+        await checkAndRunAutoBackup();
+        await enforceRetentionPolicy();
+      } catch (err) {
+        console.warn("Background backup maintenance error:", err.message);
+      }
+    };
+
+    // Delay slightly to not block initial render
+    const timer = setTimeout(runBackupMaintenance, 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const syncTheme = () => {
@@ -35,9 +56,9 @@ const MainLayout = () => {
       <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
 
       <motion.main
-        className="relative flex-1 min-h-screen"
+        className="relative flex-1 min-w-0 min-h-screen"
         initial={false}
-        animate={{ marginLeft: isCollapsed ? 80 : 260 }}
+        animate={{ paddingLeft: isCollapsed ? 80 : 260 }}
         transition={
           shouldReduceMotion
             ? { duration: 0 }

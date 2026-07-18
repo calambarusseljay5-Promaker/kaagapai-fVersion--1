@@ -47,9 +47,7 @@
   --kaagap-chart-senior: #F59E0B;
   --kaagap-chart-info: #60A5FA;
   --kaagap-chart-success: #10B981;
-  --kaagap-barangay-bg:
-    linear-gradient(135deg, rgba(244, 247, 251, 0.95) 0%, rgba(223, 248, 238, 0.8) 100%),
-    url("/barangay/BARANGAYOFICE.PNG");
+  --kaagap-barangay-bg: #F0FDF4;
   --kaagap-barangay-bg-size: cover;
   --kaagap-barangay-bg-position: center;
   --kaagap-barangay-bg-attachment: fixed;
@@ -78,11 +76,8 @@
 }
 
 .admin-shell-bg {
-  background-image: linear-gradient(135deg, rgba(20, 83, 45, 0.82) 0%, rgba(15, 23, 42, 0.88) 100%), url("/barangay/BARANGAYOFICE.PNG");
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
-  background-repeat: no-repeat;
+  background-color: #F0FDF4 !important;
+  background-image: none !important;
 }
 
 .gov-workspace-panel {
@@ -165,13 +160,8 @@ body {
 
 /* Resident/User portal responsive shell polish. Scoped to the resident dashboard only. */
 .resident-portal-v2 {
-  background:
-    linear-gradient(135deg, rgba(247, 250, 248, 0.94), rgba(232, 241, 238, 0.9)),
-    url("/barangay/BARANGAYOFICE.PNG") !important;
-  background-attachment: fixed, fixed !important;
-  background-position: center, center !important;
-  background-repeat: no-repeat, no-repeat !important;
-  background-size: cover, cover !important;
+  background-color: #F0FDF4 !important;
+  background-image: none !important;
 }
 
 .resident-portal-v2 .resident-portal-header,
@@ -269,11 +259,7 @@ body {
   --kaagap-chart-senior: #eab308;
   --kaagap-chart-info: #14b8a6;
   --kaagap-chart-success: #65a30d;
-  --kaagap-barangay-bg:
-    radial-gradient(circle at 16% 4%, rgba(30, 64, 175, 0.2), transparent 32%),
-    radial-gradient(circle at 86% 10%, rgba(74, 222, 128, 0.14), transparent 34%),
-    linear-gradient(135deg, rgba(7, 18, 36, 0.88) 0%, rgba(8, 47, 73, 0.74) 48%, rgba(54, 83, 20, 0.7) 100%),
-    url("/barangay/BARANGAYOFICE.PNG");
+  --kaagap-barangay-bg: #F0FDF4;
 }
 
 .admin-shell-bg[data-admin-theme="favorite"] {
@@ -308,9 +294,7 @@ body {
   --kaagap-chart-senior: #f59e0b;
   --kaagap-chart-info: #3b82f6;
   --kaagap-chart-success: #22c55e;
-  --kaagap-barangay-bg:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(245, 245, 245, 0.84) 48%, rgba(255, 235, 237, 0.88) 100%),
-    url("/barangay/BARANGAYOFICE.PNG");
+  --kaagap-barangay-bg: #F0FDF4;
   --kaagap-barangay-bg-size: auto, cover;
   --kaagap-barangay-bg-position: center, center;
   --kaagap-barangay-bg-attachment: fixed, fixed;
@@ -970,9 +954,7 @@ div.rounded-lg.bg-white {
   --resident-portal-bg: #f4f8f7;
   --resident-portal-surface: rgba(255, 255, 255, 0.86);
   --resident-portal-surface-soft: rgba(247, 251, 250, 0.74);
-  --resident-portal-page-bg:
-    linear-gradient(135deg, rgba(246, 250, 249, 0.72) 0%, rgba(229, 244, 242, 0.58) 46%, rgba(244, 247, 252, 0.66) 100%),
-    url("/barangay/BARANGAYOFICE.PNG");
+  --resident-portal-page-bg: #F0FDF4;
   --resident-portal-primary: #2563eb;
   --resident-portal-primary-hover: #1d4ed8;
   --resident-portal-primary-soft: #dbeafe;
@@ -2493,12 +2475,7 @@ div.rounded-lg.bg-white {
   --kaagap-chart-senior: #f59e0b;
   --kaagap-chart-info: #06b6d4;
   --kaagap-chart-success: #16a34a;
-  --kaagap-barangay-bg:
-    radial-gradient(circle at 8% 4%, rgba(16, 185, 129, 0.18), transparent 29%),
-    radial-gradient(circle at 92% 8%, rgba(14, 165, 233, 0.16), transparent 30%),
-    radial-gradient(circle at 72% 92%, rgba(245, 158, 11, 0.1), transparent 28%),
-    linear-gradient(135deg, rgba(243, 252, 248, 0.94), rgba(232, 248, 244, 0.88) 48%, rgba(235, 247, 253, 0.9)),
-    url("/barangay/BARANGAYOFICE.PNG");
+  --kaagap-barangay-bg: #F0FDF4;
   --kaagap-barangay-bg-size: auto, auto, auto, auto, cover;
   --kaagap-barangay-bg-position: center, center, center, center, center;
   --kaagap-barangay-bg-attachment: fixed, fixed, fixed, fixed, fixed;
@@ -2970,12 +2947,7 @@ div.rounded-lg.bg-white {
   --resident-portal-bg: #edf8f4;
   --resident-portal-surface: rgba(255, 255, 255, 0.95);
   --resident-portal-surface-soft: rgba(244, 251, 248, 0.96);
-  --resident-portal-page-bg:
-    radial-gradient(circle at 8% 5%, rgba(16, 185, 129, 0.17), transparent 29%),
-    radial-gradient(circle at 92% 8%, rgba(14, 165, 233, 0.15), transparent 30%),
-    radial-gradient(circle at 74% 94%, rgba(245, 158, 11, 0.09), transparent 27%),
-    linear-gradient(135deg, rgba(244, 253, 249, 0.94), rgba(232, 248, 244, 0.88) 48%, rgba(236, 248, 253, 0.9)),
-    url("/barangay/BARANGAYOFICE.PNG");
+  --resident-portal-page-bg: #F0FDF4;
   --resident-portal-primary: #047857;
   --resident-portal-primary-hover: #036749;
   --resident-portal-primary-soft: #d1fae5;
@@ -3131,12 +3103,12 @@ div.rounded-lg.bg-white {
 
 .admin-shell-bg[data-admin-theme="light"] .system-page-area .dashboard-v2-popup {
   border-color: #e5e6eb !important;
-  background: #ffffff !important;
+  background: rgba(255, 255, 255, 0.95) !important;
   background-image: none !important;
   opacity: 1 !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  box-shadow: 0 14px 34px rgba(29, 33, 41, 0.14) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05) !important;
   transform: none !important;
   will-change: auto !important;
 }
@@ -3258,9 +3230,7 @@ div.rounded-lg.bg-white {
 
 /* Global barangay identity: real hall background and dark-green navigation in every admin theme. */
 .admin-shell-bg[data-admin-theme] {
-  --kaagap-barangay-bg:
-    linear-gradient(rgba(248, 249, 250, 0.82), rgba(241, 247, 244, 0.88)),
-    url("/barangay/BARANGAYOFICE.PNG");
+  --kaagap-barangay-bg: #F0FDF4;
   --kaagap-barangay-bg-size: cover, cover;
   --kaagap-barangay-bg-position: center, center;
   --kaagap-barangay-bg-attachment: scroll, scroll;
@@ -3275,32 +3245,26 @@ div.rounded-lg.bg-white {
 .admin-shell-bg[data-admin-theme] .system-page-area > .admin-route-transition > [class*="min-h-screen"],
 .admin-shell-bg[data-admin-theme] .system-page-area > .admin-route-transition > [class*="h-screen"],
 .admin-shell-bg[data-admin-theme] .system-page-area .dashboard-v2-shell {
-  background: var(--kaagap-barangay-bg) !important;
-  background-attachment: var(--kaagap-barangay-bg-attachment) !important;
-  background-position: var(--kaagap-barangay-bg-position) !important;
-  background-repeat: var(--kaagap-barangay-bg-repeat) !important;
-  background-size: var(--kaagap-barangay-bg-size) !important;
+  background: #F8FAFC !important;
+  background-image: none !important;
 }
 
 .admin-shell-bg[data-admin-theme] > aside {
-  border-right: 1px solid rgba(167, 243, 208, 0.2) !important;
-  background:
-    linear-gradient(180deg, #006633 0%, #005b31 50%, #004726 100%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: linear-gradient(to bottom, #14532D, #0f3e21, #0a2916) !important;
   color: #ffffff !important;
-  box-shadow:
-    10px 0 28px rgba(0, 71, 38, 0.26),
-    inset -1px 0 0 rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 4px 0 24px rgba(20, 83, 45, 0.15) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
 .admin-shell-bg[data-admin-theme] > aside > div:first-child {
-  border-color: rgba(255, 255, 255, 0.14) !important;
-  background: rgba(0, 71, 38, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(0, 0, 0, 0.1) !important;
 }
 
 .admin-shell-bg[data-admin-theme] > aside [aria-label="Toggle sidebar"] {
-  border-color: rgba(255, 255, 255, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
   background: rgba(255, 255, 255, 0.08) !important;
   color: #ffffff !important;
   box-shadow: none !important;
@@ -3312,12 +3276,10 @@ div.rounded-lg.bg-white {
 }
 
 .admin-shell-bg[data-admin-theme] > aside a[aria-current="page"] {
-  border: 1px solid rgba(134, 239, 172, 0.28) !important;
-  background: #00843d !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
   color: #ffffff !important;
-  box-shadow:
-    0 10px 22px rgba(0, 55, 29, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  box-shadow: none !important;
 }
 
 .admin-shell-bg[data-admin-theme] > aside a[aria-current="page"] [class*="bg-cyan-200"] {
@@ -3454,80 +3416,230 @@ div.rounded-lg.bg-white {
 
 /* Modern compact dashboard matching the official green/yellow barangay theme. */
 .admin-shell-bg[data-admin-theme] {
-  --kaagap-barangay-bg:
-    linear-gradient(rgba(236, 247, 243, 0.72), rgba(255, 250, 235, 0.58)),
-    url("/barangay/BARANGAYOFICE.PNG");
+  --kaagap-barangay-bg: #F0FDF4;
 }
 
 .admin-shell-bg[data-admin-theme] .system-page-area .dashboard-v2-shell {
-  background: var(--kaagap-barangay-bg) !important;
-  background-attachment: scroll, scroll !important;
-  background-position: center, center !important;
-  background-repeat: no-repeat, no-repeat !important;
-  background-size: cover, cover !important;
+  background: #F8FAFC !important;
+  background-image: none !important;
 }
 
 .admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header {
   position: relative !important;
   top: auto !important;
-  border: 1px solid rgba(255, 255, 255, 0.82) !important;
-  background: rgba(255, 255, 255, 0.94) !important;
-  box-shadow:
-    0 16px 34px rgba(15, 45, 32, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.92) !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header > div {
-  max-width: 1540px !important;
-  padding: 0.35rem 0.5rem !important;
+  max-width: 1600px !important;
+  padding: 0.5rem 0 !important;
 }
 
 .admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header h1 {
-  color: #111827 !important;
+  color: #0f172a !important;
   font-size: 26px !important;
   font-weight: 800 !important;
-  letter-spacing: 0 !important;
+  letter-spacing: -0.02em !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
 }
 
 .admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header h1 + p {
-  color: #4b5563 !important;
+  color: #64748b !important;
   font-size: 13px !important;
-  font-weight: 700 !important;
+  font-weight: 500 !important;
 }
 
 .admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header input {
-  height: 38px !important;
-  border-color: #e6ebe8 !important;
-  border-radius: 0.8rem !important;
-  background: rgba(255, 255, 255, 0.96) !important;
-  box-shadow: 0 8px 22px rgba(15, 45, 32, 0.06) !important;
+  height: 44px !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 9999px !important;
+  background: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02) !important;
+  padding-left: 2.75rem !important;
+  font-size: 13px !important;
+  color: #1e293b !important;
 }
 
-.admin-shell-bg[data-admin-theme] .system-page-area .dashboard-v2 {
-  color: #111827;
+/* Date span as white rounded-full pill */
+.admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header span.hidden {
+  height: 44px !important;
+  border-radius: 9999px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02) !important;
+  padding-left: 1.25rem !important;
+  padding-right: 1.25rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #1e293b !important;
 }
 
-.admin-shell-bg[data-admin-theme] .system-page-area .dashboard-v2 .dashboard-v2-card {
-  border-color: rgba(255, 255, 255, 0.86) !important;
-  background: rgba(255, 255, 255, 0.95) !important;
-  box-shadow:
-    0 12px 26px rgba(23, 41, 31, 0.13),
-    0 1px 2px rgba(23, 41, 31, 0.06) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
+/* Notification bell button as circular button */
+.admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header button[aria-label="Notifications"] {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 9999px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #475569 !important;
 }
 
-.admin-shell-bg[data-admin-theme] .system-page-area .dashboard-v2 a.dashboard-v2-card:hover {
-  border-color: rgba(21, 128, 61, 0.22) !important;
-  box-shadow:
-    0 16px 32px rgba(23, 41, 31, 0.16),
-    0 1px 2px rgba(23, 41, 31, 0.06) !important;
+/* Profile dropdown button as a white pill card */
+.admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header button.flex {
+  height: 44px !important;
+  border-radius: 9999px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02) !important;
+  padding-left: 0.5rem !important;
+  padding-right: 1rem !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
 }
 
-.admin-shell-bg[data-admin-theme] .system-page-area .dashboard-v2 .dashboard-growth-card {
-  background: rgba(255, 255, 255, 0.95) !important;
+/* Image inside profile dropdown */
+.admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header button.flex span.inline-flex,
+.admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header button.flex img {
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 9999px !important;
+}
+
+.admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header button.flex div.hidden {
+  display: block !important;
+}
+.admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header button.flex div.hidden p {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  line-height: 1.2 !important;
+}
+.admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header button.flex div.hidden p:last-child {
+  font-size: 9px !important;
+  font-weight: 500 !important;
+  color: #64748b !important;
+}
+
+/* STRICT DASHBOARD DESKTOP CANVAS AND LAYOUT */
+.dashboard-v2-shell {
+  background-color: #F8FAFC !important;
+  font-family: 'Inter', 'Plus Jakarta Sans', sans-serif !important;
+  overflow-x: hidden !important;
+}
+
+/* Strict Card Styling */
+.strict-dashboard-card {
+  background-color: #FFFFFF !important;
+  border-radius: 18px !important;
+  box-shadow: 0 8px 30px rgba(0,0,0,.08) !important;
+  border: 1px solid #E2E8F0 !important;
+  transition: transform 0.25s ease, box-shadow 0.25s ease !important;
+  animation: fadeIn 0.4s ease forwards;
+  overflow: hidden;
+}
+
+.strict-dashboard-card.bg-glass {
+  background-color: #0A2F1D !important;
+  border: 1px solid rgba(20, 83, 45, 0.3) !important;
+}
+
+.strict-dashboard-card:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,.12) !important;
+}
+
+/* Button hover scale animation */
+.strict-button-hover {
+  transition: transform 0.25s ease !important;
+}
+.strict-button-hover:hover {
+  transform: scale(1.02) !important;
+}
+
+/* Fade-in Animation keyframes */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Strict Typography sizes */
+.strict-title {
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+  color: #0f172a !important;
+}
+
+.strict-card-number {
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  line-height: 1.1 !important;
+  letter-spacing: -0.02em !important;
+  color: #0f172a !important;
+}
+
+.strict-card-title {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #64748b !important;
+}
+
+.strict-desc {
+  font-size: 13px !important;
+  color: #64748b !important;
+}
+
+.strict-table-text {
+  font-size: 13px !important;
+}
+
+/* Strict header height and alignment */
+.admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header {
+  min-height: 72px !important;
+  height: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  margin-bottom: 24px !important;
+  padding: 0 !important;
+}
+
+.admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header h1 {
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+  color: #0f172a !important;
+  line-height: 1.2 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+}
+
+.admin-shell-bg[data-admin-theme] .system-page-area header.dashboard-v2-header h1 + p {
+  font-size: 13px !important;
+  color: #64748b !important;
 }
 
 .dashboard-circuit-traces-blue {
@@ -3593,12 +3705,7 @@ select {
 }
 
 .login-page-backdrop {
-  background:
-    radial-gradient(circle at 10% 12%, rgba(255, 223, 77, 0.28), transparent 16%),
-    radial-gradient(circle at 84% 18%, rgba(255, 214, 64, 0.18), transparent 14%),
-    radial-gradient(circle at 52% 58%, rgba(34, 197, 94, 0.12), transparent 34%),
-    linear-gradient(135deg, rgba(1, 12, 7, 0.72) 0%, rgba(5, 40, 26, 0.62) 32%, rgba(3, 70, 42, 0.58) 64%, rgba(6, 57, 34, 0.68) 100%),
-    url("/barangay/BARANGAYOFICE.PNG");
+  background: #F0FDF4 !important;
 
   background-size: cover, cover, cover, cover, cover;
   background-position: center, center, center, center, center;
@@ -3925,9 +4032,8 @@ select {
    END MOBILE-FIRST RESIDENT DASHBOARD REDESIGN
    Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
 .resident-indigo-shell {
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.86), rgba(248, 250, 252, 0.9)),
-    url("/barangay/BARANGAYOFICE.PNG") !important;
+  background-color: #F0FDF4 !important;
+  background-image: none !important;
   background-attachment: scroll, scroll !important;
   background-position: center, center !important;
   background-repeat: no-repeat, no-repeat !important;
@@ -4577,9 +4683,8 @@ select {
 
 @media (min-width: 1024px) {
   .resident-indigo-shell.resident-home-active {
-    background:
-      linear-gradient(135deg, rgba(245, 246, 244, 0.86), rgba(248, 249, 250, 0.9)),
-      url("/barangay/BARANGAYOFICE.PNG") !important;
+    background-color: #F0FDF4 !important;
+    background-image: none !important;
     background-size: cover, cover !important;
     background-position: center, center !important;
   }
@@ -4719,9 +4824,8 @@ select {
 
 /* High-tech barangay resident dashboard refresh */
 .resident-indigo-shell.resident-home-active {
-  background:
-    linear-gradient(135deg, rgba(232, 239, 223, 0.86), rgba(197, 219, 216, 0.78)),
-    url("/barangay/BARANGAYOFICE.PNG") !important;
+  background-color: #F0FDF4 !important;
+  background-image: none !important;
   background-size: cover, cover !important;
   background-position: center, center !important;
   background-attachment: fixed, fixed !important;
@@ -4885,367 +4989,386 @@ select {
 
 /* ============================================================
    PRINT REPORT STYLES — Official Barangay Report Document
-   Landscape Orientation — Font: Arial / Helvetica
+   WYSIWYG Live Preview & Print Styles
    ============================================================ */
 
-/* ---- Screen: Hide the printable document ---- */
-.print-report-document {
-  display: none;
-  visibility: hidden;
+/* ---- Screen Preview Workspace ---- */
+.report-preview-workspace {
+  background-color: #cbd5e1; /* Sleek workspace background */
+  padding: 30px 15px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow-x: auto;
+  min-height: 700px;
 }
 
+.report-layout-container {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+  padding: 5mm !important; /* 5mm margins simulated as padding — matches print */
+  margin: 0 auto;
+  position: relative;
+  font-family: Arial, 'Segoe UI', Calibri, sans-serif;
+  line-height: 1.25;
+  text-align: left;
+  border: 1px solid #d1d5db;
+  flex-shrink: 0;
+}
+
+/* Paper dimensions for A4 */
+.report-layout-container.a4.portrait {
+  width: 210mm;
+  min-height: 297mm;
+}
+.report-layout-container.a4.landscape {
+  width: 297mm;
+  min-height: 210mm;
+}
+
+/* Paper dimensions for Letter */
+.report-layout-container.letter.portrait {
+  width: 8.5in;
+  min-height: 11in;
+}
+.report-layout-container.letter.landscape {
+  width: 11in;
+  min-height: 8.5in;
+}
+
+/* ---- Government Header Styling ---- */
+.gov-report-header {
+  text-align: center;
+  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.gov-report-masthead {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+
+.gov-report-logo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.gov-report-info {
+  text-align: center;
+  font-size: 8pt;
+  font-weight: 500;
+  color: #374151;
+  line-height: 1.2;
+}
+
+.gov-report-info p {
+  margin: 0;
+}
+
+.gov-report-barangay {
+  font-size: 9pt;
+  font-weight: 900;
+  color: #14532D;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 1px 0;
+}
+
+.gov-report-office {
+  font-size: 7pt;
+  font-weight: 600;
+  color: #1f2937;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.gov-report-title {
+  font-size: 11pt;
+  font-weight: 900;
+  text-transform: uppercase;
+  text-align: center;
+  color: #1f2937;
+  letter-spacing: 1px;
+  margin: 3px 0 2px;
+}
+
+.gov-report-filter {
+  font-size: 8pt;
+  font-weight: 700;
+  color: #14532D;
+  text-transform: uppercase;
+  text-align: center;
+  margin: 0;
+}
+
+.gov-report-divider {
+  border-top: 1.5px solid #14532D;
+  height: 0;
+  width: 100%;
+  margin: 3px 0;
+}
+
+/* ---- Report Table Styling ---- */
+.gov-report-table-section {
+  margin-bottom: 4px;
+}
+
+.gov-report-table-title {
+  font-size: 8pt;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #14532D;
+  margin-bottom: 2px;
+  border-left: 2px solid #14532D;
+  padding-left: 4px;
+}
+
+.gov-report-table {
+  width: 100% !important;
+  max-width: 100% !important;
+  table-layout: auto !important;
+  border-collapse: collapse;
+  font-size: 7pt;
+  border: 1px solid #cbd5e1;
+  margin-bottom: 2px;
+  background-color: #ffffff;
+}
+
+.gov-report-table thead th {
+  background-color: #f0fdf4;
+  color: #14532D;
+  font-size: 7pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 1px;
+  border: 1px solid #cbd5e1;
+  text-align: center;
+  vertical-align: middle;
+  line-height: 1.1;
+}
+
+.gov-report-table tbody td {
+  padding: 2px 1px;
+  border: 0.5px solid #cbd5e1;
+  color: #1f2937;
+  font-size: 7pt;
+  vertical-align: middle;
+  line-height: 1.1;
+}
+
+.gov-report-table th,
+.gov-report-table td {
+  white-space: normal !important;
+  word-break: break-word !important;
+  word-wrap: break-word !important;
+}
+
+/* Alternating rows */
+.gov-report-table tbody tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+/* Cell alignment */
+.gov-report-table td.text-left {
+  text-align: left;
+}
+.gov-report-table td.text-center {
+  text-align: center;
+}
+.gov-report-table td.text-right {
+  text-align: right;
+}
+
+/* Total Rows (yellow background, bold) */
+.gov-report-table tfoot tr,
+.gov-report-table tr.gov-table-totals {
+  background-color: #fef9c3;
+  font-weight: 700;
+}
+
+.gov-report-table tfoot td,
+.gov-report-table tr.gov-table-totals td {
+  border: 1px solid #14532D;
+  color: #1f2937;
+  font-size: 7pt;
+  font-weight: 800;
+}
+
+/* ---- Summary Box Styling ---- */
+.gov-report-summary-box {
+  border: 1px solid #14532D;
+  background-color: #fefce8;
+  padding: 4px 8px;
+  margin: 4px 0;
+  box-sizing: border-box;
+}
+
+.gov-report-summary-title {
+  font-size: 8pt;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #14532D;
+  margin: 0 0 3px;
+  border-bottom: 1px solid #14532D;
+  padding-bottom: 1px;
+}
+
+.gov-report-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 2px 12px;
+}
+
+@media (min-width: 640px) {
+  .gov-report-summary-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.gov-report-summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 7pt;
+  border-bottom: 1px dotted #cbd5e1;
+  padding-bottom: 1px;
+}
+
+.gov-report-summary-item .label {
+  color: #4b5563;
+  font-weight: 600;
+}
+
+.gov-report-summary-item .value {
+  color: #111827;
+  font-weight: 800;
+}
+
+/* ---- Signatories Footer ---- */
+.gov-report-footer {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.gov-report-signatory {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 40%;
+}
+
+.gov-report-signatory p {
+  font-size: 7.5pt;
+  color: #4b5563;
+  margin: 0 0 18px;
+  font-weight: 600;
+}
+
+.gov-report-signatory-name {
+  font-size: 9pt;
+  font-weight: 800;
+  color: #111827;
+  text-transform: uppercase;
+  border-bottom: 1.5px solid #111827;
+  padding-bottom: 2px;
+  width: 80%;
+  text-align: center;
+  min-width: 160px;
+}
+
+.gov-report-signatory-title {
+  font-size: 7pt;
+  color: #4b5563;
+  font-style: italic;
+  margin-top: 3px;
+  font-weight: 500;
+}
+
+/* ---- Print Customizations ---- */
 @media print {
+  /* Dynamic page properties */
   @page {
-    size: A4 landscape;
-    margin: 5mm 6mm !important;
+    margin: 5mm !important;
   }
 
-  html,
-  body {
+  /* Force background colors to print */
+  html, body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
     width: 100% !important;
     height: auto !important;
+    overflow: visible !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: visible !important;
-    background: #ffffff !important;
+    font-size: 7pt !important;
   }
 
-  .print-report-document,
-  .print-report-document * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-    box-sizing: border-box;
-  }
-
-  body * {
-    visibility: hidden;
-  }
-
-  .sidebar,
-  aside,
-  header:not(.print-report-header),
+  /* Hide screen elements entirely */
+  header.app-header,
+  header.sticky,
+  .min-h-screen > header,
   nav,
+  aside,
+  .sidebar,
+  .no-print,
   .report-screen,
   button,
-  .no-print {
+  .tab-switcher,
+  .report-controls,
+  .gov-workspace-panel > div:first-child {
     display: none !important;
   }
 
-  .print-report-document,
-  .print-report-document * {
-    visibility: visible !important;
+  /* Target report elements for print size */
+  .report-preview-workspace {
+    padding: 0 !important;
+    background: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
   }
 
-  .print-report-document {
-    display: block !important;
-    position: relative !important;
-    left: 0 !important;
-    top: 0 !important;
+  .report-layout-container {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
     width: 100% !important;
     max-width: 100% !important;
-    margin: 0 auto !important;
-    padding: 0 !important;
-    background: #ffffff !important;
-    color: #111827 !important;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 7.2pt;
-    line-height: 1.15;
-    overflow: visible !important;
-    zoom: 78% !important; /* Scale down to fit exactly on 1 page */
+    border-radius: 0 !important;
+    background-color: #ffffff !important;
   }
 
-  .print-report-header {
-    text-align: center;
-    margin-bottom: 4px;
-    page-break-inside: avoid;
-    page-break-after: avoid;
+  /* Gov report table — force background colors to print */
+  .gov-report-table {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    border-collapse: collapse !important;
+    width: 100% !important;
   }
 
-  .print-report-masthead {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 15px;
-    width: 100%;
-    margin: 0 auto 2px !important;
+  .gov-report-table th,
+  .gov-report-table td {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    border: 1px solid #9ca3af !important;
   }
 
-  .print-report-masthead img {
-    width: 44px !important;
-    height: 44px !important;
-    object-fit: contain;
-    flex-shrink: 0;
-  }
-
-  .print-report-masthead > div {
-    text-align: center;
-    line-height: 1.12;
-  }
-
-  .print-report-masthead > div > p {
-    margin: 0;
-    padding: 0;
-    font-size: 7.5pt;
-    font-weight: 600;
-    color: #3f3f3f;
-    letter-spacing: 0;
-  }
-
-  .print-report-masthead > div > p.print-report-barangay {
-    font-size: 9.5pt;
-    font-weight: 800;
-    color: #111827;
-    text-transform: uppercase;
-    letter-spacing: 0;
-    margin-top: 1px;
-  }
-
-  .print-report-office {
-    font-size: 7.8pt;
-    font-weight: 700;
-    color: #111827;
-    text-transform: uppercase;
-    letter-spacing: 0;
-    margin: 1px 0 1px !important;
-  }
-
-  .print-report-divider {
-    height: 1.5px !important;
-    border: none;
-    margin: 1px auto 3px !important;
-    width: 100%;
-    background: #14532D;
-  }
-
-  .print-report-title {
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 10pt;
-    font-weight: 900;
-    text-transform: uppercase;
-    text-align: center;
-    color: #111827;
-    letter-spacing: 0.02em;
-    margin: 2px 0 2px;
-    padding: 0;
-  }
-
-  .print-report-filter {
-    margin: 0 0 4px;
-    text-align: center;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 8pt;
-    font-weight: 800;
-    color: #14532D;
-    text-transform: uppercase;
-  }
-
-  .print-report-section {
-    margin-bottom: 3px !important;
-    page-break-inside: avoid;
-  }
-
-  .print-report-section h2 {
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 7.2pt !important;
-    font-weight: 900;
-    text-transform: uppercase;
-    color: #111827;
-    letter-spacing: 0.02em;
-    border-bottom: 1px solid #14532D !important;
-    padding-bottom: 1px !important;
-    margin: 0 0 2px !important;
-  }
-
-  .print-report-empty {
-    font-size: 7.5pt !important;
-    color: #9ca3af;
-    font-style: italic;
-    padding: 2px 0 !important;
-  }
-
-  .print-report-section table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 5.8pt !important;
-    margin-top: 1px !important;
-    table-layout: fixed;
-    border: 0.75px solid #111827 !important;
-  }
-
-  .print-report-section thead tr {
-    background-color: #557d42 !important;
-  }
-
-  .print-report-section thead th {
-    color: #ffffff !important;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 5.2pt !important;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0;
-    padding: 1.5px 1px !important;
-    text-align: center;
-    border: 0.75px solid #111827 !important;
-    white-space: nowrap !important;
-    vertical-align: middle;
-  }
-
-  .print-report-section tbody td {
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 5.2pt !important;
-    padding: 1.2px 1.5px !important;
-    text-align: center;
-    border: 0.5px solid #333333 !important;
-    color: #111827;
-    vertical-align: middle;
-    white-space: nowrap;
-  }
-
-  .print-report-section tbody td:first-child {
-    text-align: left;
-    font-weight: 700;
-    padding-left: 4px;
-    white-space: nowrap !important;
-  }
-
-  .print-report-number {
-    text-align: center !important;
-    font-variant-numeric: tabular-nums;
-    font-weight: 600;
-  }
-
-  .print-report-section tfoot td {
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 6.2pt;
-    padding: 2px 2px;
-    text-align: center;
-    border: 1px solid #111827;
-    background-color: #d8cd2f !important;
-    color: #111827 !important;
-    font-weight: 900;
-    text-transform: uppercase;
-  }
-
-  .print-report-section tfoot td:first-child {
-    text-align: left;
-    padding-left: 6px;
-  }
-
-  .print-family-profile table {
-    font-size: 6pt;
-    table-layout: fixed;
-    width: 100%;
-    border: 1px solid #111827;
-  }
-
-  .print-family-age-heading {
-    background-color: #14532D !important;
-    color: #ffffff !important;
-    text-align: center !important;
-    padding: 2px 1px !important;
-    width: 62px !important;
-    font-size: 6pt !important;
-    font-weight: 900 !important;
-    border: 0.75px solid #111827 !important;
-    white-space: nowrap !important;
-  }
-
-  .print-family-purok-group-heading {
-    color: #111827 !important;
-    text-align: center !important;
-    font-size: 6.2pt !important;
-    font-weight: 900 !important;
-    padding: 2.5px 1px !important;
-    border: 0.75px solid #111827 !important;
-    text-transform: uppercase;
-    letter-spacing: 0;
-    white-space: nowrap !important;
-  }
-
-  .print-family-sub-heading {
-    color: #111827 !important;
-    font-size: 5.2pt !important;
-    font-weight: 800 !important;
-    padding: 1.5px 0.5px !important;
-    text-align: center !important;
-    border: 0.75px solid #111827 !important;
-    text-transform: uppercase;
-    letter-spacing: -0.2px;
-    white-space: nowrap !important;
-  }
-
-  .print-purok-color-0 { background-color: #c85a5a !important; color: #ffffff !important; }
-  .print-purok-color-1 { background-color: #d8c34a !important; }
-  .print-purok-color-2 { background-color: #86a85a !important; }
-  .print-purok-color-3 { background-color: #c06a6a !important; color: #ffffff !important; }
-  .print-purok-color-4 { background-color: #79a9b3 !important; }
-  .print-purok-color-5 { background-color: #9d8ab8 !important; }
-  .print-purok-color-6 { background-color: #ded260 !important; }
-  .print-purok-color-7 { background-color: #80a66a !important; }
-
-  .print-purok-sub-color-0 { background-color: #f7e6e6 !important; }
-  .print-purok-sub-color-1 { background-color: #faf6d9 !important; }
-  .print-purok-sub-color-2 { background-color: #eaf1df !important; }
-  .print-purok-sub-color-3 { background-color: #f7e4e4 !important; }
-  .print-purok-sub-color-4 { background-color: #e5f0f3 !important; }
-  .print-purok-sub-color-5 { background-color: #ede8f2 !important; }
-  .print-purok-sub-color-6 { background-color: #faf8e0 !important; }
-  .print-purok-sub-color-7 { background-color: #e8f1e3 !important; }
-
-  .print-family-profile tbody td {
-    padding: 1.5px 1px;
-    text-align: center;
-    border: 0.75px solid #333333;
-    font-size: 5.8pt;
-    font-variant-numeric: tabular-nums;
-    color: #111827;
-  }
-
-  .print-family-profile tfoot td {
-    font-size: 6pt;
-    padding: 2px 1px;
-    font-weight: 900;
-    background-color: #d8cd2f !important;
-    color: #111827 !important;
-  }
-
-  .print-family-grand-total {
-    margin-top: 3px;
-    text-align: right;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 7.5pt;
-    font-weight: 900;
-    color: #111827;
-    text-transform: uppercase;
-  }
-
-  .print-family-purok-summary-boxes {
-    margin-top: 8px;
-    page-break-inside: avoid;
-  }
-
-  .print-family-purok-summary-boxes h3 {
-    font-family: Arial, Calibri, Helvetica, sans-serif !important;
-    font-size: 8pt !important;
-    font-weight: 800 !important;
-    margin: 6px 0 4px !important;
-    color: #1b4332 !important;
-    border-left: 3px solid #c5a059 !important;
-    padding-left: 6px !important;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .print-family-purok-summary-boxes > div {
-    font-family: Arial, Calibri, Helvetica, sans-serif !important;
-  }
-
-  .print-family-purok-summary-boxes > div > div {
-    border: 1.5px solid #9ca3af !important;
-    border-radius: 2px !important;
-    padding: 4px 6px !important;
-    background-color: #fefce8 !important;
+  .gov-report-footer {
+    page-break-inside: avoid !important;
   }
 
   .print-family-purok-summary-boxes > div > div strong {
@@ -5260,7 +5383,7 @@ select {
   /* ============================================================
      SUMMARY BOX Ã¢â‚¬â€ Gold-bordered with cream background
      ============================================================ */
-  .print-report-summary-box {
+  .gov-report-summary-box {
     margin: 6px 0;
     padding: 5px 7px;
     border: 1px solid #444444;
@@ -5269,7 +5392,7 @@ select {
     page-break-inside: avoid;
   }
 
-  .print-report-summary-title {
+  .gov-report-summary-title {
     font-family: Arial, Calibri, Helvetica, sans-serif;
     font-size: 8pt;
     font-weight: 800;
@@ -5281,13 +5404,13 @@ select {
     border-bottom: 1px solid #7da65d;
   }
 
-  .print-report-summary-grid {
+  .gov-report-summary-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 2px 14px;
   }
 
-  .print-report-summary-grid > div {
+  .gov-report-summary-item {
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
@@ -5297,12 +5420,12 @@ select {
     font-size: 7pt !important;
   }
 
-  .print-report-summary-grid > div > span:first-child {
+  .gov-report-summary-item > .label {
     color: #374151 !important;
     font-weight: 600 !important;
   }
 
-  .print-report-summary-grid > div > span:last-child {
+  .gov-report-summary-item > .value {
     color: #242424 !important;
     font-weight: 800 !important;
     font-size: 7.2pt !important;
@@ -5600,7 +5723,7 @@ body{background:var(--bg);color:var(--text);}
   .app-sidebar{position:fixed;left:-280px;top:0;height:100vh;width:260px;transition:left .25s ease;z-index:60;}
   .app-sidebar.open{left:0;}
   .app-header{padding:0 14px; height:var(--header-h); min-height:48px; flex-wrap:nowrap; gap:8px;}
-  main{padding:0 14px 14px 14px;}
+  main{padding:0 6px 8px 6px;}
   .nav-label{display:block !important;}
 
   /* ??? THIS IS YOUR RULE — NEVER CHANGES ??? */
@@ -5617,3 +5740,33 @@ body{background:var(--bg);color:var(--text);}
   /* Recents / Activity = FULL WIDTH STACK */
   .bottom-grid{grid-template-columns:1fr !important;gap:12px;}
 }
+
+/* Force transparent header inputs to be translucent glass style, bypassing white backgrounds override */
+.system-page-area header.bg-transparent input,
+input.transparent-search-input,
+.transparent-search-input {
+  height: 40px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  padding-left: 2.25rem !important;
+  font-size: 13px !important;
+}
+
+.system-page-area header.bg-transparent input::placeholder,
+input.transparent-search-input::placeholder,
+.transparent-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.system-page-area header.bg-transparent input:focus,
+input.transparent-search-input:focus,
+.transparent-search-input:focus {
+  background: rgba(255, 255, 255, 0.16) !important;
+  background-color: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+

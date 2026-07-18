@@ -211,9 +211,32 @@ export async function requestResidentActivation(activation = {}) {
     activation.householdNo || activation.household_no || activation.houseNo || activation.house_no
   );
   const phone = normalizeText(activation.phone);
+  const username = normalizeText(activation.username || activation.portal_username);
+  const password = activation.portal_password || activation.password || "";
+  const email = normalizeText(activation.gmail || activation.email);
 
   if (!fullName || !birthday || !householdNo) {
     throw new Error("Please enter full name, birth date, and household number.");
+  }
+
+  // Validate username if provided
+  if (username) {
+    if (username.length < 3) {
+      throw new Error("Username must be at least 3 characters long.");
+    }
+    if (!/^[a-zA-Z0-9_.-]+$/.test(username)) {
+      throw new Error("Username can only contain letters, numbers, dots, dashes, and underscores.");
+    }
+  }
+
+  // Validate password if provided
+  if (password && password.length < 6) {
+    throw new Error("Password must be at least 6 characters long.");
+  }
+
+  // Validate email format if provided
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("Please enter a valid email address.");
   }
 
   const { data, error } = await supabase.rpc("request_resident_account_activation", {
@@ -240,6 +263,9 @@ export async function requestResidentActivation(activation = {}) {
     p_is_solo_parent: Boolean(activation.is_solo_parent),
     p_is_pwd: Boolean(activation.is_pwd),
     p_pwd_type: normalizeText(activation.pwd_type) || null,
+    p_username: username || null,
+    p_password: password || null,
+    p_email: email || null,
   });
 
   if (error) {
@@ -258,7 +284,7 @@ export async function requestResidentActivation(activation = {}) {
     message:
       result.activation_message ||
       result.request_message ||
-      "Your online resident registration was sent to the barangay office for approval.",
+      "Your registration has been submitted. Please wait for admin approval. You will receive an SMS notification when your account is ready.",
     requestId,
     residentId: result.resident_id || null,
     proofAttached: Boolean(activation.proofFile && requestId),

@@ -194,7 +194,10 @@ const Livelihood = () => {
 
   return (
     <div className="min-h-screen bg-transparent">
-      <Header title="Livelihood & Jobs" subtitle="Manage programs, trainings, and job opportunities" />
+      <Header
+        title="Livelihood & Jobs"
+        subtitle="Manage programs, trainings, and job opportunities"
+      />
       <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
         {message ? (
           <div
@@ -208,19 +211,18 @@ const Livelihood = () => {
         ) : null}
 
         <div className="glass-container mt-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between p-6 border-b border-slate-200/50">
+          <div className="flex items-center justify-between border-b border-slate-200/50 bg-slate-50/50 px-6 py-4">
+            <div className="text-sm font-semibold text-slate-500">Livelihood Board</div>
             <div>
-              <h2 className="text-3xl font-black text-slate-800">Livelihood Board</h2>
-              <p className="mt-1 text-sm font-medium text-slate-500">Post opportunities residents can apply to or attend.</p>
+              <button
+                type="button"
+                onClick={openCreate}
+                className="strict-button-hover inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#14532D] hover:bg-[#0f3e21] px-4 py-2 text-xs font-bold text-white transition shadow-sm cursor-pointer"
+              >
+                <Plus size={14} />
+                Add Post
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={openCreate}
-              className="inline-flex h-[46px] items-center justify-center gap-2 rounded-xl bg-[#14532D] px-6 text-sm font-bold text-white transition hover:bg-[#0f3e21] shadow-sm hover:shadow active:scale-95"
-            >
-              <Plus size={18} />
-              Add Post
-            </button>
           </div>
 
           <div className="p-6 border-b border-slate-200/50 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_180px_180px] bg-white/20">

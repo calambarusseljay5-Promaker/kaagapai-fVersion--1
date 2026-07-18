@@ -25,12 +25,15 @@ import { getCurrentUserWithProfile } from "../services/authService";
 import {
   archiveResident,
   createResident,
+  createResidentPortalAccount,
   deleteResident,
   fetchResidents,
   restoreResident,
   updateResident,
+  updateResidentPortalAccount,
 } from "../services/adminService";
 import {
+  buildCompleteAddress,
   buildFullName,
   calculateAge,
   categoryFilterOptions,
@@ -58,14 +61,16 @@ const initialForm = {
   educational_attainment: "",
   occupation: "",
   phone: "",
+  email: "",
   is_4ps_member: false,
   is_solo_parent: false,
   civil_status: "Single",
   household_no: "",
+  house_no: "",
   relationship_to_household_head: "Head",
   portal_username: "",
+  portal_password: "",
   portal_account_status: "",
-  house_no: "",
   address: "",
   is_pwd: false,
   pwd_type: "",
@@ -92,6 +97,7 @@ const residentFilterFields = [
   "portal_username",
   "portal_account_status",
   "phone",
+  "email",
   "house_no",
   "household_no",
   "relationship_to_household_head",
@@ -144,6 +150,19 @@ const categoryBadgeClass = (category) => {
 const getResidentFormValues = (resident) => {
   if (!resident) return { ...initialForm };
 
+  const hasAccount = !!(resident.portal_username || resident.resident_account?.username);
+  const fName = resident.first_name || "";
+  const lName = resident.last_name || "";
+  const hhNo = resident.household_no || resident.house_no || "";
+
+  // Auto-generate username: lowercase, alphanumeric and underscores only
+  const generatedUsername = hasAccount 
+    ? (resident.portal_username || resident.resident_account?.username || "") 
+    : `${fName}_${lName}`.toLowerCase().replace(/[^a-z0-9_]/g, "");
+
+  // Auto-generate password: use household number if available, else empty (but will show placeholder)
+  const generatedPassword = hasAccount ? "" : (hhNo.trim() || "kaagapai123");
+
   return {
     last_name: resident.last_name || "",
     first_name: resident.first_name || "",
@@ -155,14 +174,17 @@ const getResidentFormValues = (resident) => {
     educational_attainment: resident.educational_attainment || "",
     occupation: resident.occupation || "",
     phone: resident.phone || "",
+    email: resident.email || "",
     is_4ps_member: Boolean(resident.is_4ps_member),
     is_solo_parent: Boolean(resident.is_solo_parent),
     civil_status: resident.civil_status || "Single",
     household_no: resident.household_no || "",
-    relationship_to_household_head: resident.relationship_to_household_head || "Head",
-    portal_username: getPortalUsername(resident),
-    portal_account_status: getPortalAccountStatus(resident),
     house_no: resident.house_no || "",
+    relationship_to_household_head: resident.relationship_to_household_head || "Head",
+    portal_username: generatedUsername,
+    portal_password: generatedPassword,
+    portal_account_status: getPortalAccountStatus(resident),
+    resident_account: resident.resident_account || null,
     address: resident.address || "",
     is_pwd: Boolean(resident.is_pwd),
     pwd_type: resident.pwd_type || "",
@@ -174,8 +196,12 @@ const buildResidentPayload = (formData) => {
   const age = calculateAge(formData.birthday);
   const fullName = buildFullName(formData);
   const phone = formData.phone.trim();
-  const houseNo = formData.house_no.trim();
-  const address = formData.address.trim();
+  // Auto-derive complete address from purok selection
+  const derivedAddress = buildCompleteAddress(formData.purok);
+  // Prevent duplicate address concatenation if the address already contains the derivedAddress
+  const finalAddress = formData.address && formData.address.includes(derivedAddress)
+    ? formData.address
+    : derivedAddress;
 
   if (!formData.last_name.trim() || !formData.first_name.trim()) {
     throw new Error("First name and last name are required.");
@@ -216,9 +242,9 @@ const buildResidentPayload = (formData) => {
     civil_status: formData.civil_status,
     household_no: formData.household_no.trim(),
     relationship_to_household_head: formData.relationship_to_household_head,
-    email: null,
-    house_no: houseNo || null,
-    address: address || null,
+    email: formData.email?.trim() || null,
+    house_no: formData.house_no?.trim() || null,
+    address: finalAddress || null,
     is_pwd: Boolean(formData.is_pwd),
     pwd_type: formData.is_pwd ? formData.pwd_type.trim() || null : null,
     status: formData.status,
@@ -268,11 +294,34 @@ const ResidentForm = memo(function ResidentForm({
 
   const handleInputChange = useCallback((event) => {
     const { checked, name, type, value } = event.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-      ...(name === "is_pwd" && !checked ? { pwd_type: "" } : {}),
-    }));
+    setFormData((prev) => {
+      const next = {
+        ...prev,
+        [name]: type === "checkbox" ? checked : value,
+        ...(name === "is_pwd" && !checked ? { pwd_type: "" } : {}),
+      };
+
+      // Auto-generate username and password if resident doesn't have an account yet
+      if (!prev.resident_account) {
+        if (name === "first_name" || name === "last_name" || name === "household_no" || name === "house_no") {
+          const fName = name === "first_name" ? value : prev.first_name || "";
+          const lName = name === "last_name" ? value : prev.last_name || "";
+          const hhNo = name === "household_no" ? value : prev.household_no || "";
+          const hNo = name === "house_no" ? value : prev.house_no || "";
+
+          // Generate username: first_last in lowercase, alphanumeric only
+          const generatedUsername = `${fName}_${lName}`
+            .toLowerCase()
+            .replace(/[^a-z0-9_]/g, "");
+
+          next.portal_username = generatedUsername;
+          // Set password to household_no or house_no or default
+          next.portal_password = (hhNo.trim() || hNo.trim() || "kaagapai123");
+        }
+      }
+
+      return next;
+    });
   }, []);
 
   const handleSubmit = useCallback(
@@ -433,15 +482,22 @@ const ResidentForm = memo(function ResidentForm({
           </label>
         </div>
 
+        {formData.purok && (
+          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/60 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Auto-generated Address</p>
+            <p className="mt-1 text-sm font-medium text-emerald-800">{buildCompleteAddress(formData.purok)}</p>
+          </div>
+        )}
+
         <label className="mt-4 block text-sm font-semibold text-slate-700">
-          Complete Address / Notes
-          <textarea
-            name="address"
-            value={formData.address}
+          Gmail Account <span className="text-slate-400 font-normal">(optional)</span>
+          <input
+            type="email"
+            name="email"
+            value={formData.email || ""}
             onChange={handleInputChange}
-            rows="2"
             className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-            placeholder="Street, landmark, or household address notes"
+            placeholder="example@gmail.com"
           />
         </label>
       </section>
@@ -557,27 +613,33 @@ const ResidentForm = memo(function ResidentForm({
             Portal Username
             <input
               type="text"
+              name="portal_username"
               value={formData.portal_username || ""}
-              readOnly
-              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-600 outline-none"
-              placeholder="Generated after SQL/account activation"
+              onChange={handleInputChange}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              placeholder="e.g. juan_dela_cruz"
             />
-            <span className="mt-1 block text-xs font-medium text-slate-500">
-              {formData.portal_account_status
-                ? `Account: ${formData.portal_account_status}`
-                : "Run the username backfill SQL to generate this."}
-            </span>
+            {formData.portal_account_status && (
+              <span className="mt-1 block text-xs font-medium text-slate-500">
+                Account: {formData.portal_account_status}
+              </span>
+            )}
           </label>
           <label className="block text-sm font-semibold text-slate-700">
-            House No. / Legacy Code
+            Password
             <input
               type="text"
               name="house_no"
-              value={formData.house_no}
+              value={formData.house_no || ""}
               onChange={handleInputChange}
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-              placeholder="Optional legacy house code"
+              placeholder={formData.household_no ? `e.g. ${formData.household_no}` : "e.g. 85 or HH-001"}
             />
+            <span className="mt-1 block text-xs font-medium text-slate-500">
+              {formData.resident_account
+                ? "Leave blank to keep current password. Fill in to reset it."
+                : "Resident's login password. Defaults to household number if blank."}
+            </span>
           </label>
         </div>
 
@@ -665,6 +727,7 @@ const ResidentsManagement = () => {
       setLoading(false);
     }
   }, [householdFilter, purokFilter, relationshipFilter, sexFilter, statusFilter]);
+
 
   useEffect(() => {
     let isMounted = true;
@@ -854,9 +917,26 @@ const ResidentsManagement = () => {
       const savedResident = await createResident(payload);
       const savedStatus = savedResident.status || payload.status || "Active";
 
+      // If admin provided a username and password, create the portal account
+      const portalUsername = (formValues.portal_username || "").trim();
+      let portalPassword = (formValues.portal_password || "").trim();
+      if (portalUsername && !portalPassword) {
+        portalPassword = (formValues.household_no || "").trim();
+      }
+      let portalMessage = "";
+
+      if (portalUsername && portalPassword && savedResident.id) {
+        try {
+          await createResidentPortalAccount(savedResident.id, portalUsername, portalPassword);
+          portalMessage = ` Portal account created with username "${portalUsername.toLowerCase()}".`;
+        } catch (portalErr) {
+          portalMessage = ` Warning: Resident saved but portal account failed: ${portalErr.message}`;
+        }
+      }
+
       setMessage({
         type: "success",
-        text: `${getResidentDisplayName(savedResident)} was added and saved to Supabase.`,
+        text: `${getResidentDisplayName(savedResident)} was added and saved to Supabase.${portalMessage}`,
       });
       closeModals();
       upsertResidentInCurrentList(savedResident);
@@ -897,7 +977,24 @@ const ResidentsManagement = () => {
 
     try {
       const savedResident = await updateResident(editingResident, buildResidentPayload(formValues));
-      setMessage({ type: "success", text: "Resident updated successfully." });
+
+      // Create or update the portal account whenever admin provides credentials
+      const portalUsername = (formValues.portal_username || "").trim();
+      const portalPassword = (formValues.portal_password || formValues.house_no || "").trim();
+      let portalMessage = "";
+
+      if (portalUsername && portalPassword) {
+        try {
+          const result = await updateResidentPortalAccount(editingResident.id, portalUsername, portalPassword);
+          portalMessage = result?.action === "updated"
+            ? ` Portal credentials updated for "${portalUsername.toLowerCase()}".`
+            : ` Portal account created with username "${portalUsername.toLowerCase()}".`;
+        } catch (portalErr) {
+          portalMessage = ` Warning: Resident updated but portal account failed: ${portalErr.message}`;
+        }
+      }
+
+      setMessage({ type: "success", text: `Resident updated successfully.${portalMessage}` });
       closeModals();
       upsertResidentInCurrentList(savedResident);
       syncPendingResidentList(savedResident);
@@ -1099,10 +1196,17 @@ const ResidentsManagement = () => {
       flex: 1.2,
       renderCell: (params) => {
         const resident = params.row;
+        const isDefaultPassword = resident.portal_must_change_credentials || resident.resident_account?.must_change_credentials;
+        const passwordValue = isDefaultPassword ? (resident.household_no || "-") : "********";
         return (
           <div className="py-2 leading-tight">
             <p className="font-medium text-slate-700">{resident.phone || "-"}</p>
-            <p className="text-xs text-slate-500 mt-0.5">Username: {getPortalUsername(resident) || "-"}</p>
+            {resident.email && (
+              <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[150px]" title={resident.email}>
+                {resident.email}
+              </p>
+            )}
+            <p className="text-xs text-slate-400 mt-0.5">Password: {passwordValue}</p>
             <p className="text-xs text-slate-400 mt-0.5">Account: {getPortalAccountStatus(resident) || "-"}</p>
           </div>
         );
@@ -1176,7 +1280,10 @@ const ResidentsManagement = () => {
 
   return (
     <>
-      <PageWrapper title="Resident Management" description="Add, update, filter, and archive resident records">
+      <PageWrapper
+        title="Resident Management"
+        description="Add, update, filter, and archive resident records"
+      >
         {message ? (
           <div
             className={`glass-panel mb-6 flex items-start gap-3 p-4 text-sm font-semibold shadow-soft ${message.type === "success"
@@ -1252,23 +1359,20 @@ const ResidentsManagement = () => {
         ) : null}
 
         <section className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-slate-100 pb-5">
-            <div>
-              <h2 className="text-xl font-extrabold text-slate-900">Resident Records</h2>
-              <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                {displayedResidents.length} of {residents.length} total resident record
-                {residents.length === 1 ? "" : "s"} shown
-              </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4 border-b border-slate-100 pb-4">
+            <div className="text-xs font-semibold text-slate-400 text-left">
+              Showing {displayedResidents.length} of {residents.length} total resident record{residents.length === 1 ? "" : "s"}
             </div>
-
-            <button
-              type="button"
-              onClick={openCreateModal}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#14532D] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#0f3e21] shadow-sm hover:shadow active:scale-95"
-            >
-              <Plus size={18} />
-              Add Resident
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="strict-button-hover inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#14532D] hover:bg-[#0f3e21] px-4 py-2 text-xs font-bold text-white transition shadow-sm cursor-pointer"
+              >
+                <Plus size={14} />
+                Add Resident
+              </button>
+            </div>
           </div>
 
           <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">

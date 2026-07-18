@@ -3,6 +3,7 @@ import {
   deleteKnowledgeForSource,
   syncKnowledgeFromLivelihood,
 } from "./knowledgeService";
+import { moveToRecycleBin } from "./recycleBinService";
 
 const TABLE = "livelihood_posts";
 const SETUP_MESSAGE =
@@ -95,6 +96,17 @@ export async function updateLivelihoodPost(id, updates) {
 
 export async function deleteLivelihoodPost(id) {
   if (!id) throw new Error("Livelihood post ID is required.");
+
+  // Fetch the record snapshot first for the Recycle Bin
+  const { data: record } = await supabase
+    .from(TABLE)
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (record) {
+    moveToRecycleBin("livelihood_posts", id, record);
+  }
 
   const { error } = await supabase.from(TABLE).delete().eq("id", id);
   if (error) throw normalizeSupabaseError(error);

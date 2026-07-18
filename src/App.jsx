@@ -23,6 +23,7 @@ import UserDashboard from "./pages/UserDashboard";
 import Welcome from "./pages/Welcome";
 import Goodbye from "./pages/Goodbye";
 import ProtectedRoute from "./components/ProtectedRoute";
+import RecycleBin from "./pages/RecycleBin";
 import { getSystemSettings } from "./services/adminActivityService";
 import { ConfirmProvider } from "./context/ConfirmContext";
 import "./App.css";
@@ -73,6 +74,7 @@ function App() {
             <Route path="/my-account" element={<ProfileSettings />} />
             <Route path="/account-security" element={<AccountSecurity />} />
             <Route path="/audit" element={<AuditLogs />} />
+            <Route path="/recycle-bin" element={<RecycleBin />} />
           </Route>
         </Route>
 

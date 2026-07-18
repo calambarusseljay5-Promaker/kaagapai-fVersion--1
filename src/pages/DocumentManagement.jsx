@@ -121,8 +121,20 @@ const getTemplateFileName = (template) => {
   }
 };
 
+const parsePurpose = (docType) => {
+  if (!docType) return "";
+  const match = docType.match(/\(Purpose:\s*(.*?)\)/i) || docType.match(/-\s*Purpose:\s*(.*)/i);
+  return match ? match[1].trim() : "";
+};
+
+const stripPurpose = (docType) => {
+  if (!docType) return "";
+  return docType.split(" (Purpose:")[0].split(" - Purpose:")[0].trim();
+};
+
 const findMatchingTemplate = (templates, documentType) => {
-  const requested = normalizeText(documentType);
+  const cleanDocType = stripPurpose(documentType);
+  const requested = normalizeText(cleanDocType);
   if (!requested) return templates[0] || null;
 
   return (
@@ -138,7 +150,7 @@ const findMatchingTemplate = (templates, documentType) => {
 };
 
 const buildResidentFields = (resident, request, template, savedFields = {}) => ({
-  documentTitle: getTemplateLabel(template) || request?.document_type || "Barangay Document",
+  documentTitle: getTemplateLabel(template) || stripPurpose(request?.document_type) || "Barangay Document",
   residentName: resident?.full_name || "",
   age: resident?.age ?? "",
   gender: resident?.gender || "",
@@ -148,7 +160,7 @@ const buildResidentFields = (resident, request, template, savedFields = {}) => (
   email: resident?.email || "",
   pwdStatus: resident?.is_pwd ? "Yes" : "No",
   pwdType: resident?.pwd_type || "",
-  purpose: savedFields.purpose || "",
+  purpose: savedFields.purpose || parsePurpose(request?.document_type) || "",
   issueDate: savedFields.issueDate || todayInputValue(),
   preparedBy: savedFields.preparedBy || DEFAULT_PREPARED_BY,
   approvingOfficer: savedFields.approvingOfficer || PUNONG_BARANGAY,
@@ -311,6 +323,23 @@ const DocumentManagement = () => {
     [documentFields, selectedTemplate]
   );
 
+  const filteredRequests = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return requests;
+
+    return requests.filter((request) => {
+      const residentName = getNestedResident(request.residents)?.full_name || "";
+      const docType = request.document_type || "";
+      const reqId = request.id || "";
+
+      return (
+        residentName.toLowerCase().includes(term) ||
+        docType.toLowerCase().includes(term) ||
+        reqId.toLowerCase().includes(term)
+      );
+    });
+  }, [requests, searchTerm]);
+
   const stats = useMemo(
     () => ({
       total: requests.filter((request) => request.status !== "Cancelled").length,
@@ -321,6 +350,17 @@ const DocumentManagement = () => {
     }),
     [requests]
   );
+
+  const isRequestExpired = (request) => {
+    if (!request) return false;
+    if (["Released", "Rejected", "Cancelled"].includes(request.status)) return false;
+
+    const createdOrUpdatedTime = new Date(request.updated_at || request.created_at || 0).getTime();
+    const timeDifferenceMs = Date.now() - createdOrUpdatedTime;
+    const oneDayMs = 24 * 60 * 60 * 1000;
+
+    return timeDifferenceMs > oneDayMs;
+  };
 
   const getStatusBadgeStyle = (status) => {
     switch (status) {
@@ -336,6 +376,8 @@ const DocumentManagement = () => {
         return { backgroundColor: "#64748b", color: "#ffffff", border: "1px solid #475569" };
       case "Rejected":
         return { backgroundColor: "#e11d48", color: "#ffffff", border: "1px solid #be123c", boxShadow: "0 0 10px rgba(225,29,72,0.4)" };
+      case "Expired":
+        return { backgroundColor: "#ef4444", color: "#ffffff", border: "1px solid #dc2626", boxShadow: "0 0 10px rgba(239,68,68,0.4)" };
       default:
         return { backgroundColor: "#64748b", color: "#ffffff", border: "1px solid #475569" };
     }
@@ -354,7 +396,7 @@ const DocumentManagement = () => {
       }
 
       const [requestResult, templateResult, residentResult] = await Promise.allSettled([
-        fetchDocumentRequests({ status: statusFilter, search: searchTerm }),
+        fetchDocumentRequests({ status: statusFilter, limit: 300 }),
         fetchDocumentTemplates(),
         fetchResidents(""),
       ]);
@@ -408,7 +450,7 @@ const DocumentManagement = () => {
         }
 
         const [requestResult, templateResult, residentResult] = await Promise.allSettled([
-          fetchDocumentRequests({ status: statusFilter, search: searchTerm }),
+          fetchDocumentRequests({ status: statusFilter, limit: 300 }),
           fetchDocumentTemplates(),
           fetchResidents(""),
         ]);
@@ -464,6 +506,13 @@ const DocumentManagement = () => {
   }, [navigate, searchTerm, statusFilter]);
 
   const openRequest = (request) => {
+    if (isRequestExpired(request)) {
+      setMessage({
+        type: "error",
+        text: `The document request for ${getNestedResident(request.residents)?.full_name || "resident"} has expired and cannot be viewed or edited.`,
+      });
+      return;
+    }
     const requestResident = getNestedResident(request.residents);
     const matchedTemplate = findMatchingTemplate(templates, request.document_type);
     const savedDocument = getPreparedDocument(request.id);
@@ -979,9 +1028,10 @@ const DocumentManagement = () => {
       flex: 1,
       renderCell: (params) => {
         const request = params.row;
+        const displayStatus = isRequestExpired(request) ? "Expired" : request.status;
         return (
-          <span className="inline-flex rounded-full px-3 py-1 text-xs font-bold" style={getStatusBadgeStyle(request.status)}>
-            {request.status}
+          <span className="inline-flex rounded-full px-3 py-1 text-xs font-bold" style={getStatusBadgeStyle(displayStatus)}>
+            {displayStatus}
           </span>
         );
       }
@@ -1000,13 +1050,15 @@ const DocumentManagement = () => {
       align: "right",
       renderCell: (params) => {
         const request = params.row;
+        const expired = isRequestExpired(request);
         return (
           <div className="flex gap-2 justify-end">
             <button
               type="button"
               onClick={() => openRequest(request)}
-              className="gov-action-btn view"
-              title="Open template and preview"
+              disabled={expired}
+              className={`gov-action-btn view ${expired ? "opacity-50 cursor-not-allowed" : ""}`}
+              title={expired ? "Expired" : "Open template and preview"}
             >
               <Eye size={18} />
             </button>
@@ -1239,30 +1291,30 @@ const DocumentManagement = () => {
             </form>
 
             <div className="p-6 border-b border-slate-200/50 bg-slate-50/20">
-              <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_220px_auto] lg:items-end">
-                <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-700">
-                    <Search size={16} className="mr-2 inline text-emerald-500" />
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="w-full sm:max-w-xs">
+                  <label className="mb-1.5 block text-xs font-bold text-slate-700">
+                    <Search size={14} className="mr-1.5 inline text-emerald-500" />
                     Search
                   </label>
                   <input
                     type="text"
-                    placeholder="Search by resident name or document type..."
+                    placeholder="Search by resident or document type..."
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
-                    className="w-full h-[46px] rounded-[12px] border border-slate-200 bg-slate-50 px-4 text-sm font-medium outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
+                    className="w-full h-[38px] rounded-[10px] border border-slate-200 bg-slate-50 px-3 text-xs font-semibold outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
                   />
                 </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-700">
-                    <Filter size={16} className="mr-2 inline text-emerald-500" />
+                <div className="w-full sm:max-w-[180px]">
+                  <label className="mb-1.5 block text-xs font-bold text-slate-700">
+                    <Filter size={14} className="mr-1.5 inline text-emerald-500" />
                     Status
                   </label>
                   <select
                     value={statusFilter}
                     onChange={(event) => setStatusFilter(event.target.value)}
-                    className="w-full h-[46px] rounded-[12px] border border-slate-200 bg-slate-50 px-4 text-sm font-medium outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
+                    className="w-full h-[38px] rounded-[10px] border border-slate-200 bg-slate-50 px-3 text-xs font-semibold outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 shadow-sm"
                   >
                     <option value="">All Status</option>
                     {STATUS_OPTIONS.map((status) => (
@@ -1276,9 +1328,9 @@ const DocumentManagement = () => {
                 <button
                   type="button"
                   onClick={() => loadData({ showLoading: true })}
-                  className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-6 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+                  className="inline-flex h-[38px] items-center justify-center gap-1.5 rounded-[10px] bg-slate-50 border border-slate-200 px-4 text-xs font-bold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 shadow-sm active:scale-95"
                 >
-                  <RefreshCw size={16} />
+                  <RefreshCw size={13} />
                   Refresh
                 </button>
               </div>
@@ -1286,7 +1338,7 @@ const DocumentManagement = () => {
 
             <div className="gov-datagrid-container overflow-hidden mt-6" style={{ height: 600, width: '100%' }}>
               <DataGrid
-                rows={requests}
+                rows={filteredRequests}
                 columns={columns}
                 initialState={{
                   pagination: {

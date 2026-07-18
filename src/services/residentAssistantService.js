@@ -417,24 +417,24 @@ const isCedulaQuestion = (question) => {
 
 const buildCedulaAnswer = (question) => {
   const isTagalog = isTagalogQuestion(question);
-  const wantsPrice = includesAny(normalizeText(question), ["magkano", "how much", "price", "fee", "bayad", "cost"]);
-  const wantsLocation = includesAny(normalizeText(question), ["where", "saan", "kumuha", "kuhanin", "get", "location"]);
+  const wantsPrice = includesAny(normalizeText(question), ["magkano", "magkanu", "how much", "price", "fee", "bayad", "cost", "singil"]);
+  const wantsLocation = includesAny(normalizeText(question), ["where", "saan", "kumuha", "kuhanin", "get", "location", "makukuha"]);
 
-  if (wantsPrice && !wantsLocation) {
+  if (wantsLocation) {
     return isTagalog
-      ? "Ang bayad sa Cedula ay depende sa iyong status: asahan ang mas mataas na rate kung ikaw ay employer, mababang rate kung estudyante, at may discount kung senior citizen. Maaari mo itong makuha sa Barangay Treasurer."
-      : "The cost of a Cedula depends on your status. It is expected to be a higher rate if you are an employer, a low rate for students, and discounted for senior citizens. You can get it from the Barangay Treasurer.";
+      ? "Maaari po kayong kumuha ng Cedula (Community Tax Certificate) sa opisina ng ating Barangay Treasurer sa Barangay Hall."
+      : "You can obtain your Cedula (Community Tax Certificate) directly from the Barangay Treasurer's office at the Barangay Hall.";
   }
 
-  if (wantsLocation && !wantsPrice) {
+  if (wantsPrice) {
     return isTagalog
-      ? "Maaari kang kumuha ng Cedula sa opisina ng Barangay Treasurer."
-      : "You can get a Cedula at the Barangay Treasurer's office.";
+      ? "Ang bayad sa Cedula ay depende sa inyong kinikita o status: may regular na singil para sa mga may trabaho o employer, mas mababang rate para sa mga estudyante, at may discount o libre para sa mga senior citizens. Mangyaring lumapit sa Barangay Treasurer para sa eksaktong kompyutasyon."
+      : "The cost of a Cedula depends on your gross income or status: there is a regular rate for employed individuals or employers, a lower rate for students, and discounts for senior citizens. Please consult the Barangay Treasurer for the exact assessment.";
   }
 
   return isTagalog
-    ? "Maaari kang kumuha ng Cedula sa Barangay Treasurer. Ang bayad ay depende sa iyong status: mas mataas para sa mga employer, mababa para sa mga estudyante, at may discount ang mga senior citizens."
-    : "You can get a Cedula from the Barangay Treasurer. The cost depends on your status: higher for employers, lower for students, and discounted for senior citizens.";
+    ? "Maaari po kayong kumuha ng Cedula sa ating Barangay Treasurer sa Barangay Hall. Ang bayad ay nakadepende sa inyong status (employed, estudyante, o senior citizen)."
+    : "You can secure a Cedula from the Barangay Treasurer at the Barangay Hall. The fee is assessed based on your current status (employed, student, or senior citizen).";
 };
 
 const isAnniversaryQuestion = (question) => {
@@ -490,8 +490,15 @@ const buildOfficeInfoAnswer = (question) => {
       ? [`Ang office hours ng ${barangayName} ay ${officeHours}.`]
       : [`${barangayName} office hours are ${officeHours}.`];
 
-  lines.push(`Phone: ${officePhone}`);
-  lines.push(`Email: ${officeEmail}`);
+  const normalized = normalizeText(question);
+  const asksContact = includesAny(normalized, [
+    "contact", "email", "phone", "number", "numero", "telepono", "kontak", "tawag", "cellphone", "mobile"
+  ]);
+
+  if (asksContact) {
+    lines.push(`Phone: ${officePhone}`);
+    lines.push(`Email: ${officeEmail}`);
+  }
 
   return lines.join("\n");
 };
@@ -710,6 +717,8 @@ const BROAD_DOCUMENT_WORDS = new Set([
   ...GENERIC_DOCUMENT_WORDS,
   "request",
   "requests",
+  "of", "for", "to", "in", "on", "at", "with", "and", "or", "a", "an", "the", "is", "are", "what", "how", "who", "where", "when", "why",
+  "ng", "sa", "at", "na", "o", "kay", "para", "ni", "mga", "ang", "ito", "ano", "paano", "saan", "kailan", "sino"
 ]);
 
 const MIN_DOCUMENT_FOCUS_SCORE = 40;
@@ -1506,6 +1515,7 @@ async function buildLocalAnswer(question, context = {}) {
     residentStats,
   } = context;
   const language = isTagalogQuestion(question) ? "tagalog" : "english";
+  const normalizedQ = normalizeText(question);
   const documentFocus = findDocumentFocus(question, documentTemplates, requests);
   const relevantKnowledge = getRelevantKnowledge(question, knowledgeItems);
   const organizationAnswer = buildOrganizationAnswer(question, organizationOfficials, language);
@@ -1572,11 +1582,32 @@ async function buildLocalAnswer(question, context = {}) {
 
   // Greetings Intent
   if (isGreetingMessage(question)) {
-    return "Hello! I'm KaagapAI, your Barangay Assistant. How can I help you today? You can ask about document requests, barangay services, complaints, announcements, livelihood programs, health services, and more.";
+    return language === "tagalog"
+      ? "Mabuhay! Ako si KaagapAI, ang iyong Barangay Assistant. Paano kita matutulungan ngayon? Maaari mo akong tanungin tungkol sa pag-request ng dokumento, mga serbisyo ng barangay, reklamo, anunsyo, mga programa sa kabuhayan/trabaho, serbisyong pangkalusugan, at iba pa."
+      : "Hello! I'm KaagapAI, your Barangay Assistant. How can I help you today? You can ask about document requests, barangay services, complaints, announcements, livelihood programs, health services, and more.";
+  }
+
+  // History / Kasaysayan Intent
+  const isHistory = includesAny(normalizedQ || normalizeText(question), ["history", "kasaysayan", "pinagmulan", "origin"]);
+  if (isHistory) {
+    return language === "tagalog"
+      ? "Paumanhin po, hindi ko alam ang opisyal na kasaysayan ng Barangay Upper Mingading sa aking kasalukuyang records. Para sa karagdagang impormasyon at opisyal na detalye, maaari po kayong sumangguni o bumisita sa ating Barangay Office."
+      : "I'm sorry, I don't have the official history of Barangay Upper Mingading in my records. For more information and official details, please coordinate with or visit our Barangay Office.";
+  }
+
+  // Waste Management Intent (Checked before complaints to handle garbage collection queries containing 'basura')
+  const isWaste = includesAny(normalizedQ, [
+    "garbage", "waste", "hakot", "mrf", "recycling", "recyclables", "collection", "koleksyon"
+  ]) || (
+    normalizedQ.includes("basura") &&
+    includesAny(normalizedQ, ["kailan", "schedule", "oras", "koleksyon", "hakot", "araw", "daan", "daanan", "tapon", "ipon", "kuha", "kukuha"]) &&
+    !includesAny(normalizedQ, ["reklamo", "complaint", "report", "amoy", "mabaho", "kapitbahay", "kalat", "nagkakalat", "nagtatapon"])
+  );
+  if (isWaste) {
+    return "Please contact the Barangay Office for updated garbage collection schedules and waste management policies.";
   }
 
   // Complaints Intent
-  const normalizedQ = normalizeText(question);
   const isComplaint = includesAny(normalizedQ, [
     "complaint", "reklamo", "report", "noisy", "ingay", "dumping", "basura",
     "violence", "streetlight", "drainage", "kanal", "neighbor", "kapitbahay",
@@ -1595,14 +1626,6 @@ async function buildLocalAnswer(question, context = {}) {
   ]);
   if (isDisaster) {
     return "I cannot verify current disaster alerts at the moment. For emergencies, please stay tuned to official government weather broadcasts or contact local disaster management and the Barangay Office.";
-  }
-
-  // Waste Management Intent
-  const isWaste = includesAny(normalizedQ, [
-    "garbage", "waste", "hakot", "mrf", "recycling", "recyclables", "collection"
-  ]);
-  if (isWaste) {
-    return "Please contact the Barangay Office for updated garbage collection schedules and waste management policies.";
   }
 
   // Health Services Intent
@@ -1641,8 +1664,11 @@ async function buildLocalAnswer(question, context = {}) {
 
   // Reservations Intent
   const isReservation = includesAny(normalizedQ, [
-    "reservation", "reserve", "book", "booking", "rent", "court", "hall", "covered court", "venue"
-  ]);
+    "reservation", "reserve", "book", "booking", "rent", "renta", "hiram", "pahiram", "reserba", "pag-book", "mag-book", "ipareserba", "manghiram"
+  ]) || (
+    includesAny(normalizedQ, ["covered court", "court", "gym", "multipurpose hall", "venue"]) &&
+    !includesAny(normalizedQ, ["oras", "bukas", "sarado", "schedule", "hours", "close", "open", "time"])
+  );
   if (isReservation) {
     return "Please visit or contact the Barangay Office to check availability and book barangay venues like the Covered Court or Barangay Hall.";
   }
@@ -1671,6 +1697,7 @@ async function buildLocalAnswer(question, context = {}) {
     const wantsStatus = requestedStatuses.length > 0 || isDocumentStatusQuestion(question) || wantsCount;
     const wantsHowTo = isDocumentHowToQuestion(question) && !wantsStatus;
     const wantsDetails = isDocumentDetailQuestion(question);
+    const wantsFee = includesAny(normalizedQ, ["magkano", "magkanu", "bayad", "singil", "fee", "fees", "cost", "price", "magbayad"]);
 
     if (normalizedQ.includes("online")) {
       return "Yes. Residents can submit document requests through the Resident Portal. After approval, you will receive a notification when your document is ready for pickup.";
@@ -1684,7 +1711,41 @@ async function buildLocalAnswer(question, context = {}) {
       return "Yes, if permitted by barangay policy. The representative may be required to present an authorization letter and valid identification.";
     }
 
+    if (!documentFocus && wantsFee) {
+      return language === "tagalog"
+        ? "Ang karaniwang bayad para sa mga dokumento sa barangay (tulad ng Barangay Clearance o Certificate of Residency) ay ₱50.00 pesos. Ang Certificate of Indigency naman ay walang bayad (Free). Mangyaring magbayad sa Barangay Treasurer."
+        : "Standard barangay documents (such as Barangay Clearance or Certificate of Residency) have a processing fee of ₱50.00 pesos. The Certificate of Indigency is free of charge. All payments should be settled directly with the Barangay Treasurer.";
+    }
+
     if (documentFocus) {
+      if (wantsFee) {
+        const docLabel = documentFocus.label.toLowerCase();
+        if (docLabel.includes("residency") || docLabel.includes("residente") || docLabel.includes("residence")) {
+          return language === "tagalog"
+            ? "Ang processing fee para sa Certificate of Residency ay ₱50.00 pesos. Maaari ninyo itong bayaran sa Barangay Treasurer."
+            : "The processing fee for the Certificate of Residency is ₱50.00 pesos. You can pay this at the Barangay Treasurer's office.";
+        }
+        if (docLabel.includes("indigency") || docLabel.includes("indigent")) {
+          return language === "tagalog"
+            ? "Ang Certificate of Indigency ay walang bayad (Free) para sa lahat ng kwalipikadong residente ng barangay."
+            : "The Certificate of Indigency is free of charge for all qualified barangay residents.";
+        }
+        if (docLabel.includes("clearance")) {
+          return language === "tagalog"
+            ? "Ang bayad para sa Barangay Clearance ay ₱50.00 pesos. Mangyaring magbayad sa Barangay Treasurer pagkuha ng dokumento."
+            : "The processing fee for a Barangay Clearance is ₱50.00 pesos. Please settle this with the Barangay Treasurer upon claiming.";
+        }
+        // Fallback to template fee if exists
+        const feeTemplate = filteredTemplates.find(t => t.fee);
+        if (feeTemplate && feeTemplate.fee) {
+          return language === "tagalog"
+            ? `Ang bayad para sa ${documentFocus.label} ay ${feeTemplate.fee}.`
+            : `The fee for the ${documentFocus.label} is ${feeTemplate.fee}.`;
+        }
+        return language === "tagalog"
+          ? `Ang bayad para sa ${documentFocus.label} ay karaniwang ₱50.00 pesos. Maaari ninyong kumpirmahin ang eksaktong halaga sa Barangay Treasurer.`
+          : `The processing fee for the ${documentFocus.label} is typically ₱50.00 pesos. You can confirm the exact rate with the Barangay Treasurer.`;
+      }
       if (wantsStatus && !wantsDetails) {
         lines.push(
           requestedStatuses.length
@@ -1700,21 +1761,25 @@ async function buildLocalAnswer(question, context = {}) {
             `I can't check your request status at the moment. Please open **My Document Requests** in your account.`
         );
       } else if (wantsHowTo || wantsDetails) {
-        return `You can request a ${documentFocus.label} through the Resident Portal.\n\nSteps:\n1. Log in to your account.\n2. Open **Document Requests**.\n3. Select **${documentFocus.label}**.\n4. Fill out the required information.\n5. Submit your request.\n6. Wait for approval.\n7. You will receive a notification once your document is ready for pickup.`;
+        return language === "tagalog"
+          ? `Maaari kang mag-request ng ${documentFocus.label} sa pamamagitan ng Resident Portal.\n\nMga Hakbang:\n1. Mag-log in sa iyong account.\n2. Buksan ang **Document Requests**.\n3. Piliin ang **${documentFocus.label}**.\n4. Punan ang mga kinakailangang impormasyon.\n5. I-submit ang iyong request.\n6. Hintayin ang pagsusuri at pag-approve.\n7. Makakatanggap ka ng abiso kapag handa na ang iyong dokumento para kunin.`
+          : `You can request a ${documentFocus.label} through the Resident Portal.\n\nSteps:\n1. Log in to your account.\n2. Open **Document Requests**.\n3. Select **${documentFocus.label}**.\n4. Fill out the required information.\n5. Submit your request.\n6. Wait for approval.\n7. You will receive a notification once your document is ready for pickup.`;
       } else {
-        lines.push(`${documentFocus.label} information:`);
+        lines.push(language === "tagalog" ? `Impormasyon tungkol sa ${documentFocus.label}:` : `${documentFocus.label} information:`);
       }
 
       if (!(wantsStatus && !wantsDetails)) {
         lines.push("");
-        lines.push("Requirements and fees:");
+        lines.push(language === "tagalog" ? "Mga kinakailangan at bayarin:" : "Requirements and fees:");
         lines.push(
           filteredTemplates.slice(0, 3).map(formatTemplate).join("\n") ||
-            "Please visit or contact the Barangay Office to confirm the current requirements and processing fee."
+            (language === "tagalog"
+              ? "Mangyaring bisitahin o makipag-ugnayan sa Barangay Office upang kumpirmahin ang kasalukuyang mga kinakailangan at bayad sa pagproseso."
+              : "Please visit or contact the Barangay Office to confirm the current requirements and processing fee.")
         );
         if (statusFilteredRequests.length > 0) {
           lines.push("");
-          lines.push(`Your ${documentFocus.label} request status:`);
+          lines.push(language === "tagalog" ? `Katayuan ng iyong request para sa ${documentFocus.label}:` : `Your ${documentFocus.label} request status:`);
           lines.push(
             statusFilteredRequests.slice(0, 4).map((request, index) => formatRequest(request, index, language)).join("\n")
           );
@@ -1733,7 +1798,9 @@ async function buildLocalAnswer(question, context = {}) {
         );
         lines.push("");
       } else {
-        return `You can request documents through the Resident Portal.\n\nSteps:\n1. Log in to your account.\n2. Open **Document Requests**.\n3. Select your document.\n4. Fill out the required information.\n5. Submit your request.\n6. Wait for approval.\n7. You will receive a notification once your document is ready for pickup.`;
+        return language === "tagalog"
+          ? `Maaari kang mag-request ng mga dokumento sa pamamagitan ng Resident Portal.\n\nMga Hakbang:\n1. Mag-log in sa iyong account.\n2. Buksan ang **Document Requests**.\n3. Piliin ang iyong dokumento.\n4. Punan ang mga kinakailangang impormasyon.\n5. I-submit ang iyong request.\n6. Hintayin ang pagsusuri at pag-approve.\n7. Makakatanggap ka ng abiso kapag handa na ang iyong dokumento para kunin.`
+          : `You can request documents through the Resident Portal.\n\nSteps:\n1. Log in to your account.\n2. Open **Document Requests**.\n3. Select your document.\n4. Fill out the required information.\n5. Submit your request.\n6. Wait for approval.\n7. You will receive a notification once your document is ready for pickup.`;
       }
     }
 
@@ -1870,6 +1937,9 @@ You serve as the Upper Mingading Virtual Assistant. Your purpose is to assist re
 PRIMARY RULE:
 Your first task is to determine the user's intent before answering.
 NEVER answer with the dashboard summary unless the user explicitly asks about:
+
+LANGUAGE RULE:
+Always respond in the same language as the user's question. If the user asks in Tagalog (or Taglish/Filipino), respond in Tagalog. If the user asks in English, respond in English. Do not mix languages unless necessary.
 - dashboard
 - dashboard summary
 - my dashboard

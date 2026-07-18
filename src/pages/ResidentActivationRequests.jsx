@@ -179,15 +179,21 @@ const ResidentActivationRequests = () => {
 
       if (smsPhone && isValidSmsPhone(smsPhone)) {
         try {
+          const bodyText = result.used_resident_credentials
+            ? `Hello ${result.full_name || request.full_name || "Resident"}, your registration has been approved. You may now log in using the username and password you created during registration. Login here: https://kaagapai-f-version-1.vercel.app`
+            : `Hello ${result.full_name || request.full_name || "Resident"}, your Barangay Upper Mingading resident account is verified. Username: ${result.username}. Household password: ${result.temporary_password}. Login here: https://kaagapai-f-version-1.vercel.app`;
+
           await sendSmsNotification({
             to: smsPhone,
-            body: `Hello ${result.full_name || request.full_name || "Resident"}, your Barangay Upper Mingading resident account is verified. Username: ${result.username}. Household password: ${result.temporary_password}. Login here: https://kaagapai-f-version-1.vercel.app`,
+            body: bodyText,
           });
           smsStatus = "success";
-          smsMessage = `Credentials were sent by SMS to ${normalizeSmsPhone(smsPhone)}.`;
+          smsMessage = result.used_resident_credentials
+            ? `Approval notification sent by SMS to ${normalizeSmsPhone(smsPhone)}.`
+            : `Credentials were sent by SMS to ${normalizeSmsPhone(smsPhone)}.`;
         } catch (smsError) {
           smsMessage = `The account was approved, but SMS sending failed: ${smsError.message || "Unable to send SMS."
-            } Give these credentials manually.`;
+            } Give approval notice manually.`;
         }
       }
 
@@ -198,6 +204,7 @@ const ResidentActivationRequests = () => {
         phone: smsPhone ? normalizeSmsPhone(smsPhone) : "",
         username: result.username,
         temporaryPassword: result.temporary_password,
+        usedResidentCredentials: result.used_resident_credentials,
       });
       await loadRequests();
     } catch (approveError) {
@@ -257,18 +264,38 @@ const ResidentActivationRequests = () => {
   const columns = [
     {
       field: "resident",
-      headerName: "Resident",
-      flex: 1.5,
+      headerName: "Resident & Account Details",
+      flex: 2,
+      minWidth: 260,
       renderCell: (params) => {
         const request = params.row;
         return (
           <div className="py-2 leading-tight">
-            <p className="font-semibold text-[#17233c]">{request.full_name || "-"}</p>
-            <p className="text-xs text-slate-500 mt-0.5">Household: {request.household_no || "-"}</p>
-            <p className="text-xs text-slate-500 mt-0.5">Resident status: {request.resident_status || "-"}</p>
-            <p className="text-xs font-semibold text-blue-600 mt-0.5">
-              {request.registration_type || (request.resident_id ? "Existing resident access" : "New resident registration")}
+            <p className="font-bold text-[#17233c] text-sm truncate">{request.full_name || request.requested_full_name || "-"}</p>
+            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs mt-0.5 text-slate-500 font-semibold">
+              <span>Household: {request.household_no || request.requested_household_no || "-"}</span>
+              <span>•</span>
+              <span>User: {request.requested_username || "-"}</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5 font-medium truncate">{request.requested_email || request.email || "-"}</p>
+            <p className="text-[10px] font-bold text-blue-600 mt-1 uppercase tracking-wider">
+              {request.registration_type || (request.resident_id ? "Existing Access" : "New Registration")}
             </p>
+          </div>
+        );
+      }
+    },
+    {
+      field: "phone",
+      headerName: "Contact & Location",
+      flex: 1,
+      minWidth: 120,
+      renderCell: (params) => {
+        const request = params.row;
+        return (
+          <div className="py-2 leading-tight">
+            <p className="text-slate-700 text-xs font-semibold">{request.phone || request.requested_phone || "-"}</p>
+            <p className="text-xs text-slate-500 mt-1">Purok: {request.purok || request.requested_purok || "-"}</p>
           </div>
         );
       }
@@ -276,16 +303,13 @@ const ResidentActivationRequests = () => {
     {
       field: "verification",
       headerName: "Verification Details",
-      flex: 2,
+      flex: 1,
+      minWidth: 130,
       renderCell: (params) => {
         const request = params.row;
         return (
           <div className="py-2 leading-tight">
-            <p>Entered name: {request.requested_full_name || "-"}</p>
-            <p className="text-xs text-slate-500 mt-0.5">Birth date: {request.requested_birthday || "-"}</p>
-            <p className="text-xs text-slate-500 mt-0.5">Household: {request.requested_household_no || "-"}</p>
-            <p className="text-xs text-slate-500 mt-0.5">Phone: {request.phone || request.requested_phone || "-"}</p>
-            <p className="text-xs text-slate-500 mt-0.5">Purok: {request.purok || request.requested_purok || "-"}</p>
+            <p className="text-xs text-slate-500">Birth: {request.requested_birthday || "-"}</p>
             {request.requested_proof_path ? (
               <button
                 type="button"
@@ -298,13 +322,13 @@ const ResidentActivationRequests = () => {
                 ) : (
                   <FileImage size={12} />
                 )}
-                View private proof
+                View Proof
               </button>
             ) : (
-              <p className="mt-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
+              <p className="mt-1.5 inline-block rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
                 {request.proof_review_available === false
-                  ? "Install the proof-review SQL migration."
-                  : "No proof attached. Approval is disabled."}
+                  ? "Install migration"
+                  : "No proof"}
               </p>
             )}
           </div>
@@ -313,32 +337,29 @@ const ResidentActivationRequests = () => {
     },
     {
       field: "request_status",
-      headerName: "Status",
-      flex: 1,
+      headerName: "Status & Date",
+      flex: 1.2,
+      minWidth: 140,
       renderCell: (params) => {
         const request = params.row;
         return (
           <div className="py-2 leading-tight">
-            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusClass(request.request_status)}`}>
+            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold ${getStatusClass(request.request_status)}`}>
               {request.request_status || "-"}
             </span>
+            <p className="text-[10px] font-semibold text-slate-500 mt-1.5">{formatDate(request.request_date)}</p>
             {request.rejection_reason && (
-              <p className="mt-1 max-w-xs text-xs leading-5 text-rose-600">{request.rejection_reason}</p>
+              <p className="mt-1 max-w-xs text-[10px] leading-tight text-rose-600 truncate" title={request.rejection_reason}>{request.rejection_reason}</p>
             )}
           </div>
         );
       }
     },
     {
-      field: "request_date",
-      headerName: "Requested",
-      flex: 1.2,
-      renderCell: (params) => formatDate(params.row.request_date)
-    },
-    {
       field: "actions",
       headerName: "Actions",
-      flex: 1.2,
+      flex: 1.5,
+      minWidth: 160,
       headerAlign: "right",
       align: "right",
       renderCell: (params) => {
@@ -346,12 +367,12 @@ const ResidentActivationRequests = () => {
         const isPending = request.request_status === "Pending Approval";
         const isBusy = actionId === request.request_id;
         return (
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-1.5 justify-end">
             <button
               type="button"
               onClick={() => handleApprove(request)}
               disabled={!isPending || isBusy || !request.requested_proof_path}
-              className="btn-gov btn-gov-primary px-3 py-1.5 text-xs"
+              className="btn-gov btn-gov-primary px-2.5 py-1 text-xs font-bold"
               title={isPending && !request.requested_proof_path ? "A verification proof is required before approval." : undefined}
             >
               {isBusy ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
@@ -361,7 +382,7 @@ const ResidentActivationRequests = () => {
               type="button"
               onClick={() => handleReject(request)}
               disabled={!isPending || isBusy}
-              className="btn-gov btn-gov-danger px-3 py-1.5 text-xs"
+              className="btn-gov btn-gov-danger px-2.5 py-1 text-xs font-bold"
             >
               <XCircle size={12} />
               Reject
@@ -423,20 +444,31 @@ const ResidentActivationRequests = () => {
             >
               <p className="font-semibold">{message.title}</p>
               <p className="mt-1">{message.text}</p>
-              {message.username || message.temporaryPassword ? (
+              {message.username || message.temporaryPassword || message.usedResidentCredentials ? (
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <div className="rounded-md bg-white/70 px-3 py-2">
                     <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Username</p>
                     <p className="mt-1 font-mono text-sm font-semibold text-[#17233c]">{message.username}</p>
                   </div>
-                  <div className="rounded-md bg-white/70 px-3 py-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                      Household Password
-                    </p>
-                    <p className="mt-1 font-mono text-sm font-semibold text-[#17233c]">
-                      {message.temporaryPassword}
-                    </p>
-                  </div>
+                  {message.temporaryPassword ? (
+                    <div className="rounded-md bg-white/70 px-3 py-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                        Household Password
+                      </p>
+                      <p className="mt-1 font-mono text-sm font-semibold text-[#17233c]">
+                        {message.temporaryPassword}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-md bg-white/70 px-3 py-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                        Password Status
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-emerald-800">
+                        Resident-chosen credentials approved.
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : null}
               {message.phone ? (
