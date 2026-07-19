@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Save, Trash2, Upload, UserRound } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Loader2, Save, Trash2, Upload, UserRound, X } from "lucide-react";
 import PageWrapper from "../components/PageWrapper";
 import {
   getCurrentUserWithProfile,
@@ -345,8 +346,22 @@ const ProfileSettings = () => {
   const role = currentUser?.profile?.role || "admin";
   const status = currentUser?.profile?.registration_status || "Active";
 
+  const actions = (
+    <Link
+      to="/dashboard"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-rose-600"
+    >
+      <X size={14} />
+      Exit
+    </Link>
+  );
+
   return (
-    <PageWrapper title="My Account" description="View and update your personal admin profile details">
+    <PageWrapper
+      title="My Account"
+      description="View and update your personal admin profile details"
+      actions={actions}
+    >
       <form onSubmit={handleSave} className="max-w-4xl space-y-6 pb-20">
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-center sm:justify-between">

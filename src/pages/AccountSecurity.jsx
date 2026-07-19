@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   KeyRound,
   Loader2,
@@ -14,6 +15,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Eye,
+  X,
 } from "lucide-react";
 import PageWrapper from "../components/PageWrapper";
 import { getCurrentUserWithProfile, resetPassword, updatePassword } from "../services/authService";
@@ -151,8 +153,22 @@ const AccountSecurity = () => {
 
   const checks = getPasswordState(passwordForm.newPassword);
 
+  const actions = (
+    <Link
+      to="/dashboard"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-rose-600"
+    >
+      <X size={14} />
+      Exit
+    </Link>
+  );
+
   return (
-    <PageWrapper title="Account Security" description="Manage password, email preferences, two-factor authentication, and active sessions">
+    <PageWrapper
+      title="Account Security"
+      description="Manage password, email preferences, two-factor authentication, and active sessions"
+      actions={actions}
+    >
       <div className="max-w-4xl space-y-6 pb-20">
         {message ? (
           <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800 shadow-2xs">

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import {
   Building2,
   DatabaseBackup,
@@ -31,6 +32,7 @@ import {
   Loader2,
   UploadCloud,
   RefreshCw,
+  X,
 } from "lucide-react";
 import PageWrapper from "../components/PageWrapper";
 import FloatingModal from "../components/FloatingModal";
@@ -303,8 +305,22 @@ const Settings = () => {
   // ═══════════════════════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════════════
+  const actions = (
+    <Link
+      to="/dashboard"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-rose-600"
+    >
+      <X size={14} />
+      Exit
+    </Link>
+  );
+
   return (
-    <PageWrapper title="System Settings" description="Configure official barangay office information and manage system data backups">
+    <PageWrapper
+      title="System Settings"
+      description="Configure official barangay office information and manage system data backups"
+      actions={actions}
+    >
       <div className="max-w-5xl space-y-6 pb-20">
         {/* Navigation Tabs */}
         <div className="flex border-b border-slate-200 bg-white px-3 pt-3 rounded-2xl shadow-xs">

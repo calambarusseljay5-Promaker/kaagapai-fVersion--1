@@ -333,7 +333,7 @@ const UserDashboard = () => {
   // Redesign state additions
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsTab, setSettingsTab] = useState("security"); // default changed to security
-  const [theme, setTheme] = useState(() => localStorage.getItem("kaagapai_resident_theme") || "system");
+  const [theme, setTheme] = useState("light");
   const [fontSize, setFontSize] = useState(() => localStorage.getItem("kaagapai_resident_font_size") || "medium");
   const [smsNotificationsEnabled, setSmsNotificationsEnabled] = useState(() => localStorage.getItem("kaagapai_sms_notifications") !== "false");
   const [announcementSmsAlerts, setAnnouncementSmsAlerts] = useState(() => localStorage.getItem("kaagapai_announcements_pref") !== "false");
@@ -570,11 +570,7 @@ const UserDashboard = () => {
     localStorage.setItem("kaagapai_resident_font_size", fontSize);
   }, [theme, fontSize]);
 
-  const isDarkMode = useMemo(() => {
-    if (theme === "dark") return true;
-    if (theme === "light") return false;
-    return systemTheme === "dark";
-  }, [theme, systemTheme]);
+  const isDarkMode = false;
 
   const handleSmsToggle = (val) => {
     setSmsNotificationsEnabled(val);
@@ -1945,27 +1941,63 @@ const UserDashboard = () => {
   }
 
   return (
-    <div className={`app-shell font-sans antialiased ${isDarkMode ? "dark" : ""} ${fontSize === "small" ? "text-sm" : fontSize === "large" ? "text-sm" : "text-xs"}`}>
+    <div 
+      className={`app-shell font-sans antialiased ${isDarkMode ? "dark" : ""} ${fontSize === "small" ? "text-sm" : fontSize === "large" ? "text-sm" : "text-xs"}`}
+      style={{
+        gridTemplateColumns: sidebarCollapsed ? "80px 1fr" : undefined
+      }}
+    >
       
       {/* 1. Sidebar (Dark Emerald Branding Menu) */}
-      <aside className={`app-sidebar ${mobileSidebarOpen ? "open" : ""} flex flex-col justify-between`}>
+      <aside 
+        className={`app-sidebar ${mobileSidebarOpen ? "open" : ""} ${sidebarCollapsed ? "collapsed-sidebar" : ""} flex flex-col justify-between`}
+        style={{
+          width: sidebarCollapsed ? "80px" : undefined,
+          padding: sidebarCollapsed ? "20px 8px" : undefined
+        }}
+      >
         <div>
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <img
-                src="/logo.png"
-                alt="Brgy. Seal"
-                className="h-10 w-10 shrink-0 object-contain rounded-full shadow-md border border-white/20 bg-white"
-                style={{ width: "40px", height: "40px", minWidth: "40px", minHeight: "40px" }}
-                onError={(e) => {
-                  e.target.src = "https://placehold.co/100x100/0b5d3b/ffffff?text=Seal";
-                }}
-              />
-              <div className="min-w-0 animate-fadeIn">
-                <p className="text-sm font-black uppercase tracking-wider text-emerald-350">Upper Mingading</p>
-                <h2 className="text-xs font-black text-white truncate">KaagapAI</h2>
+            {!sidebarCollapsed && (
+              <div className="flex items-center gap-4 animate-fadeIn">
+                <img
+                  src="/logo.png"
+                  alt="Brgy. Seal"
+                  className="h-10 w-10 shrink-0 object-contain rounded-full shadow-md border border-white/20 bg-white"
+                  style={{ width: "40px", height: "40px", minWidth: "40px", minHeight: "40px" }}
+                  onError={(e) => {
+                    e.target.src = "https://placehold.co/100x100/0b5d3b/ffffff?text=Seal";
+                  }}
+                />
+                <div className="min-w-0 animate-fadeIn">
+                  <p className="text-sm font-black uppercase tracking-wider text-emerald-350">Upper Mingading</p>
+                  <h2 className="text-xs font-black text-white truncate">KaagapAI</h2>
+                </div>
               </div>
-            </div>
+            )}
+            {sidebarCollapsed && (
+              <div className="flex justify-center w-full animate-fadeIn mb-2">
+                <img
+                  src="/logo.png"
+                  alt="Brgy. Seal"
+                  className="h-8 w-8 object-contain rounded-full shadow-md border border-white/20 bg-white"
+                  onError={(e) => {
+                    e.target.src = "https://placehold.co/100x100/0b5d3b/ffffff?text=Seal";
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Desktop Collapse Button */}
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="hidden lg:flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white transition hover:bg-white/20 active:scale-95"
+            >
+              {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            </button>
+
+            {/* Mobile Close Button */}
             <button
               type="button"
               onClick={() => setMobileSidebarOpen(false)}
@@ -1983,11 +2015,15 @@ const UserDashboard = () => {
                 <button
                   key={item.key}
                   type="button"
-                  onClick={() => openModule(item.key)}
-                  className={`nav-item w-full ${active ? "active" : ""}`}
+                  onClick={() => {
+                    openModule(item.key);
+                    setSidebarCollapsed(true);
+                  }}
+                  className={`nav-item w-full ${active ? "active" : ""} ${sidebarCollapsed ? "justify-center px-2" : ""}`}
+                  title={sidebarCollapsed ? item.label : undefined}
                 >
                   <Icon size={18} className={`shrink-0 ${active ? "text-[#1FA971]" : "text-emerald-100/60"}`} />
-                  <span className="nav-label ml-2 truncate">{item.label}</span>
+                  {!sidebarCollapsed && <span className="nav-label ml-2 truncate">{item.label}</span>}
                 </button>
               );
             })}
@@ -1995,10 +2031,11 @@ const UserDashboard = () => {
             <button
               type="button"
               onClick={handleLogout}
-              className="nav-item w-full text-rose-200 hover:bg-rose-950/30 mt-1"
+              className={`nav-item w-full text-rose-200 hover:bg-rose-950/30 mt-1 ${sidebarCollapsed ? "justify-center px-2" : ""}`}
+              title={sidebarCollapsed ? "Logout" : undefined}
             >
               <LogOut size={18} className="shrink-0 text-rose-400" />
-              <span className="nav-label ml-2">Logout</span>
+              {!sidebarCollapsed && <span className="nav-label ml-2">Logout</span>}
             </button>
           </nav>
         </div>
@@ -2110,43 +2147,42 @@ const UserDashboard = () => {
               <span>{portalSuccess}</span>
             </div>
           )}
-
           {/* TAB 1: DASHBOARD OVERVIEW */}
           {activeNav === "dashboard" && (
             <div className="space-y-6 animate-fadeIn">
               {/* HERO BANNER CARD WITH BARANGAYOFICE.PNG AND INTEGRATED HEADER */}
-              <div className="relative rounded-[24px] overflow-visible border border-white/10 select-none bg-gradient-to-br from-[#0E6B3A] to-[#0B5A30] text-white animate-fadeIn">
+              <div className="relative rounded-[24px] overflow-visible border border-white/10 select-none bg-gradient-to-br from-[#14532D] to-[#0f3e21] text-white animate-fadeIn shadow-lg">
                 {/* Background Image with fade transition */}
                 <div className="absolute inset-0 w-full h-full pointer-events-none z-0 rounded-[24px] overflow-hidden">
                   <img
                     src="/barangay/BARANGAYOFICE.PNG"
                     alt="Barangay Hall"
-                    className="w-full h-full object-cover opacity-25 rounded-[24px]"
+                    className="w-full h-full object-cover opacity-20 rounded-[24px]"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a2916]/95 via-[#0B5A30]/80 to-transparent rounded-[24px]" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a2916]/95 via-[#14532D]/75 to-transparent rounded-[24px]" />
                 </div>
 
                 {/* Content Overlay */}
-                <div className="relative z-10 p-4 sm:p-5 flex flex-col text-left">
+                <div className="relative z-10 p-5 sm:p-6 flex flex-col text-left">
                   
                   {/* Integrated Header Top Row */}
                   <div className="flex items-center justify-between gap-3 w-full flex-nowrap">
                     {/* Left side: Greeting */}
                     <div className="flex items-center min-w-0 shrink">
-                      <h2 className="text-sm sm:text-base font-black text-white leading-tight flex items-center gap-1.5 truncate">
+                      <h2 className="text-base sm:text-lg font-black text-white leading-tight flex items-center gap-2 truncate">
                         {dynamicGreeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-green-300">{resident?.first_name || displayName}</span>! 👋
                       </h2>
                     </div>
 
                     {/* Right side: Actions (Document Request, Bell, Profile) */}
-                    <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 pr-3 sm:pr-0">
+                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                       {/* Minimized Document Request Button */}
                       <button
                         type="button"
                         onClick={() => openModule("documents")}
-                        className="inline-flex items-center gap-1 sm:gap-1.5 bg-[#C8A14A] hover:bg-[#b08b3a] active:scale-95 text-slate-900 rounded-lg px-2.5 py-1 text-[10px] sm:text-xs font-black shadow-sm transition duration-200 shrink-0"
+                        className="inline-flex items-center gap-1.5 bg-[#C8A14A] hover:bg-[#b08b3a] active:scale-95 text-slate-900 rounded-lg px-3 py-1.5 text-xs font-black shadow-sm transition duration-200 shrink-0"
                       >
-                        <ClipboardList size={12} className="text-slate-900 shrink-0" />
+                        <ClipboardList size={14} className="text-slate-900 shrink-0" />
                         <span className="hidden sm:inline">Document Request</span>
                         <span className="sm:hidden">Request</span>
                       </button>
@@ -2156,11 +2192,11 @@ const UserDashboard = () => {
                         <button
                           type="button"
                           onClick={() => { setShowAccountMenu(false); setShowNotificationMenu(!showNotificationMenu); }}
-                          className="relative flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 hover:bg-white/15 text-white shadow-sm transition"
+                          className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 hover:bg-white/15 text-white shadow-sm transition"
                         >
-                          <Bell size={15} />
+                          <Bell size={16} />
                           {unreadNotificationCount > 0 && (
-                            <span className="absolute -right-1 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[9px] font-bold text-white ring-2 ring-[#0B5A30] animate-pulse">
+                            <span className="absolute -right-1 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[9px] font-bold text-white ring-2 ring-[#14532D] animate-pulse">
                               {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
                             </span>
                           )}
@@ -2171,16 +2207,16 @@ const UserDashboard = () => {
                             <>
                               <div className="fixed inset-0 z-45" onClick={() => setShowNotificationMenu(false)} />
                               <motion.div
-                                className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-2xl border shadow-xl bg-slate-900 border-slate-800 text-white"
+                                className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-2xl border shadow-xl bg-slate-950/70 backdrop-blur-md border-slate-800 text-white animate-fadeIn"
                                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
                               >
-                                <div className="flex items-center justify-between border-b px-4 py-2.5 border-slate-800 bg-slate-950">
-                                  <p className="text-sm font-black uppercase tracking-wider text-slate-400">Notifications</p>
-                                  <span className="rounded-full px-2 py-0.5 text-xs font-bold bg-emerald-500/20 text-emerald-400">
+                                <div className="flex items-center justify-between border-b px-4 py-2.5 border-slate-800/80 bg-slate-950/50">
+                                  <p className="text-xs font-black uppercase tracking-wider text-slate-400">Notifications</p>
+                                  <span className="rounded-full px-2 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
                                     {unreadNotificationCount} New
                                   </span>
                                 </div>
-                                <div className="max-h-72 divide-y divide-slate-800 overflow-y-auto">
+                                <div className="max-h-72 divide-y divide-slate-800/60 overflow-y-auto">
                                   {allNotificationsMerged.length === 0 ? (
                                     <div className="p-6 text-center text-xs text-slate-400 font-bold">No recent alerts.</div>
                                   ) : (
@@ -2204,14 +2240,14 @@ const UserDashboard = () => {
                                             else openModule("documents");
                                           }
                                         }}
-                                        className="w-full flex gap-2.5 p-3 text-left transition-colors hover:bg-slate-800 bg-slate-900/50"
+                                        className="w-full flex gap-2.5 p-3 text-left transition-colors hover:bg-slate-800/60 bg-slate-950/20"
                                       >
                                         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-emerald-400">
                                           <FileText size={13} />
                                         </span>
                                         <div className="min-w-0 flex-1">
                                           <p className="truncate text-xs font-bold text-white">{n.title}</p>
-                                          <p className="mt-0.5 line-clamp-2 text-sm leading-normal font-semibold text-slate-400">{n.message}</p>
+                                          <p className="mt-0.5 line-clamp-2 text-xs leading-normal font-semibold text-slate-400">{n.message}</p>
                                         </div>
                                       </button>
                                     ))
@@ -2228,7 +2264,7 @@ const UserDashboard = () => {
                         <button
                           type="button"
                           onClick={() => { setShowNotificationMenu(false); setShowAccountMenu(!showAccountMenu); }}
-                          className="relative flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center overflow-hidden rounded-full border-2 border-emerald-300 hover:border-emerald-500 bg-white/10 shadow-sm transition transform hover:scale-105"
+                          className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-emerald-300 hover:border-emerald-500 bg-white/10 shadow-sm transition transform hover:scale-105"
                         >
                           {resident?.profile_photo_url ? (
                             <img src={resident.profile_photo_url} alt="" className="h-full w-full object-cover" />
@@ -2238,17 +2274,17 @@ const UserDashboard = () => {
                             </div>
                           )}
                         </button>
-                        <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-[#0B5A30] bg-emerald-500 z-10"></div>
+                        <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-[#14532D] bg-emerald-500 z-10"></div>
 
                         <AnimatePresence>
                           {showAccountMenu && (
                             <>
                               <div className="fixed inset-0 z-45" onClick={() => setShowAccountMenu(false)} />
                               <motion.div
-                                className="absolute right-0 z-50 mt-2 w-52 rounded-2xl border p-1.5 shadow-xl backdrop-blur-md bg-slate-900/95 border-slate-800 text-white"
+                                className="absolute right-0 z-50 mt-2 w-52 rounded-2xl border p-1.5 shadow-xl bg-slate-950/70 backdrop-blur-md border-slate-800 text-white animate-fadeIn"
                                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
                               >
-                                <div className="px-3 py-2.5 mb-1.5 text-center border-b border-slate-800 bg-slate-950/40">
+                                <div className="px-3 py-2.5 mb-1.5 text-center border-b border-slate-800/80 bg-slate-950/40">
                                   <div className="mx-auto h-10 w-10 overflow-hidden rounded-full border mb-2 border-slate-800">
                                     {resident?.profile_photo_url ? (
                                       <img src={resident.profile_photo_url} alt="" className="h-full w-full object-cover" />
@@ -2257,7 +2293,7 @@ const UserDashboard = () => {
                                     )}
                                   </div>
                                   <p className="truncate text-xs font-black">{displayName}</p>
-                                  <p className="truncate text-sm text-slate-500 font-bold mt-0.5">{residentUsername}</p>
+                                  <p className="truncate text-xs text-slate-500 font-bold mt-0.5">{residentUsername}</p>
                                 </div>
 
                                 {[
@@ -2269,7 +2305,7 @@ const UserDashboard = () => {
                                     key={idx}
                                     type="button"
                                     onClick={() => { setShowAccountMenu(false); openModule(item.key, item.sub); }}
-                                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold transition text-slate-300 hover:bg-slate-800 hover:text-white"
+                                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold transition text-slate-350 hover:bg-slate-800/80 hover:text-white"
                                   >
                                     <item.icon size={13} className="text-emerald-400 shrink-0" />
                                     {item.label}
@@ -2281,49 +2317,63 @@ const UserDashboard = () => {
                         </AnimatePresence>
                       </div>
 
-                      </div>
                     </div>
                   </div>
-
-                </div>
-
-              {/* Dashboard Overview Header section */}
-              <div className="space-y-3 mb-2 px-1">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setMobileSidebarOpen(true)}
-                    className="lg:hidden rounded-lg border border-[#0E6B3A]/20 dark:border-slate-800 p-1.5 text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-slate-900 hover:bg-emerald-100 dark:hover:bg-slate-800 active:scale-95 transition shadow-2xs shrink-0"
-                    aria-label="Open mobile menu"
-                  >
-                    <Menu size={15} className="text-[#0E6B3A] dark:text-emerald-400" />
-                  </button>
-                  <h3 className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? "text-white" : "text-[#0E6B3A]"}`}>Dashboard Overview</h3>
                 </div>
               </div>
 
-              {/* Statistics Grid */}
-              <div className="stats-grid lg:hidden">
+              {/* Dashboard Overview Header section */}
+              <div className="flex items-center gap-2 px-1">
+                <button
+                  type="button"
+                  onClick={() => setMobileSidebarOpen(true)}
+                  className="lg:hidden rounded-lg border border-[#14532D]/20 dark:border-slate-800 p-1.5 text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-slate-900 hover:bg-emerald-100 dark:hover:bg-slate-800 active:scale-95 transition shadow-2xs shrink-0"
+                  aria-label="Open mobile menu"
+                >
+                  <Menu size={15} className="text-[#14532D] dark:text-emerald-400" />
+                </button>
+                <h3 className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? "text-white" : "text-[#14532D]"}`}>Dashboard Overview</h3>
+              </div>
+
+              {/* Statistics Grid (Visible on both desktop & mobile) */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fadeIn">
                 {[
-                  { label: "Pending", value: requests.filter((r) => ["Pending", "Processing"].includes(r.status)).length, icon: Clock, trend: "In Queue" },
-                  { label: "Approved", value: requests.filter((r) => ["Approved", "Released"].includes(r.status)).length, icon: CheckCircle, trend: "Released" },
-                  { label: "Rejected", value: requests.filter((r) => r.status === "Rejected").length, icon: AlertCircle, trend: "Action Needed" },
-                  { label: "Completed", value: requests.filter((r) => r.status === "Completed").length, icon: FileCheck2, trend: "Archived" }
+                  { 
+                    label: "Pending", 
+                    value: requests.filter((r) => ["Pending", "Processing"].includes(r.status)).length, 
+                    icon: Clock, 
+                    color: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/30" 
+                  },
+                  { 
+                    label: "Approved", 
+                    value: requests.filter((r) => ["Approved", "Released"].includes(r.status)).length, 
+                    icon: CheckCircle, 
+                    color: "text-[#14532D] dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-250 dark:border-emerald-900/30" 
+                  },
+                  { 
+                    label: "Action Needed", 
+                    value: requests.filter((r) => r.status === "Rejected").length, 
+                    icon: AlertCircle, 
+                    color: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border-rose-250 dark:border-rose-900/30" 
+                  },
+                  { 
+                    label: "Completed", 
+                    value: requests.filter((r) => r.status === "Completed").length, 
+                    icon: FileCheck2, 
+                    color: "text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/20 border-teal-250 dark:border-teal-900/30" 
+                  }
                 ].map((stat, i) => (
-                  <div key={i} className="stat-card">
-                    <div className="flex items-start justify-between opacity-70">
-                      <p className="text-sm font-black uppercase tracking-wider truncate">{stat.label}</p>
-                      <stat.icon size={16} />
-                    </div>
-                    <div className="mt-2">
-                      <p className="stat-number">{stat.value}</p>
-                      <span className="inline-flex items-center text-sm font-bold mt-1 opacity-70">
-                        {stat.trend}
-                      </span>
+                  <div key={i} className={`flex items-center gap-4 p-4 rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-xs transition duration-200 hover:shadow-sm hover:translate-y-[-1px]`}>
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${stat.color}`}>
+                      <stat.icon size={18} className="stroke-[2.5]" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 truncate">{stat.label}</p>
+                      <p className="text-lg sm:text-xl font-black text-slate-855 dark:text-white mt-0.5 leading-none">{stat.value}</p>
                     </div>
                   </div>
                 ))}
-                </div>
+              </div>
 
               {/* Main Dashboard Workspace Grid */}
               <div className="bottom-grid">
@@ -2331,54 +2381,35 @@ const UserDashboard = () => {
                 {/* Left Columns: Recent Requests & Activities */}
                 <div className="lg:col-span-2 space-y-6">
                   
-                  
-                    {/* Announcements Feed */}
-                    <div className="section-card animate-fadeIn">
-                      <div className="border-b border-slate-100 dark:border-slate-800 pb-3 mb-4 flex justify-between items-center">
-                        <h4 className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? "text-white" : "text-[#0E6B3A]"}`}>Latest Announcements</h4>
-                        <Megaphone size={13} className="text-[#0E6B3A] dark:text-emerald-450" />
-                      </div>
-                      <div className="space-y-3">
-                        {publishedAnnouncements.slice(0, 3).map((ann) => (
-                          <div key={ann.id} className={`p-3 rounded-xl border text-sm ${isDarkMode ? "bg-slate-950 border-slate-850 text-slate-300" : "bg-white border-slate-200 text-slate-700"}`}>
-                            <p className="font-black text-emerald-600 dark:text-emerald-400 mb-1">{ann.title}</p>
-                            <p className="line-clamp-2">{ann.content}</p>
-                          </div>
-                        ))}
-                        {publishedAnnouncements.length === 0 && (
-                          <p className="text-xs text-slate-500 font-bold text-center py-4">No recent announcements.</p>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* My Recent Requests list */}
-                  <div className="section-card">
+                  {/* My Recent Requests list */}
+                  <div className="rounded-2xl border p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-xs">
                     <div className="border-b border-slate-100 dark:border-slate-800 pb-3 mb-4 flex justify-between items-center">
-                      <h4 className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? "text-white" : "text-[#0E6B3A]"}`}>Recent Requests</h4>
-                      <FileSpreadsheet size={13} className="text-[#0E6B3A] dark:text-emerald-450" />
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        <FileSpreadsheet size={15} className="text-[#14532D] dark:text-emerald-450" />
+                        Recent Requests
+                      </h4>
+                      <span className="text-[10px] font-bold text-slate-400">Last 3 submissions</span>
                     </div>
                     
                     <div className="space-y-2.5">
                       {filteredRequests.slice(0, 3).map((req) => (
                         <div
                           key={req.id}
-                          className={`flex items-center justify-between p-3 rounded-xl border text-xs font-semibold ${
-                            isDarkMode ? "bg-slate-950 border-slate-850 hover:bg-slate-900/40 text-slate-350" : "bg-slate-50/50 border-slate-100 hover:bg-slate-55 hover:bg-slate-50 text-slate-700"
-                          }`}
+                          className="flex items-center justify-between p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-950/20 hover:bg-slate-100/50 dark:hover:bg-slate-950/40 transition duration-200 text-xs font-semibold"
                         >
-                          <div className="min-w-0">
-                            <p className={`font-black truncate ${isDarkMode ? "text-white" : "text-slate-800"}`}>{req.title}</p>
-                            <p className="text-sm text-slate-450 mt-0.5">Submitted: {req.dateLabel}</p>
+                          <div className="min-w-0 flex-1 pr-4">
+                            <p className="font-bold text-slate-800 dark:text-slate-200 truncate">{req.title}</p>
+                            <p className="text-xs text-slate-450 dark:text-slate-500 mt-1 font-semibold">Submitted: {req.dateLabel}</p>
                           </div>
                           
-                          <div className="flex items-center gap-2">
-                            <span className={`rounded-full px-2.5 py-0.5 text-sm font-black border ${getStatusClass(req.status)}`}>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-black border ${getStatusClass(req.status)}`}>
                               {req.status}
                             </span>
                             <button
                               type="button"
                               onClick={() => openModule("my_documents")}
-                              className="text-sm font-black text-[#0E6B3A] dark:text-emerald-450 hover:underline"
+                              className="text-xs font-black text-[#14532D] dark:text-emerald-450 hover:underline"
                             >
                               View
                             </button>
@@ -2387,22 +2418,20 @@ const UserDashboard = () => {
                       ))}
                       
                       {filteredRequests.length === 0 && (
-                        <div className="flex flex-col items-center justify-center text-center py-8 space-y-3 animate-fadeIn">
-                          <div className={`h-12 w-12 rounded-2xl border-2 border-dashed flex items-center justify-center ${
-                            isDarkMode ? "border-slate-800 text-slate-600 bg-slate-950/40" : "border-slate-200 text-slate-300 bg-slate-50/40"
-                          }`}>
-                            <FileText size={20} />
+                        <div className="flex flex-col items-center justify-center text-center py-10 space-y-4 animate-fadeIn">
+                          <div className="h-14 w-14 rounded-2xl border-2 border-dashed border-slate-250 dark:border-slate-850 flex items-center justify-center text-slate-350 dark:text-slate-650 bg-slate-50/40 dark:bg-slate-950/20">
+                            <FileText size={24} />
                           </div>
-                          <div className="space-y-0.5">
-                            <p className={`text-xs font-black ${isDarkMode ? "text-slate-300" : "text-slate-800"}`}>No requests yet.</p>
-                            <p className="text-sm text-slate-400 font-bold">Request your first barangay document.</p>
+                          <div className="space-y-1">
+                            <p className="text-sm font-black text-slate-700 dark:text-slate-300">No requests yet.</p>
+                            <p className="text-xs text-slate-450 dark:text-slate-500 font-bold max-w-[240px] leading-normal">Request your first official barangay document to get started.</p>
                           </div>
                           <button
                             type="button"
                             onClick={() => openModule("documents")}
-                            className="inline-flex items-center justify-center gap-1.5 px-4.5 py-2 text-sm font-black bg-[#0E6B3A] hover:bg-[#0E6B3A]/90 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl shadow-xs transition"
+                            className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 text-xs font-black bg-[#14532D] hover:bg-[#0f3e21] text-white rounded-xl shadow-xs transition duration-200 active:scale-95"
                           >
-                            <PlusCircle size={10} />
+                            <PlusCircle size={13} />
                             Request Now
                           </button>
                         </div>
@@ -2411,75 +2440,80 @@ const UserDashboard = () => {
                   </div>
 
                   {/* Recent Activity Timeline Tracker */}
-                  <div className="section-card">
+                  <div className="rounded-2xl border p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-xs">
                     <div className="border-b border-slate-100 dark:border-slate-800 pb-3 mb-4 flex justify-between items-center">
-                      <h4 className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? "text-white" : "text-[#0E6B3A]"}`}>Recent Activity</h4>
-                      <TrendingUp size={13} className="text-[#0E6B3A] dark:text-emerald-455" />
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        <TrendingUp size={15} className="text-[#14532D] dark:text-emerald-450" />
+                        Recent Activity
+                      </h4>
+                      <span className="text-[10px] font-bold text-slate-400">Timeline tracker</span>
                     </div>
-                    <div className="space-y-4">
-                      {requests.slice(0, 2).map((req, idx) => (
-                        <div key={req.id} className="relative flex gap-3 pb-1">
-                          {idx < requests.slice(0, 2).length - 1 && (
-                            <span className="absolute left-[13px] top-7 bottom-0 w-0.5 bg-slate-100 dark:bg-slate-800" />
-                          )}
-                          <div className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 border ${
-                            isDarkMode ? "bg-slate-950 border-slate-800 text-slate-450" : "bg-slate-50 border-slate-200 text-slate-505"
-                          }`}>
-                            <FileText size={12} />
-                          </div>
-                          <div className={`min-w-0 flex-1 border rounded-xl p-3 ${
-                            isDarkMode ? "bg-slate-950/40 border-slate-850" : "bg-slate-50/50 border-slate-100/70"
-                          }`}>
-                            <p className={`text-xs font-black ${isDarkMode ? "text-slate-300" : "text-slate-800"}`}>
-                              Clearance request {req.document_type} status update: <span className="text-[#0E6B3A] dark:text-emerald-450">{req.status}</span>
+                    <div className="space-y-4 relative pl-3">
+                      {/* Vertical connector line */}
+                      {requests.slice(0, 2).length > 1 && (
+                        <div className="absolute left-[20px] top-3.5 bottom-3.5 w-0.5 border-l-2 border-dashed border-slate-200 dark:border-slate-800 pointer-events-none" />
+                      )}
+                      
+                      {requests.slice(0, 2).map((req) => (
+                        <div key={req.id} className="relative flex gap-4 items-start animate-fadeIn">
+                          <div className={`h-4 w-4 rounded-full flex items-center justify-center shrink-0 z-10 border-2 border-white dark:border-slate-900 ${
+                            req.status === "Approved" || req.status === "Released" ? "bg-emerald-505 bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.16)]" :
+                            req.status === "Rejected" ? "bg-rose-500 shadow-[0_0_0_4px_rgba(244,63,94,0.16)]" :
+                            "bg-amber-500 shadow-[0_0_0_4px_rgba(245,158,11,0.16)]"
+                          }`} />
+                          
+                          <div className="min-w-0 flex-1 border border-slate-100 dark:border-slate-850 rounded-xl p-3.5 bg-slate-50/50 dark:bg-slate-950/20 hover:bg-slate-100/50 dark:hover:bg-slate-950/40 transition duration-200">
+                            <p className="text-xs font-black text-slate-700 dark:text-slate-300 leading-normal">
+                              Clearance request <span className="font-bold text-slate-900 dark:text-white">{req.document_type}</span> status updated to <span className={`inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-black border ${getStatusClass(req.status)}`}>{req.status}</span>
                             </p>
-                            <p className="text-sm text-slate-400 font-bold mt-1">
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold mt-1.5 flex items-center gap-1">
+                              <Clock size={10} />
                               {new Date(req.updated_at || req.created_at).toLocaleString()}
                             </p>
                           </div>
                         </div>
                       ))}
                       {requests.length === 0 && (
-                        <p className="text-sm text-slate-450 text-center py-6 font-bold">No activities registered.</p>
+                        <p className="text-xs text-slate-450 dark:text-slate-500 text-center py-6 font-bold">No activities registered yet.</p>
                       )}
                     </div>
                   </div>
 
                 </div>
 
-                {/* Right Columns: Announcements, Events & Quick services */}
+                {/* Right Columns: Announcements & Upcoming events */}
                 <div className="space-y-6">
                   
-                  {/* Latest Announcements */}
-                  <div className="section-card">
+                  {/* Barangay Announcements */}
+                  <div className="rounded-2xl border p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-xs">
                     <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 mb-3 flex justify-between items-center">
-                      <h4 className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? "text-white" : "text-[#0E6B3A]"}`}>Barangay Announcements</h4>
-                      <Megaphone size={13} className="text-[#0E6B3A] dark:text-emerald-455" />
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        <Megaphone size={15} className="text-[#14532D] dark:text-emerald-450" />
+                        Barangay Announcements
+                      </h4>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-3.5">
                       {filteredAnnouncements.slice(0, 3).map((ann) => {
                         const isUnread = localStorage.getItem(`kaagapai_last_viewed_announcement_id_${resident?.id || ""}`) !== String(ann.id);
                         return (
                           <div
                             key={ann.id}
-                            className={`border p-3 rounded-xl flex flex-col justify-between relative ${
-                              isDarkMode ? "bg-slate-950/40 border-slate-855" : "bg-slate-50 border-slate-100"
-                            }`}
+                            className="border border-slate-150 dark:border-slate-800/60 p-3.5 rounded-xl flex flex-col justify-between relative bg-slate-50/50 dark:bg-slate-950/20 hover:bg-slate-100/50 dark:hover:bg-slate-950/40 transition duration-200 animate-fadeIn"
                           >
                             {isUnread && (
-                              <span className="absolute top-2.5 right-2.5 flex h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+                              <span className="absolute top-3 right-3 flex h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
                             )}
                             <div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-sm font-black uppercase tracking-wider bg-[#0E6B3A]/10 text-[#0E6B3A] dark:bg-emerald-500/10 dark:text-emerald-450 px-1.5 py-0.5 rounded-md">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-wider bg-[#14532D]/10 text-[#14532D] dark:bg-emerald-500/10 dark:text-emerald-400 px-2 py-0.5 rounded-md">
                                   {ann.category || "General"}
                                 </span>
-                                <span className="text-sm text-slate-400 font-bold">
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold">
                                   {new Date(ann.created_at || ann.published_at).toLocaleDateString()}
                                 </span>
                               </div>
-                              <h5 className={`text-sm font-black truncate mt-1.5 ${isDarkMode ? "text-white" : "text-slate-800"}`}>{ann.title}</h5>
-                              <p className="text-sm text-slate-450 line-clamp-2 mt-1 leading-normal font-bold">{ann.body}</p>
+                              <h5 className="text-sm font-black text-slate-855 dark:text-slate-200 mt-2 truncate">{ann.title}</h5>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-1 leading-relaxed font-semibold">{ann.body}</p>
                             </div>
                             <button
                               type="button"
@@ -2487,9 +2521,9 @@ const UserDashboard = () => {
                                 localStorage.setItem("kaagapai_last_viewed_announcement_id", String(ann.id));
                                 openModule("announcements");
                               }}
-                              className="mt-2.5 text-right text-sm font-black text-[#0E6B3A] dark:text-emerald-450 hover:underline"
+                              className="mt-3 text-right text-xs font-black text-[#14532D] dark:text-emerald-400 hover:underline flex items-center justify-end gap-0.5"
                             >
-                              Read More
+                              Read More →
                             </button>
                           </div>
                         );
@@ -2500,7 +2534,7 @@ const UserDashboard = () => {
                           <button
                             type="button"
                             onClick={() => openModule("announcements")}
-                            className="text-sm font-black text-[#0E6B3A] dark:text-emerald-450 hover:underline"
+                            className="text-xs font-black text-[#14532D] dark:text-emerald-400 hover:underline"
                           >
                             View All Announcements →
                           </button>
@@ -2508,40 +2542,40 @@ const UserDashboard = () => {
                       )}
                       
                       {publishedAnnouncements.length === 0 && (
-                        <p className="text-sm text-slate-450 text-center py-4 font-bold">No announcements.</p>
+                        <p className="text-xs text-slate-450 dark:text-slate-500 text-center py-6 font-bold">No announcements yet.</p>
                       )}
                     </div>
                   </div>
 
                   {/* Upcoming events list */}
-                  <div className="section-card">
+                  <div className="rounded-2xl border p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-xs">
                     <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 mb-3 flex justify-between items-center">
-                      <h4 className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? "text-white" : "text-[#0E6B3A]"}`}>Upcoming Events</h4>
-                      <Calendar size={13} className="text-[#0E6B3A] dark:text-emerald-455" />
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        <Calendar size={15} className="text-[#14532D] dark:text-emerald-450" />
+                        Upcoming Events
+                      </h4>
                     </div>
                     <div className="space-y-3">
                       {opportunities.slice(0, 3).map((opp) => (
                         <div
                           key={opp.id}
-                          className={`border p-3 rounded-xl ${
-                            isDarkMode ? "bg-slate-950/40 border-slate-855" : "bg-slate-50 border-slate-100"
-                          }`}
+                          className="border border-slate-150 dark:border-slate-800/60 p-3.5 rounded-xl bg-slate-50/50 dark:bg-slate-950/20 hover:bg-slate-100/50 dark:hover:bg-slate-950/40 transition duration-200 animate-fadeIn"
                         >
-                          <h5 className={`text-sm font-black truncate ${isDarkMode ? "text-white" : "text-slate-800"}`}>{opp.title}</h5>
-                          <div className="mt-2 space-y-0.5 text-sm text-slate-455 font-bold flex flex-col">
-                            <span className="flex items-center gap-1">
-                              <Calendar size={10} className="text-[#0E6B3A] dark:text-emerald-455 shrink-0" />
-                              {new Date(opp.deadline).toLocaleDateString()}
+                          <h5 className="text-sm font-black text-slate-855 dark:text-slate-200 truncate">{opp.title}</h5>
+                          <div className="mt-2 space-y-1.5 text-xs text-slate-500 dark:text-slate-400 font-semibold flex flex-col">
+                            <span className="flex items-center gap-1.5">
+                              <Calendar size={12} className="text-[#14532D] dark:text-emerald-400 shrink-0" />
+                              {new Date(opp.deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                             </span>
-                            <span className="flex items-center gap-1">
-                              <MapPin size={10} className="text-[#0E6B3A] dark:text-emerald-455 shrink-0" />
+                            <span className="flex items-center gap-1.5">
+                              <MapPin size={12} className="text-[#14532D] dark:text-emerald-450 shrink-0" />
                               {opp.location || "Community Hall"}
                             </span>
                           </div>
                         </div>
                       ))}
                       {opportunities.length === 0 && (
-                        <p className="text-sm text-slate-455 text-center py-4 font-bold">No scheduled activities.</p>
+                        <p className="text-xs text-slate-455 dark:text-slate-500 text-center py-6 font-bold">No scheduled activities.</p>
                       )}
                     </div>
                   </div>
@@ -2551,7 +2585,8 @@ const UserDashboard = () => {
               </div>
 
             </div>
-          )}          {/* TAB 2: REQUEST DOCUMENTS */}
+          )}
+          {/* TAB 2: REQUEST DOCUMENTS */}
           {activeNav === "documents" && (
             <div className="border rounded-2xl p-6 shadow-xs animate-fadeIn portal-theme-card">
               <div className="border-b pb-3 mb-5 border-slate-100 dark:border-slate-800">
@@ -3432,7 +3467,6 @@ const UserDashboard = () => {
                 <div className="w-full md:w-56 shrink-0 flex flex-col gap-1.5">
                   {[
                     { key: "security", label: "Account & Security", icon: KeyRound, desc: "Change username/password." },
-                    { key: "appearance", label: "Theme & Appearance", icon: Sparkles, desc: "Customize theme and text scale." },
                     { key: "notifications", label: "Alerts & Notifications", icon: Bell, desc: "SMS and update configuration." },
                     { key: "support", label: "Help & Support Info", icon: HelpCircle, desc: "FAQ list and software legal info." }
                   ].map((tabItem) => (
@@ -3555,69 +3589,6 @@ const UserDashboard = () => {
                               Change Password
                             </button>
                           </form>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* SUBTAB 2: THEME & APPEARANCE */}
-                  {settingsTab === "appearance" && (
-                    <div className="space-y-6">
-                      <div className="border-b pb-2 mb-4 border-slate-100 dark:border-slate-800 dark:border-slate-800">
-                        <h3 className={`text-sm font-black uppercase tracking-wider ${isDarkMode ? "text-white" : "text-slate-800 dark:text-slate-100"}`}>Theme & Appearance</h3>
-                        <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5 font-bold">Customize layout theme color styles and text size scale.</p>
-                      </div>
-
-                      <div className="grid gap-5 sm:grid-cols-3">
-                        {[
-                          { key: "light", label: "Light Mode", icon: Sun, desc: "Classic white page surfaces" },
-                          { key: "dark", label: "Dark Mode", icon: Moon, desc: "Low contrast slate dark display" },
-                          { key: "system", label: "System Default", icon: Monitor, desc: "Follow OS browser rules" }
-                        ].map((themeItem) => {
-                          const active = theme === themeItem.key;
-                          return (
-                            <button
-                              key={themeItem.key}
-                              type="button"
-                              onClick={() => setTheme(themeItem.key)}
-                              className={`flex flex-col items-center justify-center text-center p-5 rounded-2xl border transition-all duration-200 ${
-                                active
-                                  ? "bg-[#0B5D3B]/10 border-[#0B5D3B] text-[#0B5D3B] shadow-sm dark:bg-emerald-950/20 dark:text-emerald-400"
-                                  : isDarkMode ? "bg-slate-950 border-slate-850 hover:bg-slate-900" : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:bg-white dark:bg-slate-900"
-                              }`}
-                            >
-                              <themeItem.icon size={22} className={`mb-3 ${active ? "text-[#0B5D3B] dark:text-emerald-450" : "text-slate-400 dark:text-slate-500"}`} />
-                              <p className="text-xs font-bold leading-none">{themeItem.label}</p>
-                              <p className="text-sm text-slate-400 dark:text-slate-500 font-bold mt-1.5 leading-normal">{themeItem.desc}</p>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Font Size Selector */}
-                      <div className={`p-4.5 rounded-xl border space-y-3.5 ${
-                        isDarkMode ? "bg-slate-950/40 border-slate-850" : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800"
-                      }`}>
-                        <p className="text-sm font-black uppercase tracking-widest text-[#0B5D3B] dark:text-emerald-450">Text Font Size Scale</p>
-                        <div className="flex gap-2.5">
-                          {[
-                            { key: "small", label: "Small" },
-                            { key: "medium", label: "Medium (Default)" },
-                            { key: "large", label: "Large" }
-                          ].map((item) => (
-                            <button
-                              key={item.key}
-                              type="button"
-                              onClick={() => setFontSize(item.key)}
-                              className={`flex-1 py-2 px-3 rounded-xl border text-xs font-bold transition ${
-                                fontSize === item.key
-                                  ? "bg-[#0B5D3B] text-white border-transparent"
-                                  : isDarkMode ? "border-slate-800 bg-slate-900 text-slate-400 dark:text-slate-500 hover:bg-slate-800" : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-655 dark:text-slate-350 hover:bg-slate-50 dark:bg-slate-950"
-                              }`}
-                            >
-                              {item.label}
-                            </button>
-                          ))}
                         </div>
                       </div>
                     </div>

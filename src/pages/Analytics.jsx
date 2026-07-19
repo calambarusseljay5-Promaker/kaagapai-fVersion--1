@@ -2099,7 +2099,7 @@ const Analytics = () => {
                 className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-rose-600"
               >
                 <X size={14} />
-                Exit Print Preview
+                Exit
               </button>
               <button
                 type="button"

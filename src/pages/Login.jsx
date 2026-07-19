@@ -46,6 +46,7 @@ import {
   CalendarDays
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
+import FloatingModal from "../components/FloatingModal";
 import { clearAuthSession, loginUser, resetPassword } from "../services/authService";
 import {
   clearResidentSession,
@@ -126,6 +127,7 @@ const Login = () => {
 
   // Single-Screen Information Viewer Overlay
   const [activeOverlay, setActiveOverlay] = useState(null); // null | "about" | "features" | "services" | "contact"
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // Google reCAPTCHA integration refs & token state
   const adminCaptchaRef = useRef(null);
@@ -1388,7 +1390,7 @@ const Login = () => {
                             className="h-4 w-4 rounded border-slate-300 text-[#0B5D3B] focus:ring-emerald-500 mt-0.5"
                           />
                           <span className="text-xs text-slate-600 font-semibold leading-normal">
-                            I agree to the <span className="font-bold text-slate-900">Privacy Policy</span> and <span className="font-bold text-slate-900">Terms of Service</span> of Barangay Upper Mingading.
+                            I agree to the <span onClick={() => setShowTermsModal(true)} className="font-semibold text-[#0B5D3B] hover:underline cursor-pointer">Privacy Policy and Terms of Service</span> of Barangay Upper Mingading.
                           </span>
                         </label>
                       </div>
@@ -1638,9 +1640,60 @@ const Login = () => {
               </div>
             )}
 
+            {/* Terms and Conditions Modal */}
+            <FloatingModal
+              open={showTermsModal}
+              title="Terms and Conditions & Privacy Policy"
+              eyebrow="Barangay Upper Mingading Portal Agreement"
+              description="Please review our terms and privacy policy before accessing or registering on the platform."
+              onClose={() => setShowTermsModal(false)}
+              footer={
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAgreeTerms(true);
+                    setShowTermsModal(false);
+                  }}
+                  className="rounded-xl bg-[#0B5D3B] hover:bg-[#08452b] text-white px-5 py-2 text-xs font-bold transition shadow-sm animate-fadeIn"
+                >
+                  Accept Terms
+                </button>
+              }
+            >
+              <div className="space-y-4 text-xs leading-relaxed text-slate-600 font-medium">
+                <p className="font-bold text-slate-800">Welcome to KaagapAI — the official administrative and community portal of Barangay Upper Mingading.</p>
+                <p>By signing in or registering, you agree to comply with and be bound by the following Terms of Service and Privacy Policy. If you do not accept these terms, you may not use the services.</p>
+                
+                <section className="space-y-1.5">
+                  <h3 className="font-extrabold text-slate-800 text-xs uppercase text-[#0B5D3B] tracking-wide">1. Eligibility & Registration</h3>
+                  <p>Access to this portal is limited to verified residents and local authorities of Barangay Upper Mingading. Registrants are required to submit accurate proof of residency. False submissions or impersonation are subject to immediate termination of portal access and local council restrictions.</p>
+                </section>
+
+                <section className="space-y-1.5">
+                  <h3 className="font-extrabold text-slate-800 text-xs uppercase text-[#0B5D3B] tracking-wide">2. Confidentiality & Security</h3>
+                  <p>You are responsible for keeping your login credentials (username and password) confidential. Any actions performed using your credentials will be deemed as your actions. If you suspect unauthorized access, contact the barangay administrators immediately.</p>
+                </section>
+
+                <section className="space-y-1.5">
+                  <h3 className="font-extrabold text-slate-800 text-xs uppercase text-[#0B5D3B] tracking-wide">3. Privacy Policy (Republic Act No. 10173)</h3>
+                  <p>We respect your data privacy in accordance with the <strong>Data Privacy Act of 2012 (R.A. 10173)</strong>. All details entered during registration (full name, Purok address, age, phone number, and ID attachments) will be encrypted and processed solely for barangay administration, identity verification, and document request verification. We will never share your personal data with third parties without your explicit consent.</p>
+                </section>
+
+                <section className="space-y-1.5">
+                  <h3 className="font-extrabold text-slate-800 text-xs uppercase text-[#0B5D3B] tracking-wide">4. Acceptable Portal Use</h3>
+                  <p>You agree not to use the portal for fraudulent purposes, including submitting false document applications, posting misleading job opportunities/applications, or attempting to breach portal security. Violators will face suspension and report to the local law enforcement officers.</p>
+                </section>
+
+                <section className="space-y-1.5">
+                  <h3 className="font-extrabold text-slate-800 text-xs uppercase text-[#0B5D3B] tracking-wide">5. Disclaimer & Limit of Liability</h3>
+                  <p>Barangay Upper Mingading strives to keep the portal available and secure. However, we are not liable for any temporary service disruptions or data transmission failures caused by factors beyond our control (such as network issues). All document requests are reviewed manually by barangay officials before releasing.</p>
+                </section>
+              </div>
+            </FloatingModal>
+
             {/* Footer Text */}
             <div className="text-center text-[12px] text-slate-450 mt-3 pt-2 border-t border-slate-100/60">
-              By signing in, you agree to our <span className="font-semibold text-[#0B5D3B] hover:underline cursor-pointer">Terms and Conditions</span>.
+              By signing in, you agree to our <span onClick={() => setShowTermsModal(true)} className="font-semibold text-[#0B5D3B] hover:underline cursor-pointer">Terms and Conditions</span>.
             </div>
 
           </div>

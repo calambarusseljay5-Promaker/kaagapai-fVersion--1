@@ -207,6 +207,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                   >
                     <NavLink
                       to={item.path}
+                      onClick={() => setIsCollapsed(true)}
                       title={isCollapsed ? item.name : undefined}
                       className={`group relative flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${active
                           ? "bg-white/12 text-white shadow-sm ring-1 ring-white/10"

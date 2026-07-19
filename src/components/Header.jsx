@@ -439,88 +439,86 @@ const Header = ({ title, subtitle, middleContent = null, actions = null, classNa
                 )}
               </div>
 
-              {location.pathname === "/dashboard" && (
-                <div className="relative">
-                  <button
-                    onClick={() => {
-                      setShowProfile(!showProfile);
-                      setShowNotifications(false);
-                    }}
-                    className={`flex h-10 items-center gap-2.5 rounded-xl border px-3 py-1.5 shadow-sm transition ${
-                      transparent
-                        ? "border-[#ffffff1a] bg-[#ffffff1a] text-white hover:bg-[#ffffff33]"
-                        : "border-slate-200 bg-white hover:border-emerald-300 hover:shadow-md"
-                    }`}
-                  >
-                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-50 to-teal-50 text-emerald-700 ring-1 ring-emerald-100">
-                      {profilePhotoUrl ? (
-                        <img src={profilePhotoUrl} alt="" className="h-full w-full rounded-full object-cover" />
-                      ) : (
-                        <User size={16} />
-                      )}
-                    </span>
-                    <div className="hidden text-left sm:block leading-tight">
-                      <p className={`max-w-[120px] truncate text-xs font-bold ${transparent ? "text-white" : "text-slate-900"}`}>{displayName}</p>
-                      <p className={`text-[10px] capitalize font-medium ${transparent ? "text-emerald-300" : "text-slate-500"}`}>{displayRole}</p>
-                    </div>
-                    <ChevronDown size={14} className={`hidden sm:block ml-2 ${transparent ? "text-slate-200" : "text-slate-400"}`} />
-                  </button>
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setShowProfile(!showProfile);
+                    setShowNotifications(false);
+                  }}
+                  className={`flex h-10 items-center gap-2.5 rounded-xl border px-3 py-1.5 shadow-sm transition ${
+                    transparent
+                      ? "border-[#ffffff1a] bg-[#ffffff1a] text-white hover:bg-[#ffffff33]"
+                      : "border-slate-200 bg-white hover:border-emerald-300 hover:shadow-md"
+                  }`}
+                >
+                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-50 to-teal-50 text-emerald-700 ring-1 ring-emerald-100">
+                    {profilePhotoUrl ? (
+                      <img src={profilePhotoUrl} alt="" className="h-full w-full rounded-full object-cover" />
+                    ) : (
+                      <User size={16} />
+                    )}
+                  </span>
+                  <div className="hidden text-left sm:block leading-tight">
+                    <p className={`max-w-[120px] truncate text-xs font-bold ${transparent ? "text-white" : "text-slate-900"}`}>{displayName}</p>
+                    <p className={`text-[10px] capitalize font-medium ${transparent ? "text-emerald-300" : "text-slate-500"}`}>{displayRole}</p>
+                  </div>
+                  <ChevronDown size={14} className={`hidden sm:block ml-2 ${transparent ? "text-slate-200" : "text-slate-400"}`} />
+                </button>
 
-                  {showProfile && (
-                    <div className="absolute right-0 top-full z-50 mt-3 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-xl backdrop-blur-xl">
-                      <div className="flex items-center gap-3 border-b border-slate-100 px-2 pb-3 pt-1">
-                        <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#00552E]/10 text-[#00552E] ring-2 ring-[#00552E]/20">
-                          {profilePhotoUrl ? (
-                            <img src={profilePhotoUrl} alt="" className="h-full w-full rounded-full object-cover" />
-                          ) : (
-                            <User size={20} />
-                          )}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-extrabold text-slate-900">{displayName}</p>
-                          <p className="truncate text-xs font-semibold text-emerald-700">{displayRole}</p>
-                        </div>
-                      </div>
-                      <div className="mt-2 space-y-1">
-                        <Link
-                          to="/my-account"
-                          onClick={() => setShowProfile(false)}
-                          className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-[#00552E]/10 hover:text-[#00552E]"
-                        >
-                          <User size={17} className="text-[#00552E]" />
-                          <span>My Account</span>
-                        </Link>
-                        <Link
-                          to="/account-security"
-                          onClick={() => setShowProfile(false)}
-                          className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-[#00552E]/10 hover:text-[#00552E]"
-                        >
-                          <Shield size={17} className="text-[#00552E]" />
-                          <span>Account Security</span>
-                        </Link>
-                        <Link
-                          to="/system-settings"
-                          onClick={() => setShowProfile(false)}
-                          className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-[#00552E]/10 hover:text-[#00552E]"
-                        >
-                          <Settings size={17} className="text-[#00552E]" />
-                          <span>System Settings</span>
-                        </Link>
-                        <div className="my-1.5 border-t border-slate-100" />
-                        <button
-                          type="button"
-                          onClick={handleSignOut}
-                          disabled={isSigningOut}
-                          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <LogOut size={17} className="text-rose-600" />
-                          <span>{isSigningOut ? "Signing out..." : "Sign Out"}</span>
-                        </button>
+                {showProfile && (
+                  <div className="absolute right-0 top-full z-50 mt-3 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-xl backdrop-blur-xl">
+                    <div className="flex items-center gap-3 border-b border-slate-100 px-2 pb-3 pt-1">
+                      <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#00552E]/10 text-[#00552E] ring-2 ring-[#00552E]/20">
+                        {profilePhotoUrl ? (
+                          <img src={profilePhotoUrl} alt="" className="h-full w-full rounded-full object-cover" />
+                        ) : (
+                          <User size={20} />
+                        )}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-extrabold text-slate-900">{displayName}</p>
+                        <p className="truncate text-xs font-semibold text-emerald-700">{displayRole}</p>
                       </div>
                     </div>
-                  )}
-                </div>
-              )}
+                    <div className="mt-2 space-y-1">
+                      <Link
+                        to="/my-account"
+                        onClick={() => setShowProfile(false)}
+                        className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-[#00552E]/10 hover:text-[#00552E]"
+                      >
+                        <User size={17} className="text-[#00552E]" />
+                        <span>My Account</span>
+                      </Link>
+                      <Link
+                        to="/account-security"
+                        onClick={() => setShowProfile(false)}
+                        className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-[#00552E]/10 hover:text-[#00552E]"
+                      >
+                        <Shield size={17} className="text-[#00552E]" />
+                        <span>Account Security</span>
+                      </Link>
+                      <Link
+                        to="/system-settings"
+                        onClick={() => setShowProfile(false)}
+                        className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-[#00552E]/10 hover:text-[#00552E]"
+                      >
+                        <Settings size={17} className="text-[#00552E]" />
+                        <span>System Settings</span>
+                      </Link>
+                      <div className="my-1.5 border-t border-slate-100" />
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        disabled={isSigningOut}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <LogOut size={17} className="text-rose-600" />
+                        <span>{isSigningOut ? "Signing out..." : "Sign Out"}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>
