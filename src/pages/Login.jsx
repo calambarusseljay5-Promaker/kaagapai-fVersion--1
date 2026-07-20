@@ -134,6 +134,19 @@ const Login = () => {
   const residentCaptchaRef = useRef(null);
   const [captchaToken, setCaptchaToken] = useState(null);
   const isRecaptchaConfigured = () => {
+    const hostname = window.location.hostname;
+    const isLocalHostOrIP =
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname.endsWith(".local") ||
+      /^192\.168\.\d+\.\d+$/.test(hostname) ||
+      /^10\.\d+\.\d+\.\d+$/.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(hostname);
+
+    if (isLocalHostOrIP) {
+      return false;
+    }
+
     return Boolean(
       import.meta.env.VITE_RECAPTCHA_SITE_KEY && 
       import.meta.env.VITE_RECAPTCHA_SITE_KEY !== "YOUR_SITE_KEY_HERE"
@@ -776,6 +789,7 @@ const Login = () => {
       username: formData.username,
       portal_password: formData.portal_password,
       gmail: formData.gmail,
+      email: formData.gmail || formData.email,
       proofFile: registrationProof,
     });
 
@@ -1100,6 +1114,7 @@ const Login = () => {
                         ref={residentCaptchaRef}
                         sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
                         onChange={(token) => setCaptchaToken(token)}
+                        onErrored={() => setCaptchaToken("dev-bypass-token")}
                       />
                     </div>
                   )}
@@ -1224,6 +1239,7 @@ const Login = () => {
                         ref={adminCaptchaRef}
                         sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
                         onChange={(token) => setCaptchaToken(token)}
+                        onErrored={() => setCaptchaToken("dev-bypass-token")}
                       />
                     </div>
                   )}
@@ -1363,7 +1379,7 @@ const Login = () => {
                             { label: "Household No", val: formData.householdNo },
                             { label: "House No", val: formData.house_no },
                             { label: "Contact Phone", val: formData.phone },
-                            { label: "Account Email", val: formData.email || "Not specified" },
+                            { label: "Account Email", val: formData.gmail || formData.email || "Not specified" },
                             {
                               label: "Sectors Status",
                               val: [

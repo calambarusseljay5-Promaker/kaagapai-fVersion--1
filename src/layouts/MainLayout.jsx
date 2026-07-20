@@ -9,7 +9,7 @@ const adminThemes = new Set(["light", "favorite"]);
 const normalizeAdminTheme = (theme) => (adminThemes.has(theme) ? theme : "favorite");
 
 const MainLayout = () => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const shouldReduceMotion = useReducedMotion();
   const location = useLocation();
   const backupCheckRan = useRef(false);

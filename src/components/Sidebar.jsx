@@ -69,6 +69,9 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
   const location = useLocation();
   const shouldReduceMotion = useReducedMotion();
   const [pendingCount, setPendingCount] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const effectiveCollapsed = isCollapsed && !isHovered;
 
   useEffect(() => {
     let isMounted = true;
@@ -129,15 +132,17 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
 
   return (
     <motion.aside
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className="fixed left-1 top-1 z-50 flex h-[calc(100vh-0.5rem)] flex-col overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-b from-[#14532D] via-[#0f3e21] to-[#0a2916] text-slate-100 shadow-2xl backdrop-blur-xl sm:left-2 sm:top-2 sm:h-[calc(100vh-1rem)]"
       variants={sidebarVariants}
-      animate={isCollapsed ? "collapsed" : "expanded"}
+      animate={effectiveCollapsed ? "collapsed" : "expanded"}
       initial={false}
     >
       <div className="border-b border-white/10 px-3 py-3.5">
         <div className="flex items-start justify-between gap-2">
           <AnimatePresence>
-            {!isCollapsed && (
+            {!effectiveCollapsed && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.85 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -165,6 +170,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white transition hover:bg-white/20 mt-1"
             aria-label="Toggle sidebar"
+            title={isCollapsed ? "Pin Sidebar Open" : "Collapse Sidebar"}
           >
             {isCollapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
           </motion.button>
@@ -182,7 +188,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
               duration: shouldReduceMotion ? 0 : 0.2,
             }}
           >
-            {!isCollapsed && (
+            {!effectiveCollapsed && (
               <p className="mb-2.5 px-2 text-[11px] font-extrabold uppercase tracking-widest text-[#C8A14A]">
                 {group.label}
               </p>
@@ -207,12 +213,14 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                   >
                     <NavLink
                       to={item.path}
-                      onClick={() => setIsCollapsed(true)}
-                      title={isCollapsed ? item.name : undefined}
+                      onClick={() => {
+                        if (isCollapsed) setIsHovered(false);
+                      }}
+                      title={effectiveCollapsed ? item.name : undefined}
                       className={`group relative flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${active
                           ? "bg-white/12 text-white shadow-sm ring-1 ring-white/10"
                           : "text-emerald-100/90 hover:bg-white/8 hover:text-white"
-                        } ${isCollapsed ? "justify-center" : ""}`}
+                        } ${effectiveCollapsed ? "justify-center" : ""}`}
                     >
                       {active && (
                         <motion.span
@@ -232,13 +240,13 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                       )}
                       <span className="relative flex-shrink-0 text-current transition-transform duration-200 group-hover:scale-105">
                         {iconMap[item.icon]}
-                        {isCollapsed && item.name === "Resident Registration" && pendingCount > 0 && (
+                        {effectiveCollapsed && item.name === "Resident Registration" && pendingCount > 0 && (
                           <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#FFB800] text-[9px] font-extrabold text-white ring-1 ring-white">
                             {pendingCount > 9 ? "9+" : pendingCount}
                           </span>
                         )}
                       </span>
-                      {!isCollapsed && (
+                      {!effectiveCollapsed && (
                         <span className="relative truncate flex-1 flex items-center justify-between">
                           <span>{item.name}</span>
                           {item.name === "Resident Registration" && pendingCount > 0 && (
@@ -257,7 +265,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
         ))}
       </nav>
 
-      {!isCollapsed ? (
+      {!effectiveCollapsed ? (
         <div className="p-4">
           <div className="rounded-[16px] border border-white/16 bg-white/8 p-4">
             <div className="flex items-center gap-3">

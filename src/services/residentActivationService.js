@@ -140,16 +140,12 @@ export async function approveResidentActivationRequest(request) {
   return result;
 }
 
-export async function rejectResidentActivationRequest(request, reason) {
+export async function rejectResidentActivationRequest(request, reason = "Rejected by admin") {
   const requestId = typeof request === "string" ? request : request?.request_id;
-  const rejectionReason = String(reason || "").trim();
+  const rejectionReason = String(reason || "Rejected by admin").trim();
 
   if (!requestId) {
     throw new Error("Registration request is missing.");
-  }
-
-  if (!rejectionReason) {
-    throw new Error("Please enter a rejection reason.");
   }
 
   const { data, error } = await supabase.rpc("reject_resident_activation_request", {

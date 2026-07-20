@@ -102,16 +102,12 @@ export async function approveResidentProfileUpdateRequest(request) {
   return result;
 }
 
-export async function rejectResidentProfileUpdateRequest(request, reason) {
+export async function rejectResidentProfileUpdateRequest(request, reason = "Rejected by admin") {
   const requestId = typeof request === "string" ? request : request?.request_id;
-  const rejectionReason = String(reason || "").trim();
+  const rejectionReason = String(reason || "Rejected by admin").trim();
 
   if (!requestId) {
     throw new Error("Profile update request is missing.");
-  }
-
-  if (!rejectionReason) {
-    throw new Error("Please enter a rejection reason.");
   }
 
   const { data, error } = await supabase.rpc("reject_resident_profile_update_request", {

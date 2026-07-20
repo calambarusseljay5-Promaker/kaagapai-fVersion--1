@@ -1,3 +1,4 @@
+import { useConfirm } from "../context/ConfirmContext";
 import { useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
@@ -89,6 +90,7 @@ const getRequestChanges = (request) => {
 };
 
 const ResidentProfileUpdateRequests = () => {
+  const { confirm } = useConfirm();
   const [requests, setRequests] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Pending Approval");
@@ -204,19 +206,26 @@ const ResidentProfileUpdateRequests = () => {
   };
 
   const handleReject = async (request) => {
-    const reason = window.prompt("Reason for rejecting this profile update request:");
-    if (!reason) return;
+    const ok = await confirm({
+      title: "Reject Profile Update",
+      message: `Are you sure you want to reject the profile update request for ${request.full_name || "this resident"}?`,
+      confirmText: "Yes, Reject",
+      cancelText: "No, Cancel",
+      variant: "danger",
+      icon: XCircle,
+    });
+    if (!ok) return;
 
     setActionId(request.request_id);
     setMessage(null);
     setError("");
 
     try {
-      await rejectResidentProfileUpdateRequest(request, reason);
+      await rejectResidentProfileUpdateRequest(request, "Rejected by admin");
       setMessage({
         type: "warning",
         title: "Profile update rejected",
-        text: "The rejection reason was saved for audit and follow-up.",
+        text: `The profile update request for ${request.full_name || "the resident"} has been rejected.`,
       });
       await loadRequests();
     } catch (rejectError) {

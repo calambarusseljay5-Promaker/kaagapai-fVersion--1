@@ -123,7 +123,7 @@ const attachResidentAccounts = async (residents = []) => {
       promises.push(
         supabase
           .from(RESIDENT_ACCOUNTS_TABLE)
-          .select("id,resident_id,username,account_status,must_change_credentials,last_login_at")
+          .select("id,resident_id,username,plain_password,account_status,must_change_credentials,last_login_at")
           .in("resident_id", residentIdBatch)
       );
     }
@@ -146,6 +146,7 @@ const attachResidentAccounts = async (residents = []) => {
         ...resident,
         resident_account: account,
         portal_username: account?.username || "",
+        portal_password: account?.plain_password || "",
         portal_account_status: account?.account_status || "",
         portal_must_change_credentials: Boolean(account?.must_change_credentials),
       };
@@ -184,10 +185,13 @@ const buildResidentsQuery = (search = "", statusFilter = "", filters = {}) => {
     householdNo = "",
     householdRelationship = "",
     withAccounts = false,
+    omitPlainPassword = false,
   } = filters || {};
 
   const selectQuery = withAccounts
-    ? "*, resident_accounts(id,resident_id,username,account_status,must_change_credentials,last_login_at)"
+    ? (omitPlainPassword 
+        ? "*, resident_accounts(id,resident_id,username,account_status,must_change_credentials,last_login_at)"
+        : "*, resident_accounts(id,resident_id,username,plain_password,account_status,must_change_credentials,last_login_at)")
     : "*";
 
   let query = supabase.from(RESIDENTS_TABLE).select(selectQuery);
@@ -273,6 +277,7 @@ export async function fetchResidents(search = "", statusFilter = "", filters = {
           ...cleanResident,
           resident_account: account,
           portal_username: account?.username || "",
+          portal_password: account?.plain_password || account?.password || "",
           portal_account_status: account?.account_status || "",
           portal_must_change_credentials: Boolean(account?.must_change_credentials),
         };
@@ -454,6 +459,13 @@ export async function createResidentPortalAccount(residentId, username, password
       p_password: password,
     });
 
+    // Save plain_password to table so Admin can retrieve it
+    await supabase
+      .from(RESIDENT_ACCOUNTS_TABLE)
+      .update({ username: normalizedUsername, plain_password: password })
+      .eq("resident_id", residentId)
+      .catch(() => {});
+
     if (error) {
       // If the RPC doesn't exist, fall back to direct insert with crypt()
       const rpcMissing = String(error.message || "").toLowerCase();
@@ -464,6 +476,7 @@ export async function createResidentPortalAccount(residentId, username, password
             resident_id: residentId,
             username: normalizedUsername,
             password_hash: password, // The DB trigger or function should handle hashing
+            plain_password: password,
             account_status: "Active",
           }]);
 
@@ -489,7 +502,6 @@ export async function createResidentPortalAccount(residentId, username, password
 export async function updateResidentPortalAccount(residentId, username, password) {
   if (!residentId) throw new Error("Resident ID is required.");
   if (!username?.trim()) throw new Error("Portal username is required.");
-  if (!password) throw new Error("Portal password is required.");
 
   const normalizedUsername = username.trim().toLowerCase();
 
@@ -497,13 +509,30 @@ export async function updateResidentPortalAccount(residentId, username, password
     // Check if this resident already has an account
     const { data: existingAccount, error: fetchError } = await supabase
       .from(RESIDENT_ACCOUNTS_TABLE)
-      .select("id, username")
+      .select("id, username, plain_password")
       .eq("resident_id", residentId)
       .maybeSingle();
 
     if (fetchError) throw fetchError;
 
     if (existingAccount) {
+      const updateData = { username: normalizedUsername };
+      if (password) {
+        updateData.plain_password = password;
+        updateData.password_hash = password;
+      }
+
+      // Update plain_password and username directly on table
+      await supabase
+        .from(RESIDENT_ACCOUNTS_TABLE)
+        .update(updateData)
+        .eq("resident_id", residentId)
+        .catch(() => {});
+
+      if (!password) {
+        return { username: normalizedUsername, status: "Active", action: "updated" };
+      }
+
       // Account exists — update username and password via RPC
       const { error: updateError } = await supabase.rpc("admin_reset_resident_password", {
         p_resident_id: residentId,
@@ -520,6 +549,7 @@ export async function updateResidentPortalAccount(residentId, username, password
             .update({
               username: normalizedUsername,
               password_hash: password,
+              plain_password: password,
               account_status: "Active",
             })
             .eq("resident_id", residentId);
@@ -533,11 +563,11 @@ export async function updateResidentPortalAccount(residentId, username, password
       return { username: normalizedUsername, status: "Active", action: "updated" };
     }
 
-    // No account yet — create one
+    // No account yet — create one (default password to household_no if omitted)
+    if (!password) throw new Error("Portal password is required for new portal account.");
     return await createResidentPortalAccount(residentId, normalizedUsername, password);
   } catch (error) {
     console.error("Error updating resident portal account:", error);
     throw normalizeResidentError(error);
   }
 }
-

@@ -229,14 +229,11 @@ const ResidentActivationRequests = () => {
   };
 
   const handleReject = async (request) => {
-    const reason = window.prompt("Reason for rejecting this registration request:");
-    if (!reason) return;
-
     const ok = await confirm({
       title: "Reject Registration",
-      message: "Are you sure you want to reject this resident's account activation?",
-      confirmText: "Reject",
-      cancelText: "Cancel",
+      message: `Are you sure you want to reject the registration request for ${request.full_name || request.requested_full_name || "this resident"}?`,
+      confirmText: "Yes, Reject",
+      cancelText: "No, Cancel",
       variant: "danger",
       icon: XCircle,
     });
@@ -247,11 +244,11 @@ const ResidentActivationRequests = () => {
     setError("");
 
     try {
-      await rejectResidentActivationRequest(request, reason);
+      await rejectResidentActivationRequest(request, "Rejected by admin");
       setMessage({
         type: "warning",
         title: "Registration request rejected",
-        text: "The rejection reason was saved for audit and follow-up.",
+        text: `The registration request for ${request.full_name || request.requested_full_name || "the resident"} has been rejected.`,
       });
       await loadRequests();
     } catch (rejectError) {

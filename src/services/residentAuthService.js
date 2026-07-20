@@ -322,6 +322,17 @@ export async function updateResidentCredentials({
   }
 
   const row = getRpcRow(data);
+
+  // Sync plain_password and username via RPC (SECURITY DEFINER) so Admin can retrieve the updated password
+  try {
+    await supabase.rpc("sync_resident_plain_password", {
+      p_username: nextUsername,
+      p_password: nextPassword,
+    });
+  } catch (syncErr) {
+    console.warn("Unable to sync plain_password via RPC:", syncErr);
+  }
+
   const session = saveResidentSession(row);
 
   if (!session) {

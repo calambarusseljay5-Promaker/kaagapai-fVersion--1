@@ -331,7 +331,18 @@ const UserDashboard = () => {
   const [residentApplications, setResidentApplications] = useState([]);
 
   // Redesign state additions
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const effectiveSidebarCollapsed = sidebarCollapsed && !isSidebarHovered;
+  const [isDesktop, setIsDesktop] = useState(() => typeof window !== "undefined" ? window.innerWidth >= 1024 : true);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
   const [settingsTab, setSettingsTab] = useState("security"); // default changed to security
   const [theme, setTheme] = useState("light");
   const [fontSize, setFontSize] = useState(() => localStorage.getItem("kaagapai_resident_font_size") || "medium");
@@ -1944,64 +1955,128 @@ const UserDashboard = () => {
     <div 
       className={`app-shell font-sans antialiased ${isDarkMode ? "dark" : ""} ${fontSize === "small" ? "text-sm" : fontSize === "large" ? "text-sm" : "text-xs"}`}
       style={{
-        gridTemplateColumns: sidebarCollapsed ? "80px 1fr" : undefined
+        gridTemplateColumns: isDesktop ? (sidebarCollapsed ? "80px 1fr" : "240px 1fr") : "1fr"
       }}
     >
       
-      {/* 1. Sidebar (Dark Emerald Branding Menu) */}
+      {/* 1. Desktop Hover-Expandable Sidebar Container */}
+      <div 
+        className="relative z-40 h-full hidden lg:block"
+        style={{ width: sidebarCollapsed ? "80px" : "240px" }}
+      >
+        <aside 
+          onMouseEnter={() => setIsSidebarHovered(true)}
+          onMouseLeave={() => setIsSidebarHovered(false)}
+          className={`app-sidebar ${effectiveSidebarCollapsed ? "collapsed-sidebar" : "expanded-sidebar-hover"} flex flex-col justify-between transition-all duration-300 ease-in-out absolute left-0 top-0 h-full ${sidebarCollapsed && isSidebarHovered ? "shadow-2xl ring-1 ring-white/20" : ""}`}
+          style={{
+            width: effectiveSidebarCollapsed ? "80px" : "240px",
+            padding: effectiveSidebarCollapsed ? "20px 8px" : "20px 14px",
+            zIndex: 50,
+          }}
+        >
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              {!effectiveSidebarCollapsed && (
+                <div className="flex items-center gap-3 animate-fadeIn">
+                  <img
+                    src="/logo.png"
+                    alt="Brgy. Seal"
+                    className="h-10 w-10 shrink-0 object-contain rounded-full shadow-md border border-white/20 bg-white"
+                    style={{ width: "40px", height: "40px", minWidth: "40px", minHeight: "40px" }}
+                    onError={(e) => {
+                      e.target.src = "https://placehold.co/100x100/0b5d3b/ffffff?text=Seal";
+                    }}
+                  />
+                  <div className="min-w-0 animate-fadeIn">
+                    <p className="text-[11px] font-black uppercase tracking-wider text-emerald-300">Upper Mingading</p>
+                    <h2 className="text-sm font-black text-white truncate">KaagapAI</h2>
+                  </div>
+                </div>
+              )}
+              {effectiveSidebarCollapsed && (
+                <div className="flex justify-center w-full animate-fadeIn mb-2">
+                  <img
+                    src="/logo.png"
+                    alt="Brgy. Seal"
+                    className="h-8 w-8 object-contain rounded-full shadow-md border border-white/20 bg-white"
+                    onError={(e) => {
+                      e.target.src = "https://placehold.co/100x100/0b5d3b/ffffff?text=Seal";
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Desktop Collapse / Pin Button */}
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                className="hidden lg:flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white transition hover:bg-white/20 active:scale-95 ml-auto"
+                title={sidebarCollapsed ? "Pin Sidebar Open" : "Collapse Sidebar"}
+              >
+                {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+              </button>
+            </div>
+
+            <nav className="space-y-1">
+              {sidebarNavItems.map((item) => {
+                const Icon = item.icon;
+                const active = activeNav === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => {
+                      openModule(item.key);
+                      if (sidebarCollapsed) setIsSidebarHovered(false);
+                    }}
+                    className={`nav-item w-full ${active ? "active" : ""} ${effectiveSidebarCollapsed ? "justify-center px-2" : "px-3"}`}
+                    title={effectiveSidebarCollapsed ? item.label : undefined}
+                  >
+                    <Icon size={18} className={`shrink-0 ${active ? "text-[#1FA971]" : "text-emerald-100/60"}`} />
+                    {!effectiveSidebarCollapsed && <span className="nav-label ml-2.5 truncate text-left text-xs font-bold text-white">{item.label}</span>}
+                  </button>
+                );
+              })}
+              
+              <button
+                type="button"
+                onClick={handleLogout}
+                className={`nav-item w-full text-rose-200 hover:bg-rose-950/30 mt-1 ${effectiveSidebarCollapsed ? "justify-center px-2" : "px-3"}`}
+                title={effectiveSidebarCollapsed ? "Logout" : undefined}
+              >
+                <LogOut size={18} className="shrink-0 text-rose-400" />
+                {!effectiveSidebarCollapsed && <span className="nav-label ml-2.5 text-xs font-bold">Logout</span>}
+              </button>
+            </nav>
+          </div>
+        </aside>
+      </div>
+
+      {/* Mobile Drawer (Only visible on mobile screens) */}
       <aside 
-        className={`app-sidebar ${mobileSidebarOpen ? "open" : ""} ${sidebarCollapsed ? "collapsed-sidebar" : ""} flex flex-col justify-between`}
-        style={{
-          width: sidebarCollapsed ? "80px" : undefined,
-          padding: sidebarCollapsed ? "20px 8px" : undefined
-        }}
+        className={`app-sidebar lg:hidden ${mobileSidebarOpen ? "open" : ""} flex flex-col justify-between`}
       >
         <div>
           <div className="flex items-center justify-between mb-6">
-            {!sidebarCollapsed && (
-              <div className="flex items-center gap-4 animate-fadeIn">
-                <img
-                  src="/logo.png"
-                  alt="Brgy. Seal"
-                  className="h-10 w-10 shrink-0 object-contain rounded-full shadow-md border border-white/20 bg-white"
-                  style={{ width: "40px", height: "40px", minWidth: "40px", minHeight: "40px" }}
-                  onError={(e) => {
-                    e.target.src = "https://placehold.co/100x100/0b5d3b/ffffff?text=Seal";
-                  }}
-                />
-                <div className="min-w-0 animate-fadeIn">
-                  <p className="text-sm font-black uppercase tracking-wider text-emerald-350">Upper Mingading</p>
-                  <h2 className="text-xs font-black text-white truncate">KaagapAI</h2>
-                </div>
+            <div className="flex items-center gap-3">
+              <img
+                src="/logo.png"
+                alt="Brgy. Seal"
+                className="h-10 w-10 shrink-0 object-contain rounded-full shadow-md border border-white/20 bg-white"
+                style={{ width: "40px", height: "40px" }}
+                onError={(e) => {
+                  e.target.src = "https://placehold.co/100x100/0b5d3b/ffffff?text=Seal";
+                }}
+              />
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-wider text-emerald-300">Upper Mingading</p>
+                <h2 className="text-sm font-black text-white truncate">KaagapAI</h2>
               </div>
-            )}
-            {sidebarCollapsed && (
-              <div className="flex justify-center w-full animate-fadeIn mb-2">
-                <img
-                  src="/logo.png"
-                  alt="Brgy. Seal"
-                  className="h-8 w-8 object-contain rounded-full shadow-md border border-white/20 bg-white"
-                  onError={(e) => {
-                    e.target.src = "https://placehold.co/100x100/0b5d3b/ffffff?text=Seal";
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Desktop Collapse Button */}
-            <button
-              type="button"
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="hidden lg:flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white transition hover:bg-white/20 active:scale-95"
-            >
-              {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-            </button>
-
-            {/* Mobile Close Button */}
+            </div>
             <button
               type="button"
               onClick={() => setMobileSidebarOpen(false)}
-              className="lg:hidden rounded-full p-1 hover:bg-white/10 text-white"
+              className="rounded-full p-1 hover:bg-white/10 text-white"
             >
               <X size={18} />
             </button>
@@ -2017,25 +2092,22 @@ const UserDashboard = () => {
                   type="button"
                   onClick={() => {
                     openModule(item.key);
-                    setSidebarCollapsed(true);
+                    setMobileSidebarOpen(false);
                   }}
-                  className={`nav-item w-full ${active ? "active" : ""} ${sidebarCollapsed ? "justify-center px-2" : ""}`}
-                  title={sidebarCollapsed ? item.label : undefined}
+                  className={`nav-item w-full ${active ? "active" : ""} px-3`}
                 >
                   <Icon size={18} className={`shrink-0 ${active ? "text-[#1FA971]" : "text-emerald-100/60"}`} />
-                  {!sidebarCollapsed && <span className="nav-label ml-2 truncate">{item.label}</span>}
+                  <span className="nav-label ml-2.5 truncate text-left text-xs font-bold text-white">{item.label}</span>
                 </button>
               );
             })}
-            
             <button
               type="button"
               onClick={handleLogout}
-              className={`nav-item w-full text-rose-200 hover:bg-rose-950/30 mt-1 ${sidebarCollapsed ? "justify-center px-2" : ""}`}
-              title={sidebarCollapsed ? "Logout" : undefined}
+              className="nav-item w-full text-rose-200 hover:bg-rose-950/30 mt-1 px-3"
             >
               <LogOut size={18} className="shrink-0 text-rose-400" />
-              {!sidebarCollapsed && <span className="nav-label ml-2">Logout</span>}
+              <span className="nav-label ml-2.5 text-xs font-bold">Logout</span>
             </button>
           </nav>
         </div>

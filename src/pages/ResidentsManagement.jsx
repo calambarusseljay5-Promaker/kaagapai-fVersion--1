@@ -150,18 +150,8 @@ const categoryBadgeClass = (category) => {
 const getResidentFormValues = (resident) => {
   if (!resident) return { ...initialForm };
 
-  const hasAccount = !!(resident.portal_username || resident.resident_account?.username);
-  const fName = resident.first_name || "";
-  const lName = resident.last_name || "";
-  const hhNo = resident.household_no || resident.house_no || "";
-
-  // Auto-generate username: lowercase, alphanumeric and underscores only
-  const generatedUsername = hasAccount 
-    ? (resident.portal_username || resident.resident_account?.username || "") 
-    : `${fName}_${lName}`.toLowerCase().replace(/[^a-z0-9_]/g, "");
-
-  // Auto-generate password: use household number if available, else empty (but will show placeholder)
-  const generatedPassword = hasAccount ? "" : (hhNo.trim() || "kaagapai123");
+  const username = resident.portal_username || resident.resident_account?.username || "";
+  const password = resident.portal_password || resident.resident_account?.plain_password || (username ? (resident.household_no || resident.house_no || "") : "");
 
   return {
     last_name: resident.last_name || "",
@@ -181,8 +171,8 @@ const getResidentFormValues = (resident) => {
     household_no: resident.household_no || "",
     house_no: resident.house_no || "",
     relationship_to_household_head: resident.relationship_to_household_head || "Head",
-    portal_username: generatedUsername,
-    portal_password: generatedPassword,
+    portal_username: username,
+    portal_password: password,
     portal_account_status: getPortalAccountStatus(resident),
     resident_account: resident.resident_account || null,
     address: resident.address || "",
@@ -273,6 +263,13 @@ const ResidentForm = memo(function ResidentForm({
   saving,
 }) {
   const [formData, setFormData] = useState(initialValues);
+  const [isUsernameEdited, setIsUsernameEdited] = useState(
+    Boolean(initialValues.resident_account || (initialValues.portal_username && mode === "edit"))
+  );
+  const [isPasswordEdited, setIsPasswordEdited] = useState(
+    Boolean(initialValues.resident_account || (initialValues.portal_password && mode === "edit"))
+  );
+
   const derivedAge = useMemo(() => calculateAge(formData.birthday), [formData.birthday]);
   const derivedPreviewTags = useMemo(
     () =>
@@ -294,6 +291,14 @@ const ResidentForm = memo(function ResidentForm({
 
   const handleInputChange = useCallback((event) => {
     const { checked, name, type, value } = event.target;
+
+    if (name === "portal_username") {
+      setIsUsernameEdited(true);
+    }
+    if (name === "portal_password") {
+      setIsPasswordEdited(true);
+    }
+
     setFormData((prev) => {
       const next = {
         ...prev,
@@ -301,28 +306,28 @@ const ResidentForm = memo(function ResidentForm({
         ...(name === "is_pwd" && !checked ? { pwd_type: "" } : {}),
       };
 
-      // Auto-generate username and password if resident doesn't have an account yet
-      if (!prev.resident_account) {
-        if (name === "first_name" || name === "last_name" || name === "household_no" || name === "house_no") {
+      // Auto-generate username and password suggestions if resident doesn't have an account yet
+      if (!prev.resident_account && mode !== "edit") {
+        if ((name === "first_name" || name === "last_name") && !isUsernameEdited) {
           const fName = name === "first_name" ? value : prev.first_name || "";
           const lName = name === "last_name" ? value : prev.last_name || "";
-          const hhNo = name === "household_no" ? value : prev.household_no || "";
-          const hNo = name === "house_no" ? value : prev.house_no || "";
 
-          // Generate username: first_last in lowercase, alphanumeric only
+          // Generate username: first_last in lowercase, alphanumeric and underscores only
           const generatedUsername = `${fName}_${lName}`
             .toLowerCase()
             .replace(/[^a-z0-9_]/g, "");
 
           next.portal_username = generatedUsername;
-          // Set password to household_no or house_no or default
-          next.portal_password = (hhNo.trim() || hNo.trim() || "kaagapai123");
+        }
+
+        if (name === "household_no" && !isPasswordEdited) {
+          next.portal_password = value.trim();
         }
       }
 
       return next;
     });
-  }, []);
+  }, [isUsernameEdited, isPasswordEdited, mode]);
 
   const handleSubmit = useCallback(
     (event) => {
@@ -442,7 +447,7 @@ const ResidentForm = memo(function ResidentForm({
           Household and Location
         </h3>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        <div className="mt-4 grid gap-4 sm:grid-cols-4">
           <label className="block text-sm font-semibold text-slate-700">
             Household No. *
             <input
@@ -453,6 +458,17 @@ const ResidentForm = memo(function ResidentForm({
               required
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
               placeholder="HH-001"
+            />
+          </label>
+          <label className="block text-sm font-semibold text-slate-700">
+            House No. <span className="text-slate-400 font-normal">(optional)</span>
+            <input
+              type="text"
+              name="house_no"
+              value={formData.house_no || ""}
+              onChange={handleInputChange}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              placeholder="e.g. 123"
             />
           </label>
           <label className="block text-sm font-semibold text-slate-700">
@@ -629,8 +645,8 @@ const ResidentForm = memo(function ResidentForm({
             Password
             <input
               type="text"
-              name="house_no"
-              value={formData.house_no || ""}
+              name="portal_password"
+              value={formData.portal_password || ""}
               onChange={handleInputChange}
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
               placeholder={formData.household_no ? `e.g. ${formData.household_no}` : "e.g. 85 or HH-001"}
@@ -928,6 +944,9 @@ const ResidentsManagement = () => {
       if (portalUsername && portalPassword && savedResident.id) {
         try {
           await createResidentPortalAccount(savedResident.id, portalUsername, portalPassword);
+          savedResident.portal_username = portalUsername.toLowerCase();
+          savedResident.portal_password = portalPassword;
+          savedResident.resident_account = { username: portalUsername.toLowerCase(), account_status: "Active" };
           portalMessage = ` Portal account created with username "${portalUsername.toLowerCase()}".`;
         } catch (portalErr) {
           portalMessage = ` Warning: Resident saved but portal account failed: ${portalErr.message}`;
@@ -980,12 +999,23 @@ const ResidentsManagement = () => {
 
       // Create or update the portal account whenever admin provides credentials
       const portalUsername = (formValues.portal_username || "").trim();
-      const portalPassword = (formValues.portal_password || formValues.house_no || "").trim();
+      const portalPassword = (formValues.portal_password || "").trim();
       let portalMessage = "";
 
-      if (portalUsername && portalPassword) {
+      if (portalUsername) {
         try {
           const result = await updateResidentPortalAccount(editingResident.id, portalUsername, portalPassword);
+          savedResident.portal_username = portalUsername.toLowerCase();
+          if (portalPassword) {
+            savedResident.portal_password = portalPassword;
+          } else if (editingResident.portal_password) {
+            savedResident.portal_password = editingResident.portal_password;
+          }
+          savedResident.resident_account = {
+            ...(editingResident.resident_account || {}),
+            username: portalUsername.toLowerCase(),
+            account_status: "Active",
+          };
           portalMessage = result?.action === "updated"
             ? ` Portal credentials updated for "${portalUsername.toLowerCase()}".`
             : ` Portal account created with username "${portalUsername.toLowerCase()}".`;
@@ -1196,8 +1226,6 @@ const ResidentsManagement = () => {
       flex: 1.2,
       renderCell: (params) => {
         const resident = params.row;
-        const isDefaultPassword = resident.portal_must_change_credentials || resident.resident_account?.must_change_credentials;
-        const passwordValue = isDefaultPassword ? (resident.household_no || "-") : "********";
         return (
           <div className="py-2 leading-tight">
             <p className="font-medium text-slate-700">{resident.phone || "-"}</p>
@@ -1206,7 +1234,6 @@ const ResidentsManagement = () => {
                 {resident.email}
               </p>
             )}
-            <p className="text-xs text-slate-400 mt-0.5">Password: {passwordValue}</p>
             <p className="text-xs text-slate-400 mt-0.5">Account: {getPortalAccountStatus(resident) || "-"}</p>
           </div>
         );
