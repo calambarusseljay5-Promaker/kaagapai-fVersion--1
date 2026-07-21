@@ -151,7 +151,13 @@ const getResidentFormValues = (resident) => {
   if (!resident) return { ...initialForm };
 
   const username = resident.portal_username || resident.resident_account?.username || "";
-  const password = resident.portal_password || resident.resident_account?.plain_password || (username ? (resident.household_no || resident.house_no || "") : "");
+  const isDefaultCredentialsAccount = Boolean(
+    resident.portal_must_change_credentials ?? resident.resident_account?.must_change_credentials
+  );
+  const password =
+    resident.portal_password ||
+    resident.resident_account?.plain_password ||
+    (isDefaultCredentialsAccount ? (resident.household_no || resident.house_no || "") : "");
 
   return {
     last_name: resident.last_name || "",

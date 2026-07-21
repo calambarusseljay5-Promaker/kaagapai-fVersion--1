@@ -1,135 +1,25 @@
 -- ============================================================================
--- Safe Additive Migration: Add registration username, password, and email
--- support to resident_activation_requests.
---
--- This script is SAFE to run multiple times (all operations are idempotent).
--- It does NOT modify existing columns or data.
+-- SQL Migration Patch: Sync Plain Passwords for Online Resident Registrations
+-- 
+-- Run this script in your Supabase SQL Editor.
+-- This script is SAFE and IDEMPOTENT (can be run multiple times safely).
 -- ============================================================================
 
--- 1. Add new columns to resident_activation_requests (IF NOT EXISTS)
+-- 1. Ensure requested_plain_password column exists on resident_activation_requests
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'resident_activation_requests'
-      AND column_name = 'requested_username'
-  ) THEN
-    ALTER TABLE resident_activation_requests
-      ADD COLUMN requested_username text DEFAULT NULL;
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'resident_activation_requests'
-      AND column_name = 'requested_password_hash'
-  ) THEN
-    ALTER TABLE resident_activation_requests
-      ADD COLUMN requested_password_hash text DEFAULT NULL;
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'resident_activation_requests'
-      AND column_name = 'requested_email'
-  ) THEN
-    ALTER TABLE resident_activation_requests
-      ADD COLUMN requested_email text DEFAULT NULL;
-  END IF;
-
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'resident_activation_requests'
       AND column_name = 'requested_plain_password'
   ) THEN
-    ALTER TABLE resident_activation_requests
+    ALTER TABLE public.resident_activation_requests
       ADD COLUMN requested_plain_password text DEFAULT NULL;
   END IF;
 END $$;
 
--- 2. Create or replace the admin_create_resident_account RPC function
--- This allows the admin to create a portal account with hashed password
--- when manually adding a resident.
-CREATE OR REPLACE FUNCTION admin_create_resident_account(
-  p_resident_id uuid,
-  p_username text,
-  p_password text
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, extensions
-AS $$
-DECLARE
-  v_normalized_username text;
-  v_account_id uuid;
-  v_existing_id uuid;
-BEGIN
-  v_normalized_username := lower(trim(p_username));
-
-  IF v_normalized_username IS NULL OR v_normalized_username = '' THEN
-    RAISE EXCEPTION 'Username is required.';
-  END IF;
-
-  IF p_password IS NULL OR p_password = '' THEN
-    RAISE EXCEPTION 'Password is required.';
-  END IF;
-
-  -- Check for existing username
-  SELECT id INTO v_existing_id
-  FROM resident_accounts
-  WHERE username = v_normalized_username
-  LIMIT 1;
-
-  IF v_existing_id IS NOT NULL THEN
-    RAISE EXCEPTION 'Username "%" is already taken.', v_normalized_username;
-  END IF;
-
-  -- Insert the account with hashed password
-  INSERT INTO resident_accounts (
-    resident_id,
-    username,
-    password_hash,
-    account_status
-  ) VALUES (
-    p_resident_id,
-    v_normalized_username,
-    crypt(p_password, gen_salt('bf')),
-    'Active'
-  )
-  RETURNING id INTO v_account_id;
-
-
-
-  RETURN jsonb_build_object(
-    'account_id', v_account_id,
-    'username', v_normalized_username,
-    'status', 'Active'
-  );
-END;
-$$;
-
--- 3. Update the request_resident_account_activation function to accept
--- username, password, and email parameters (if the function exists).
--- This is a CREATE OR REPLACE so it safely overwrites.
--- NOTE: If your existing function has a different signature, you may need
--- to DROP it first. This version adds the new parameters as optional.
-
--- We wrap this in a DO block to check if the function exists first
-DO $$
-BEGIN
-  -- Only proceed if the function already exists
-  IF EXISTS (
-    SELECT 1 FROM pg_proc
-    WHERE proname = 'request_resident_account_activation'
-  ) THEN
-    -- Drop the old function signature to allow new params
-    -- (PostgreSQL doesn't allow adding params to existing functions)
-    EXECUTE 'DROP FUNCTION IF EXISTS request_resident_account_activation(text,text,text,text,text,text,text,text,text,text,text,text,text,text,text,boolean,boolean,boolean,text)';
-  END IF;
-END $$;
-
--- Recreate with extended signature (includes username, password, email)
-CREATE OR REPLACE FUNCTION request_resident_account_activation(
+-- 2. Update request_resident_account_activation to save plain password
+CREATE OR REPLACE FUNCTION public.request_resident_account_activation(
   p_full_name text,
   p_birthday text,
   p_household_no text,
@@ -150,7 +40,6 @@ CREATE OR REPLACE FUNCTION request_resident_account_activation(
   p_is_solo_parent boolean DEFAULT false,
   p_is_pwd boolean DEFAULT false,
   p_pwd_type text DEFAULT NULL,
-  -- New parameters for self-registration
   p_username text DEFAULT NULL,
   p_password text DEFAULT NULL,
   p_email text DEFAULT NULL
@@ -166,18 +55,15 @@ DECLARE
   v_password_hash text;
   v_normalized_username text;
 BEGIN
-  -- Validate required fields
   IF trim(coalesce(p_full_name, '')) = '' THEN
     RAISE EXCEPTION 'Full name is required.';
   END IF;
 
-  -- Normalize username if provided
   v_normalized_username := lower(trim(coalesce(p_username, '')));
   IF v_normalized_username = '' THEN
     v_normalized_username := NULL;
   END IF;
 
-  -- Check username uniqueness if provided
   IF v_normalized_username IS NOT NULL THEN
     IF EXISTS (
       SELECT 1 FROM resident_accounts WHERE username = v_normalized_username
@@ -193,7 +79,6 @@ BEGIN
     END IF;
   END IF;
 
-  -- Check email uniqueness if provided
   IF trim(coalesce(p_email, '')) <> '' THEN
     IF EXISTS (
       SELECT 1 FROM resident_activation_requests
@@ -204,12 +89,10 @@ BEGIN
     END IF;
   END IF;
 
-  -- Hash password if provided
   IF p_password IS NOT NULL AND p_password <> '' THEN
     v_password_hash := crypt(p_password, gen_salt('bf'));
   END IF;
 
-  -- Try to find a matching resident
   SELECT id INTO v_resident_id
   FROM residents
   WHERE lower(trim(full_name)) = lower(trim(p_full_name))
@@ -217,7 +100,6 @@ BEGIN
     AND trim(household_no) = trim(p_household_no)
   LIMIT 1;
 
-  -- Insert the activation request
   INSERT INTO resident_activation_requests (
     resident_id,
     requested_full_name,
@@ -285,8 +167,8 @@ BEGIN
 END;
 $$;
 
--- 4. Update approve_resident_activation_request to use resident-chosen credentials
-CREATE OR REPLACE FUNCTION approve_resident_activation_request(
+-- 3. Update approve_resident_activation_request to save plain_password to resident_accounts
+CREATE OR REPLACE FUNCTION public.approve_resident_activation_request(
   p_request_id uuid
 )
 RETURNS jsonb
@@ -303,7 +185,6 @@ DECLARE
   v_full_name text;
   v_phone text;
 BEGIN
-  -- Fetch the request
   SELECT * INTO v_request
   FROM resident_activation_requests
   WHERE id = p_request_id;
@@ -320,7 +201,6 @@ BEGIN
   v_full_name := coalesce(v_request.requested_full_name, 'Resident');
   v_phone := v_request.requested_phone;
 
-  -- If no matching resident, create one from the request data
   IF v_resident_id IS NULL THEN
     INSERT INTO residents (
       full_name, last_name, first_name, middle_name,
@@ -358,7 +238,6 @@ BEGIN
     )
     RETURNING id INTO v_resident_id;
   ELSE
-    -- Update existing resident status and email if provided
     UPDATE residents
     SET status = 'Active',
         email = coalesce(v_request.requested_email, email),
@@ -366,43 +245,58 @@ BEGIN
     WHERE id = v_resident_id;
   END IF;
 
-  -- Determine username: use resident-chosen or generate one
   IF v_request.requested_username IS NOT NULL AND v_request.requested_username <> '' THEN
     v_username := v_request.requested_username;
   ELSE
-    -- Generate username from name (fallback for old registrations)
     v_username := lower(replace(trim(coalesce(
       v_request.requested_first_name,
       split_part(v_request.requested_full_name, ' ', 1)
     )), ' ', '')) || '_' || substr(md5(random()::text), 1, 4);
   END IF;
 
-  -- Check if account already exists for this resident
   SELECT id INTO v_account_id
   FROM resident_accounts
   WHERE resident_id = v_resident_id
   LIMIT 1;
 
   IF v_account_id IS NULL THEN
-    -- Create the account
     IF v_request.requested_password_hash IS NOT NULL THEN
-      -- Use the pre-hashed password from registration and sync plain_password for admin view
-      INSERT INTO resident_accounts (resident_id, username, password_hash, plain_password, account_status)
-      VALUES (v_resident_id, v_username, v_request.requested_password_hash, v_request.requested_plain_password, 'Active')
+      INSERT INTO resident_accounts (
+        resident_id,
+        username,
+        password_hash,
+        plain_password,
+        account_status
+      ) VALUES (
+        v_resident_id,
+        v_username,
+        v_request.requested_password_hash,
+        v_request.requested_plain_password,
+        'Active'
+      )
       RETURNING id INTO v_account_id;
-      v_temp_password := NULL; -- Password was chosen by resident
+      v_temp_password := NULL;
     ELSE
-      -- Generate a temporary password (legacy flow)
       v_temp_password := substr(md5(random()::text), 1, 8);
-      INSERT INTO resident_accounts (resident_id, username, password_hash, account_status, must_change_credentials)
-      VALUES (v_resident_id, v_username, crypt(v_temp_password, gen_salt('bf')), 'Active', true)
+      INSERT INTO resident_accounts (
+        resident_id,
+        username,
+        password_hash,
+        plain_password,
+        account_status,
+        must_change_credentials
+      ) VALUES (
+        v_resident_id,
+        v_username,
+        crypt(v_temp_password, gen_salt('bf')),
+        v_temp_password,
+        'Active',
+        true
+      )
       RETURNING id INTO v_account_id;
     END IF;
   END IF;
 
-
-
-  -- Mark the request as approved
   UPDATE resident_activation_requests
   SET status = 'Approved',
       updated_at = now()
@@ -421,7 +315,5 @@ BEGIN
 END;
 $$;
 
--- Grant execute permissions
-GRANT EXECUTE ON FUNCTION admin_create_resident_account(uuid, text, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION request_resident_account_activation(text,text,text,text,text,text,text,text,text,text,text,text,text,text,text,text,boolean,boolean,boolean,text,text,text,text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION approve_resident_activation_request(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.request_resident_account_activation(text,text,text,text,text,text,text,text,text,text,text,text,text,text,text,text,boolean,boolean,boolean,text,text,text,text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.approve_resident_activation_request(uuid) TO authenticated, service_role;

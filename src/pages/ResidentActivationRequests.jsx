@@ -180,8 +180,8 @@ const ResidentActivationRequests = () => {
       if (smsPhone && isValidSmsPhone(smsPhone)) {
         try {
           const bodyText = result.used_resident_credentials
-            ? `Hello ${result.full_name || request.full_name || "Resident"}, your registration has been approved. You may now log in using the username and password you created during registration. Login here: https://kaagapai-f-version-1.vercel.app`
-            : `Hello ${result.full_name || request.full_name || "Resident"}, your Barangay Upper Mingading resident account is verified. Username: ${result.username}. Household password: ${result.temporary_password}. Login here: https://kaagapai-f-version-1.vercel.app`;
+            ? `Hello ${result.full_name || request.full_name || "Resident"}, your KaagapAI registration is approved! You can now log in using your created username & password: https://kaagapai-f-version-1.vercel.app`
+            : `Hello ${result.full_name || request.full_name || "Resident"}, your Barangay resident account is verified. Username: ${result.username}. Password: ${result.temporary_password}. Login: https://kaagapai-f-version-1.vercel.app`;
 
           await sendSmsNotification({
             to: smsPhone,
