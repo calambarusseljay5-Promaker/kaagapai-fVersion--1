@@ -74,8 +74,8 @@ export async function sendSmsNotification({ to, body }) {
   }
 
   // Fallback: Direct TextBee Gateway API call if Edge Function returned non-2xx status code
-  const apiKey = import.meta.env.VITE_TEXTBEE_API_KEY;
-  const deviceId = import.meta.env.VITE_TEXTBEE_DEVICE_ID;
+  const apiKey = import.meta.env.VITE_TEXTBEE_API_KEY || "309ccc30-acba-4dcc-91bd-341bf2592588";
+  const deviceId = import.meta.env.VITE_TEXTBEE_DEVICE_ID || "6a1d3161fdeb151e3594109f";
   const baseUrl = import.meta.env.VITE_TEXTBEE_BASE_URL || "https://api.textbee.dev";
 
   if (apiKey && deviceId) {
