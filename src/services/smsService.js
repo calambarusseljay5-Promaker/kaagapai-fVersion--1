@@ -56,17 +56,65 @@ export async function sendSmsNotification({ to, body }) {
   }
   if (!message) throw new Error("SMS message is required.");
 
-  const { data, error } = await supabase.functions.invoke(FUNCTION_NAME, {
-    body: {
-      to: recipient,
-      body: message,
-    },
-  });
+  let edgeError = null;
+  try {
+    const { data, error } = await supabase.functions.invoke(FUNCTION_NAME, {
+      body: {
+        to: recipient,
+        body: message,
+      },
+    });
 
-  if (error) throw new Error(error.message || "Unable to send SMS.");
-  if (data?.error) throw new Error(data.error);
+    if (!error && !data?.error) {
+      return data;
+    }
+    edgeError = error?.message || data?.error;
+  } catch (err) {
+    edgeError = err?.message;
+  }
 
-  return data;
+  // Fallback: Direct TextBee Gateway API call if Edge Function returned non-2xx status code
+  const apiKey = import.meta.env.VITE_TEXTBEE_API_KEY;
+  const deviceId = import.meta.env.VITE_TEXTBEE_DEVICE_ID;
+  const baseUrl = import.meta.env.VITE_TEXTBEE_BASE_URL || "https://api.textbee.dev";
+
+  if (apiKey && deviceId) {
+    try {
+      const endpoint = `${baseUrl.replace(/\/$/, "")}/api/v1/gateway/devices/${encodeURIComponent(
+        deviceId
+      )}/send-sms`;
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          recipients: [recipient],
+          message: message.slice(0, 1500),
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (response.ok && !result.error) {
+        return {
+          provider: "textbee-direct",
+          status: result.status || "queued",
+          to: recipient,
+          result,
+        };
+      }
+
+      const directErr = result?.message || result?.error || "TextBee API returned an error.";
+      throw new Error(directErr);
+    } catch (directError) {
+      throw new Error(directError.message || edgeError || "Unable to send SMS.");
+    }
+  }
+
+  throw new Error(edgeError || "Unable to send SMS.");
 }
 
 export async function sendBulkSmsNotifications({ recipients, body }) {
