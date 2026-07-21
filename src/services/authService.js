@@ -66,6 +66,7 @@ export async function loginUser(email, password) {
  */
 export async function getUserProfile(userId) {
   try {
+    const cacheKey = `kaagapai_user_profile_${userId}`;
     const { data, error } = await supabase
       .from("user_profiles")
       .select("*")
@@ -73,6 +74,14 @@ export async function getUserProfile(userId) {
       .single();
 
     if (error) throw new Error(getProfileErrorMessage(error));
+
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      window.sessionStorage.setItem(cacheKey, JSON.stringify(data));
+      if (data?.role) {
+        window.sessionStorage.setItem(`kaagapai_user_role_${userId}`, data.role);
+      }
+    }
+
     return data;
   } catch (error) {
     console.error("Error fetching user profile:", error);
@@ -90,7 +99,34 @@ export async function getCurrentUserWithProfile() {
     if (sessionError) throw sessionError;
     if (!sessionData.session) return null;
 
-    const profile = await getUserProfile(sessionData.session.user.id);
+    const userId = sessionData.session.user.id;
+    const cacheKey = `kaagapai_user_profile_${userId}`;
+
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      const cached = window.sessionStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const profile = JSON.parse(cached);
+          getUserProfile(userId).then((refreshedProfile) => {
+            if (refreshedProfile) {
+              notifyProfileUpdated({
+                user: sessionData.session.user,
+                profile: refreshedProfile,
+              });
+            }
+          }).catch(() => {});
+
+          return {
+            user: sessionData.session.user,
+            profile: profile,
+          };
+        } catch {
+          // ignore parse error and fetch fresh
+        }
+      }
+    }
+
+    const profile = await getUserProfile(userId);
     return {
       user: sessionData.session.user,
       profile: profile,

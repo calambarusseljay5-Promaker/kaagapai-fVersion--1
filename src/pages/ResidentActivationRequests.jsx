@@ -180,8 +180,8 @@ const ResidentActivationRequests = () => {
       if (smsPhone && isValidSmsPhone(smsPhone)) {
         try {
           const bodyText = result.used_resident_credentials
-            ? `Hello ${result.full_name || request.full_name || "Resident"}, your KaagapAI registration is approved! You can now log in using your created username & password: https://kaagapai-f-version-1.vercel.app`
-            : `Hello ${result.full_name || request.full_name || "Resident"}, your Barangay resident account is verified. Username: ${result.username}. Password: ${result.temporary_password}. Login: https://kaagapai-f-version-1.vercel.app`;
+            ? `Hello ${result.full_name || request.full_name || "Resident"}, your KaagapAI registration is approved! You can now log in using your created username & password.`
+            : `Hello ${result.full_name || request.full_name || "Resident"}, your Barangay resident account is verified. Username: ${result.username}. Password: ${result.temporary_password}.`;
 
           await sendSmsNotification({
             to: smsPhone,

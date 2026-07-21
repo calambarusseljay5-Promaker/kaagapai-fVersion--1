@@ -1695,8 +1695,15 @@ async function buildLocalAnswer(question, context = {}) {
     const filteredTemplates = documentFocus ? documentFocus.templates : uniqueTemplates;
     const wantsCount = isDocumentRequestCountQuestion(question);
     const wantsStatus = requestedStatuses.length > 0 || isDocumentStatusQuestion(question) || wantsCount;
-    const wantsHowTo = isDocumentHowToQuestion(question) && !wantsStatus;
-    const wantsDetails = isDocumentDetailQuestion(question);
+    const wantsReqs = includesAny(normalizedQ, [
+      "requirement", "requirements", "kailangan", "rekitos", "pangangailangan",
+      "anung requirement", "ano requirement", "what requirement", "what are the requirements", "what is the requirements", "anu requirement", "anung requirements"
+    ]) || (
+      includesAny(normalizedQ, ["kailangan", "requirement", "requirements"]) &&
+      includesAny(normalizedQ, ["clearance", "permit", "certificate", "dokumento", "document", "sertipiko", "kuha", "kumuha"])
+    );
+    const wantsHowTo = !wantsReqs && isDocumentHowToQuestion(question) && !wantsStatus;
+    const wantsDetails = !wantsReqs && isDocumentDetailQuestion(question);
     const wantsFee = includesAny(normalizedQ, ["magkano", "magkanu", "bayad", "singil", "fee", "fees", "cost", "price", "magbayad"]);
 
     if (normalizedQ.includes("online")) {
@@ -1709,6 +1716,13 @@ async function buildLocalAnswer(question, context = {}) {
 
     if (normalizedQ.includes("someone else") || normalizedQ.includes("representative") || normalizedQ.includes("claim")) {
       return "Yes, if permitted by barangay policy. The representative may be required to present an authorization letter and valid identification.";
+    }
+
+    if (wantsReqs) {
+      const docName = documentFocus ? documentFocus.label : "Barangay Clearance/Permit";
+      return language === "tagalog"
+        ? `Ang mga pangunahing kailangan (requirements) para sa pagkuha ng **${docName}** ay:\n1. **Cedula (Community Tax Certificate)**\n2. **Valid Government ID**\n3. **₱50 Processing Fee**`
+        : `The primary requirements for securing a **${docName}** are:\n1. **Cedula (Community Tax Certificate)**\n2. **Valid Government ID**\n3. **₱50 Processing Fee**`;
     }
 
     if (!documentFocus && wantsFee) {
@@ -1837,6 +1851,19 @@ async function buildLocalAnswer(question, context = {}) {
       : "I specialize in assisting residents with Barangay Upper Mingading services, community programs, documents, announcements, and local government concerns. If your question is related to barangay services, I'd be happy to help.";
   }
 
+  // Requirements for permits, clearances, certificates
+  const isRequirementQuestion = (includesAny(normalizedQ, [
+    "requirement", "requirements", "kailangan", "pangangailangan",
+    "maka kuha", "kumuha", "paano kumuha", "ano kailangan", "paano makakuha"
+  ]) && includesAny(normalizedQ, ["permit", "permits", "clearance", "clearances", "certificate", "dokumento", "document", "documents", "sertipiko"])) ||
+  (normalizedQ.includes("requirement") || normalizedQ.includes("kailangan"));
+
+  if (isRequirementQuestion && includesAny(normalizedQ, ["permit", "clearance", "certificate", "dokumento", "document", "sertipiko"])) {
+    return language === "tagalog"
+      ? "Ang mga pangunahing kailangan (requirements) para sa pagkuha ng barangay clearance, permit, o sertipiko ay:\n1. **Cedula (Community Tax Certificate)**\n2. **Valid Government ID**\n3. **₱50 Processing Fee**"
+      : "The primary requirements for securing a barangay clearance, permit, or certificate are:\n1. **Cedula (Community Tax Certificate)**\n2. **Valid Government ID**\n3. **₱50 Processing Fee**";
+  }
+
   // Government Assistance Intents (Educational, Burial, Medical)
   const isEducationalAssistance = includesAny(normalizedQ, ["educational", "edukasyon", "aral", "pa-aral", "school assistance", "tuition", "aaral"]);
   if (isEducationalAssistance) {
@@ -1862,11 +1889,19 @@ async function buildLocalAnswer(question, context = {}) {
       : `Medical assistance programs may require valid identification and supporting medical documents. The availability of assistance depends on current barangay or government programs.\n\n${closing}`;
   }
 
+  // Out of Scope / Unrelated Questions Handler
+  const isUnrelatedTopic = isOutsideBarangayScope(normalizedQ) || includesAny(normalizedQ, OUT_OF_SCOPE_TERMS);
+  if (isUnrelatedTopic) {
+    return language === "tagalog"
+      ? "Paumanhin, wala po akong impormasyon ukol diyan dahil ang aking kaalaman ay para lamang sa mga serbisyo at programa ng ating Barangay Upper Mingading. Handa po akong tumulong sa inyo ukol sa ating barangay clearances, document requests, anunsyo, at iba pang lokal na serbisyo!"
+      : "I apologize, but I don't have information regarding that topic as I am specifically trained to assist with Barangay Upper Mingading services and inquiries. I am more than willing to help you with barangay clearances, document requests, announcements, and local services!";
+  }
+
   // Default Fallback for Unknown / General Questions (NEVER return dashboard summary!)
   const defaultClosing = getDynamicClosingStatement(language);
   return language === "tagalog"
-    ? `Para sa mga partikular na katanungan tungkol sa barangay o pampamahalaang serbisyo, inirerekomenda ang pag-inquire sa ating opisina.\n\n${defaultClosing}`
-    : `For specific questions regarding barangay or local government services, inquiring directly with our office is recommended.\n\n${defaultClosing}`;
+    ? "Para sa mga partikular na katanungan tungkol sa barangay o pampamahalaang serbisyo, inirerekomenda ang pag-inquire sa ating opisina.\n\n" + defaultClosing
+    : "For specific questions regarding barangay or local government services, inquiring directly with our office is recommended.\n\n" + defaultClosing;
 }
 
 export async function askResidentAssistant(question, context) {
@@ -1988,9 +2023,15 @@ GENERAL KNOWLEDGE AND RESPONSE RULES:
      * Salamat / Maraming salamat po: "Walang anuman! Masaya akong makatulong. Kung may iba pa kayong katanungan tungkol sa barangay services, nandito lang ako."
 
    - Document Requests & Certificates:
-     * Steps for requesting Barangay Clearance: Log in -> Document Requests -> Select Barangay Clearance -> Fill out details -> Submit -> Wait for approval -> Receive notification for pickup.
-     * Cedula requirement: Mention Cedula is obtained from Barangay Treasurer before document issuance.
-     * Fees: If fee exists in context, state exact amount. If not: "Please contact the Barangay Office for the latest processing fee." Never invent prices.
+     * CRITICAL: Differentiate "requirements" vs "how to request"!
+     * If the user asks for REQUIREMENTS ("what are the requirements", "anung requirements para makakuha ng barangay clearance/permit"):
+       DO NOT list the steps on how to request!
+       Answer:
+       Tagalog: "Ang mga pangunahing kailangan (requirements) para sa pagkuha ng barangay clearance, permit, o sertipiko ay:\n1. **Cedula (Community Tax Certificate)**\n2. **Valid Government ID**\n3. **₱50 Processing Fee**"
+       English: "The primary requirements for securing a barangay clearance, permit, or certificate are:\n1. **Cedula (Community Tax Certificate)**\n2. **Valid Government ID**\n3. **₱50 Processing Fee**"
+     * ONLY list steps ("Log in to account -> Open Document Requests -> Select document...") if the user explicitly asks "HOW TO REQUEST" ("paano mag-request", "steps to request").
+     * Cedula requirement: Mention Cedula is obtained from Barangay Treasurer.
+     * Fees: Standard processing fee is ₱50. Indigency is free. Never invent prices.
 
    - Complaints & Public Disturbance:
      * "Residents may submit complaints through the Complaint section of the Resident Portal or directly at the Barangay Office. For emergencies, advise contacting the appropriate emergency authorities or call us at 09306259795."

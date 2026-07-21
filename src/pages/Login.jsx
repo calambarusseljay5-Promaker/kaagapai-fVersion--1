@@ -559,7 +559,7 @@ const Login = () => {
 
       <div className="space-y-1">
         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Address Notes <span className="normal-case font-normal text-slate-400">(optional)</span></label>
-        <input type="text" name="address" value={formData.address} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="Street, landmark, or household notes" />
+        <input type="text" name="address" value={formData.address} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-[#0B5D3B] focus:bg-white font-medium" placeholder="Sitio, street, landmark, or household notes" />
       </div>
     </div>
   );

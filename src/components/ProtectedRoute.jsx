@@ -63,6 +63,29 @@ const ProtectedRoute = ({ requiredRole = null }) => {
       }
 
       try {
+        const cacheKey = `kaagapai_user_role_${session.user.id}`;
+        const cachedRole = sessionStorage.getItem(cacheKey);
+
+        if (cachedRole) {
+          const roleDashboardPath = getDashboardPathForRole(cachedRole);
+          const isAllowed = roleMatches(cachedRole, requiredRole);
+          // Async background sync
+          supabase
+            .from("user_profiles")
+            .select("role")
+            .eq("id", session.user.id)
+            .single()
+            .then(({ data }) => {
+              if (data?.role) sessionStorage.setItem(cacheKey, data.role);
+            })
+            .catch(() => {});
+
+          return {
+            isAllowed,
+            redirectTo: isAllowed ? null : roleDashboardPath || "/",
+          };
+        }
+
         const { data: profileData, error } = await supabase
           .from("user_profiles")
           .select("role")
@@ -77,6 +100,7 @@ const ProtectedRoute = ({ requiredRole = null }) => {
           return { isAllowed: false, redirectTo: "/" };
         }
 
+        sessionStorage.setItem(cacheKey, profileData.role);
         const roleDashboardPath = getDashboardPathForRole(profileData.role);
         const isAllowed = roleMatches(profileData.role, requiredRole);
 

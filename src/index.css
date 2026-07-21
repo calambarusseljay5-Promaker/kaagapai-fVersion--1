@@ -5720,7 +5720,7 @@ body{background:var(--bg);color:var(--text);}
 @media (max-width:767px){
   :root{--header-h:48px;}
   .app-shell{grid-template-columns:1fr;}
-  .app-sidebar{position:fixed;left:-280px;top:0;height:100vh;width:260px;transition:left .25s ease;z-index:60;}
+  .app-sidebar{position:fixed;left:-280px;top:0;height:100vh;width:215px;max-width:75vw;transition:left .25s ease;z-index:60;}
   .app-sidebar.open{left:0;}
   .app-header{padding:0 14px; height:var(--header-h); min-height:48px; flex-wrap:nowrap; gap:8px;}
   main{padding:0 6px 8px 6px;}

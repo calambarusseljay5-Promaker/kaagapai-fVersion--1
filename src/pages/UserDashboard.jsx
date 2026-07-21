@@ -294,9 +294,16 @@ const getStatusClass = (status) => {
 };
 
 const AssistantAiIcon = () => (
-  <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#0B5D3B] to-[#157347] text-white shadow-inner">
-    <Bot className="h-[55%] w-[55%]" strokeWidth={2} />
-  </span>
+  <div className="flex h-full w-full items-center justify-center bg-white p-0.5 rounded-full shadow-inner overflow-hidden">
+    <img
+      src="/logo.png"
+      alt="Brgy. Seal"
+      className="h-full w-full object-contain rounded-full"
+      onError={(e) => {
+        e.target.src = "https://placehold.co/100x100/14532d/ffffff?text=Seal";
+      }}
+    />
+  </div>
 );
 
 const parsePurpose = (docType) => {
@@ -335,13 +342,25 @@ const UserDashboard = () => {
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const effectiveSidebarCollapsed = sidebarCollapsed && !isSidebarHovered;
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== "undefined" ? window.innerWidth >= 1024 : true);
+  const [isDashboardScrolled, setIsDashboardScrolled] = useState(false);
+  const [isStatCardsHovered, setIsStatCardsHovered] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
       setIsDesktop(window.innerWidth >= 1024);
     };
+    const handleScroll = (e) => {
+      const scrollPos = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || (e?.target?.scrollTop) || 0;
+      setIsDashboardScrolled(scrollPos > 15);
+    };
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    window.addEventListener("scroll", handleScroll, { passive: true, capture: true });
+    document.addEventListener("scroll", handleScroll, { passive: true, capture: true });
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("scroll", handleScroll, { capture: true });
+      document.removeEventListener("scroll", handleScroll, { capture: true });
+    };
   }, []);
   const [settingsTab, setSettingsTab] = useState("security"); // default changed to security
   const [theme, setTheme] = useState("light");
@@ -622,6 +641,18 @@ const UserDashboard = () => {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [isSettingsDrawerOpen, setIsSettingsDrawerOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [chatFabExpanded, setChatFabExpanded] = useState(false);
+
+  useEffect(() => {
+    if (assistantOpen) {
+      setChatFabExpanded(false);
+      return;
+    }
+    const interval = setInterval(() => {
+      setChatFabExpanded((prev) => !prev);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [assistantOpen]);
   const [assistantInput, setAssistantInput] = useState("");
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [chatNavOpen, setChatNavOpen] = useState(false);
@@ -1961,7 +1992,7 @@ const UserDashboard = () => {
       
       {/* 1. Desktop Hover-Expandable Sidebar Container */}
       <div 
-        className="relative z-40 h-full hidden lg:block"
+        className="relative z-[100] h-full hidden lg:block"
         style={{ width: sidebarCollapsed ? "80px" : "240px" }}
       >
         <aside 
@@ -1971,7 +2002,7 @@ const UserDashboard = () => {
           style={{
             width: effectiveSidebarCollapsed ? "80px" : "240px",
             padding: effectiveSidebarCollapsed ? "20px 8px" : "20px 14px",
-            zIndex: 50,
+            zIndex: 100,
           }}
         >
           <div>
@@ -2054,23 +2085,22 @@ const UserDashboard = () => {
 
       {/* Mobile Drawer (Only visible on mobile screens) */}
       <aside 
-        className={`app-sidebar lg:hidden ${mobileSidebarOpen ? "open" : ""} flex flex-col justify-between`}
+        className={`app-sidebar lg:hidden ${mobileSidebarOpen ? "open" : ""} flex flex-col justify-between p-3 sm:p-4`}
       >
         <div>
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
               <img
                 src="/logo.png"
                 alt="Brgy. Seal"
-                className="h-10 w-10 shrink-0 object-contain rounded-full shadow-md border border-white/20 bg-white"
-                style={{ width: "40px", height: "40px" }}
+                className="h-8 w-8 shrink-0 object-contain rounded-full shadow-sm border border-white/20 bg-white"
                 onError={(e) => {
                   e.target.src = "https://placehold.co/100x100/0b5d3b/ffffff?text=Seal";
                 }}
               />
               <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-wider text-emerald-300">Upper Mingading</p>
-                <h2 className="text-sm font-black text-white truncate">KaagapAI</h2>
+                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-300">Upper Mingading</p>
+                <h2 className="text-xs font-black text-white truncate">KaagapAI</h2>
               </div>
             </div>
             <button
@@ -2078,11 +2108,11 @@ const UserDashboard = () => {
               onClick={() => setMobileSidebarOpen(false)}
               className="rounded-full p-1 hover:bg-white/10 text-white"
             >
-              <X size={18} />
+              <X size={16} />
             </button>
           </div>
 
-          <nav className="space-y-1">
+          <nav className="space-y-0.5">
             {sidebarNavItems.map((item) => {
               const Icon = item.icon;
               const active = activeNav === item.key;
@@ -2094,20 +2124,20 @@ const UserDashboard = () => {
                     openModule(item.key);
                     setMobileSidebarOpen(false);
                   }}
-                  className={`nav-item w-full ${active ? "active" : ""} px-3`}
+                  className={`nav-item w-full ${active ? "active" : ""} px-2.5 py-1.5`}
                 >
-                  <Icon size={18} className={`shrink-0 ${active ? "text-[#1FA971]" : "text-emerald-100/60"}`} />
-                  <span className="nav-label ml-2.5 truncate text-left text-xs font-bold text-white">{item.label}</span>
+                  <Icon size={16} className={`shrink-0 ${active ? "text-[#1FA971]" : "text-emerald-100/60"}`} />
+                  <span className="nav-label ml-2 truncate text-left text-xs font-bold text-white">{item.label}</span>
                 </button>
               );
             })}
             <button
               type="button"
               onClick={handleLogout}
-              className="nav-item w-full text-rose-200 hover:bg-rose-950/30 mt-1 px-3"
+              className="nav-item w-full text-rose-200 hover:bg-rose-950/30 mt-1 px-2.5 py-1.5"
             >
-              <LogOut size={18} className="shrink-0 text-rose-400" />
-              <span className="nav-label ml-2.5 text-xs font-bold">Logout</span>
+              <LogOut size={16} className="shrink-0 text-rose-400" />
+              <span className="nav-label ml-2 text-xs font-bold">Logout</span>
             </button>
           </nav>
         </div>
@@ -2213,18 +2243,20 @@ const UserDashboard = () => {
             </div>
           )}
 
-          {portalSuccess && (
+{portalSuccess && (
             <div className="mb-4 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-800 shadow-sm">
               <CheckCircle size={16} className="text-emerald-600 shrink-0" />
               <span>{portalSuccess}</span>
             </div>
           )}
+
           {/* TAB 1: DASHBOARD OVERVIEW */}
           {activeNav === "dashboard" && (
             <div className="space-y-6 animate-fadeIn">
-              {/* HERO BANNER CARD WITH BARANGAYOFICE.PNG AND INTEGRATED HEADER */}
-              <div className="relative rounded-[24px] overflow-visible border border-white/10 select-none bg-gradient-to-br from-[#14532D] to-[#0f3e21] text-white animate-fadeIn shadow-lg">
-                {/* Background Image with fade transition */}
+
+              {/* 1. HEADER HERO BANNER (STEADY STICKY TOP - BEHIND OVERLAYING SIDEBAR) */}
+              <div className="sticky top-0 z-30 relative rounded-2xl sm:rounded-3xl overflow-visible border border-white/10 select-none bg-gradient-to-br from-[#14532D] to-[#0f3e21] text-white animate-fadeIn shadow-lg backdrop-blur-md">
+                {/* Background Image */}
                 <div className="absolute inset-0 w-full h-full pointer-events-none z-0 rounded-[24px] overflow-hidden">
                   <img
                     src="/barangay/BARANGAYOFICE.PNG"
@@ -2235,31 +2267,29 @@ const UserDashboard = () => {
                 </div>
 
                 {/* Content Overlay */}
-                <div className="relative z-10 p-5 sm:p-6 flex flex-col text-left">
-                  
-                  {/* Integrated Header Top Row */}
+                <div className="relative z-10 p-4 sm:p-5 flex flex-col text-left">
                   <div className="flex items-center justify-between gap-3 w-full flex-nowrap">
-                    {/* Left side: Greeting */}
-                    <div className="flex items-center min-w-0 shrink">
+                    {/* Left side: Mobile menu toggle + Full User Name only */}
+                    <div className="flex items-center gap-2.5 min-w-0 shrink">
+                      <button
+                        type="button"
+                        onClick={() => setMobileSidebarOpen(true)}
+                        className="lg:hidden rounded-lg border border-white/20 p-1.5 text-white bg-white/10 hover:bg-white/20 active:scale-95 transition shadow-2xs shrink-0"
+                        aria-label="Open mobile menu"
+                      >
+                        <Menu size={16} />
+                      </button>
                       <h2 className="text-base sm:text-lg font-black text-white leading-tight flex items-center gap-2 truncate">
-                        {dynamicGreeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-green-300">{resident?.first_name || displayName}</span>! 👋
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-green-300">
+                          {resident?.first_name ? `${resident.first_name} ${resident?.last_name || ""}`.trim() : displayName}
+                        </span>
                       </h2>
                     </div>
 
-                    {/* Right side: Actions (Document Request, Bell, Profile) */}
+                    {/* Right side: Actions */}
                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                      {/* Minimized Document Request Button */}
-                      <button
-                        type="button"
-                        onClick={() => openModule("documents")}
-                        className="inline-flex items-center gap-1.5 bg-[#C8A14A] hover:bg-[#b08b3a] active:scale-95 text-slate-900 rounded-lg px-3 py-1.5 text-xs font-black shadow-sm transition duration-200 shrink-0"
-                      >
-                        <ClipboardList size={14} className="text-slate-900 shrink-0" />
-                        <span className="hidden sm:inline">Document Request</span>
-                        <span className="sm:hidden">Request</span>
-                      </button>
 
-                      {/* Notification Bell with Dropdown */}
+                      {/* Notification Bell */}
                       <div className="relative shrink-0">
                         <button
                           type="button"
@@ -2279,18 +2309,18 @@ const UserDashboard = () => {
                             <>
                               <div className="fixed inset-0 z-45" onClick={() => setShowNotificationMenu(false)} />
                               <motion.div
-                                className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-2xl border shadow-xl bg-slate-950/70 backdrop-blur-md border-slate-800 text-white animate-fadeIn"
+                                className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 overflow-hidden rounded-2xl border border-emerald-700/60 shadow-2xl bg-[#14532D] text-white animate-fadeIn z-[999]"
                                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
                               >
-                                <div className="flex items-center justify-between border-b px-4 py-2.5 border-slate-800/80 bg-slate-950/50">
-                                  <p className="text-xs font-black uppercase tracking-wider text-slate-400">Notifications</p>
-                                  <span className="rounded-full px-2 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
+                                <div className="flex items-center justify-between border-b px-3.5 py-2.5 border-emerald-800/80 bg-[#0a2916]">
+                                  <p className="text-xs font-black uppercase tracking-wider text-emerald-200">Notifications</p>
+                                  <span className="rounded-full px-2 py-0.5 text-[10px] font-black bg-emerald-500/30 text-emerald-200 border border-emerald-400/30">
                                     {unreadNotificationCount} New
                                   </span>
                                 </div>
-                                <div className="max-h-72 divide-y divide-slate-800/60 overflow-y-auto">
+                                <div className="max-h-72 divide-y divide-emerald-800/50 overflow-y-auto">
                                   {allNotificationsMerged.length === 0 ? (
-                                    <div className="p-6 text-center text-xs text-slate-400 font-bold">No recent alerts.</div>
+                                    <div className="p-6 text-center text-xs text-emerald-200/80 font-bold">No recent alerts.</div>
                                   ) : (
                                     allNotificationsMerged.map((n) => (
                                       <button
@@ -2312,14 +2342,14 @@ const UserDashboard = () => {
                                             else openModule("documents");
                                           }
                                         }}
-                                        className="w-full flex gap-2.5 p-3 text-left transition-colors hover:bg-slate-800/60 bg-slate-950/20"
+                                        className="w-full flex gap-2.5 p-3 text-left transition-colors hover:bg-emerald-800/80 bg-[#14532D]"
                                       >
-                                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-emerald-400">
+                                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-900 border border-emerald-600/50 text-emerald-200">
                                           <FileText size={13} />
                                         </span>
                                         <div className="min-w-0 flex-1">
-                                          <p className="truncate text-xs font-bold text-white">{n.title}</p>
-                                          <p className="mt-0.5 line-clamp-2 text-xs leading-normal font-semibold text-slate-400">{n.message}</p>
+                                          <p className="truncate text-xs font-black text-white">{n.title}</p>
+                                          <p className="mt-0.5 line-clamp-2 text-xs leading-normal font-semibold text-emerald-100/90">{n.message}</p>
                                         </div>
                                       </button>
                                     ))
@@ -2331,7 +2361,7 @@ const UserDashboard = () => {
                         </AnimatePresence>
                       </div>
 
-                      {/* Profile Avatar with Dropdown */}
+                      {/* Profile Avatar */}
                       <div className="relative shrink-0">
                         <button
                           type="button"
@@ -2353,19 +2383,19 @@ const UserDashboard = () => {
                             <>
                               <div className="fixed inset-0 z-45" onClick={() => setShowAccountMenu(false)} />
                               <motion.div
-                                className="absolute right-0 z-50 mt-2 w-52 rounded-2xl border p-1.5 shadow-xl bg-slate-950/70 backdrop-blur-md border-slate-800 text-white animate-fadeIn"
+                                className="absolute right-0 z-[999] mt-2 w-48 sm:w-56 max-w-[85vw] rounded-2xl border border-emerald-700/60 p-1.5 sm:p-2 shadow-2xl bg-[#14532D] text-white animate-fadeIn"
                                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
                               >
-                                <div className="px-3 py-2.5 mb-1.5 text-center border-b border-slate-800/80 bg-slate-950/40">
-                                  <div className="mx-auto h-10 w-10 overflow-hidden rounded-full border mb-2 border-slate-800">
+                                <div className="px-2.5 py-2 sm:py-3 mb-1.5 sm:mb-2 text-center rounded-xl border border-emerald-800/60 bg-[#0a2916]">
+                                  <div className="mx-auto h-9 w-9 sm:h-12 sm:w-12 overflow-hidden rounded-full border-2 border-emerald-400 mb-1.5 shadow-sm">
                                     {resident?.profile_photo_url ? (
                                       <img src={resident.profile_photo_url} alt="" className="h-full w-full object-cover" />
                                     ) : (
-                                      <div className="flex h-full w-full items-center justify-center text-xs font-black text-white bg-emerald-750">{displayName[0]?.toUpperCase() || "R"}</div>
+                                      <div className="flex h-full w-full items-center justify-center text-xs sm:text-sm font-black text-white bg-emerald-750">{displayName[0]?.toUpperCase() || "R"}</div>
                                     )}
                                   </div>
-                                  <p className="truncate text-xs font-black">{displayName}</p>
-                                  <p className="truncate text-xs text-slate-500 font-bold mt-0.5">{residentUsername}</p>
+                                  <p className="truncate text-xs font-black text-white">{displayName}</p>
+                                  <p className="truncate text-[10px] sm:text-[11px] text-emerald-200 font-bold mt-0.5">{residentUsername}</p>
                                 </div>
 
                                 {[
@@ -2377,10 +2407,10 @@ const UserDashboard = () => {
                                     key={idx}
                                     type="button"
                                     onClick={() => { setShowAccountMenu(false); openModule(item.key, item.sub); }}
-                                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold transition text-slate-350 hover:bg-slate-800/80 hover:text-white"
+                                    className="flex w-full items-center gap-2 sm:gap-2.5 rounded-xl px-2.5 py-1.5 sm:py-2 text-left text-xs font-bold transition text-emerald-100 hover:bg-emerald-800/90 hover:text-white active:scale-98"
                                   >
-                                    <item.icon size={13} className="text-emerald-400 shrink-0" />
-                                    {item.label}
+                                    <item.icon size={14} className="text-[#C8A14A] shrink-0" />
+                                    <span className="font-extrabold text-[11px] sm:text-xs">{item.label}</span>
                                   </button>
                                 ))}
                               </motion.div>
@@ -2394,266 +2424,289 @@ const UserDashboard = () => {
                 </div>
               </div>
 
-              {/* Dashboard Overview Header section */}
-              <div className="flex items-center gap-2 px-1">
-                <button
-                  type="button"
-                  onClick={() => setMobileSidebarOpen(true)}
-                  className="lg:hidden rounded-lg border border-[#14532D]/20 dark:border-slate-800 p-1.5 text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-slate-900 hover:bg-emerald-100 dark:hover:bg-slate-800 active:scale-95 transition shadow-2xs shrink-0"
-                  aria-label="Open mobile menu"
-                >
-                  <Menu size={15} className="text-[#14532D] dark:text-emerald-400" />
-                </button>
-                <h3 className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? "text-white" : "text-[#14532D]"}`}>Dashboard Overview</h3>
-              </div>
-
-              {/* Statistics Grid (Visible on both desktop & mobile) */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fadeIn">
-                {[
-                  { 
-                    label: "Pending", 
-                    value: requests.filter((r) => ["Pending", "Processing"].includes(r.status)).length, 
-                    icon: Clock, 
-                    color: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/30" 
-                  },
-                  { 
-                    label: "Approved", 
-                    value: requests.filter((r) => ["Approved", "Released"].includes(r.status)).length, 
-                    icon: CheckCircle, 
-                    color: "text-[#14532D] dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-250 dark:border-emerald-900/30" 
-                  },
-                  { 
-                    label: "Action Needed", 
-                    value: requests.filter((r) => r.status === "Rejected").length, 
-                    icon: AlertCircle, 
-                    color: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border-rose-250 dark:border-rose-900/30" 
-                  },
-                  { 
-                    label: "Completed", 
-                    value: requests.filter((r) => r.status === "Completed").length, 
-                    icon: FileCheck2, 
-                    color: "text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/20 border-teal-250 dark:border-teal-900/30" 
-                  }
-                ].map((stat, i) => (
-                  <div key={i} className={`flex items-center gap-4 p-4 rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-xs transition duration-200 hover:shadow-sm hover:translate-y-[-1px]`}>
-                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${stat.color}`}>
-                      <stat.icon size={18} className="stroke-[2.5]" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 truncate">{stat.label}</p>
-                      <p className="text-lg sm:text-xl font-black text-slate-855 dark:text-white mt-0.5 leading-none">{stat.value}</p>
-                    </div>
+              {/* 2. STICKY COLLAPSIBLE CARDLIST WITH HOVER-EXPAND (4 Stat Cards) */}
+              <div 
+                onMouseEnter={() => setIsStatCardsHovered(true)}
+                onMouseLeave={() => setIsStatCardsHovered(false)}
+                className="sticky top-[68px] z-20 transition-all duration-300 my-2"
+              >
+                {isDashboardScrolled && !isStatCardsHovered ? (
+                  /* Compressed State when Scrolled: Icon + Total Count only */
+                  <div className="grid grid-cols-4 gap-2 animate-fadeIn p-2.5 rounded-2xl border bg-white/95 dark:bg-slate-900/95 border-slate-200/80 dark:border-slate-800 shadow-md backdrop-blur-md cursor-pointer hover:shadow-lg transition">
+                    {[
+                      { 
+                        label: "Pending", 
+                        value: requests.filter((r) => ["Pending", "Processing"].includes(r.status)).length, 
+                        icon: Clock, 
+                        color: "text-amber-600 dark:text-amber-400" 
+                      },
+                      { 
+                        label: "Approved", 
+                        value: requests.filter((r) => ["Approved", "Released"].includes(r.status)).length, 
+                        icon: CheckCircle, 
+                        color: "text-emerald-600 dark:text-emerald-400" 
+                      },
+                      { 
+                        label: "Action Needed", 
+                        value: requests.filter((r) => r.status === "Rejected").length, 
+                        icon: AlertCircle, 
+                        color: "text-rose-600 dark:text-rose-400" 
+                      },
+                      { 
+                        label: "Completed", 
+                        value: requests.filter((r) => r.status === "Completed").length, 
+                        icon: FileCheck2, 
+                        color: "text-teal-600 dark:text-teal-400" 
+                      }
+                    ].map((stat, i) => (
+                      <div key={i} className="flex items-center justify-center gap-1.5 py-1">
+                        <stat.icon size={16} className={`${stat.color} stroke-[2.5]`} />
+                        <span className="text-sm font-black text-slate-800 dark:text-white leading-none">{stat.value}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  /* Full Expanded State at Top or when Hovered */
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4 animate-fadeIn">
+                    {[
+                      { 
+                        label: "Pending", 
+                        value: requests.filter((r) => ["Pending", "Processing"].includes(r.status)).length, 
+                        icon: Clock, 
+                        color: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/30" 
+                      },
+                      { 
+                        label: "Approved", 
+                        value: requests.filter((r) => ["Approved", "Released"].includes(r.status)).length, 
+                        icon: CheckCircle, 
+                        color: "text-[#14532D] dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-250 dark:border-emerald-900/30" 
+                      },
+                      { 
+                        label: "Action Needed", 
+                        value: requests.filter((r) => r.status === "Rejected").length, 
+                        icon: AlertCircle, 
+                        color: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border-rose-250 dark:border-rose-900/30" 
+                      },
+                      { 
+                        label: "Completed", 
+                        value: requests.filter((r) => r.status === "Completed").length, 
+                        icon: FileCheck2, 
+                        color: "text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/20 border-teal-250 dark:border-teal-900/30" 
+                      }
+                    ].map((stat, i) => (
+                      <div key={i} className="flex items-center gap-3.5 p-3.5 sm:p-4 rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-xs transition duration-200 hover:shadow-sm">
+                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${stat.color}`}>
+                          <stat.icon size={18} className="stroke-[2.5]" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 truncate">{stat.label}</p>
+                          <p className="text-lg sm:text-xl font-black text-slate-855 dark:text-white mt-0.5 leading-none">{stat.value}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Main Dashboard Workspace Grid */}
-              <div className="bottom-grid">
+              {/* 3. REQUEST DOCUMENTS & ANNOUNCEMENTS (SIDE-BY-SIDE GRID) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 items-start">
                 
-                {/* Left Columns: Recent Requests & Activities */}
-                <div className="lg:col-span-2 space-y-6">
-                  
-                  {/* My Recent Requests list */}
-                  <div className="rounded-2xl border p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-xs">
-                    <div className="border-b border-slate-100 dark:border-slate-800 pb-3 mb-4 flex justify-between items-center">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                        <FileSpreadsheet size={15} className="text-[#14532D] dark:text-emerald-450" />
-                        Recent Requests
-                      </h4>
-                      <span className="text-[10px] font-bold text-slate-400">Last 3 submissions</span>
-                    </div>
-                    
-                    <div className="space-y-2.5">
-                      {filteredRequests.slice(0, 3).map((req) => (
-                        <div
-                          key={req.id}
-                          className="flex items-center justify-between p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-950/20 hover:bg-slate-100/50 dark:hover:bg-slate-950/40 transition duration-200 text-xs font-semibold"
-                        >
-                          <div className="min-w-0 flex-1 pr-4">
-                            <p className="font-bold text-slate-800 dark:text-slate-200 truncate">{req.title}</p>
-                            <p className="text-xs text-slate-450 dark:text-slate-500 mt-1 font-semibold">Submitted: {req.dateLabel}</p>
-                          </div>
-                          
-                          <div className="flex items-center gap-3 shrink-0">
-                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-black border ${getStatusClass(req.status)}`}>
-                              {req.status}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => openModule("my_documents")}
-                              className="text-xs font-black text-[#14532D] dark:text-emerald-450 hover:underline"
-                            >
-                              View
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {filteredRequests.length === 0 && (
-                        <div className="flex flex-col items-center justify-center text-center py-10 space-y-4 animate-fadeIn">
-                          <div className="h-14 w-14 rounded-2xl border-2 border-dashed border-slate-250 dark:border-slate-850 flex items-center justify-center text-slate-350 dark:text-slate-650 bg-slate-50/40 dark:bg-slate-950/20">
-                            <FileText size={24} />
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-sm font-black text-slate-700 dark:text-slate-300">No requests yet.</p>
-                            <p className="text-xs text-slate-450 dark:text-slate-500 font-bold max-w-[240px] leading-normal">Request your first official barangay document to get started.</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => openModule("documents")}
-                            className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 text-xs font-black bg-[#14532D] hover:bg-[#0f3e21] text-white rounded-xl shadow-xs transition duration-200 active:scale-95"
-                          >
-                            <PlusCircle size={13} />
-                            Request Now
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                {/* Left Column: Request Documents */}
+                <div className="rounded-2xl border p-5 sm:p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-xs space-y-4">
+                  <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex justify-between items-center">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                      <ClipboardList size={15} className="text-[#14532D] dark:text-emerald-450" />
+                      Request Documents
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => openModule("documents")}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black bg-[#14532D] hover:bg-[#0f3e21] text-white rounded-lg transition active:scale-95 shadow-2xs"
+                    >
+                      <PlusCircle size={13} />
+                      New Request
+                    </button>
                   </div>
 
-                  {/* Recent Activity Timeline Tracker */}
-                  <div className="rounded-2xl border p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-xs">
-                    <div className="border-b border-slate-100 dark:border-slate-800 pb-3 mb-4 flex justify-between items-center">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                        <TrendingUp size={15} className="text-[#14532D] dark:text-emerald-450" />
-                        Recent Activity
-                      </h4>
-                      <span className="text-[10px] font-bold text-slate-400">Timeline tracker</span>
-                    </div>
-                    <div className="space-y-4 relative pl-3">
-                      {/* Vertical connector line */}
-                      {requests.slice(0, 2).length > 1 && (
-                        <div className="absolute left-[20px] top-3.5 bottom-3.5 w-0.5 border-l-2 border-dashed border-slate-200 dark:border-slate-800 pointer-events-none" />
-                      )}
-                      
-                      {requests.slice(0, 2).map((req) => (
-                        <div key={req.id} className="relative flex gap-4 items-start animate-fadeIn">
-                          <div className={`h-4 w-4 rounded-full flex items-center justify-center shrink-0 z-10 border-2 border-white dark:border-slate-900 ${
-                            req.status === "Approved" || req.status === "Released" ? "bg-emerald-505 bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.16)]" :
-                            req.status === "Rejected" ? "bg-rose-500 shadow-[0_0_0_4px_rgba(244,63,94,0.16)]" :
-                            "bg-amber-500 shadow-[0_0_0_4px_rgba(245,158,11,0.16)]"
-                          }`} />
-                          
-                          <div className="min-w-0 flex-1 border border-slate-100 dark:border-slate-850 rounded-xl p-3.5 bg-slate-50/50 dark:bg-slate-950/20 hover:bg-slate-100/50 dark:hover:bg-slate-950/40 transition duration-200">
-                            <p className="text-xs font-black text-slate-700 dark:text-slate-300 leading-normal">
-                              Clearance request <span className="font-bold text-slate-900 dark:text-white">{req.document_type}</span> status updated to <span className={`inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-black border ${getStatusClass(req.status)}`}>{req.status}</span>
-                            </p>
-                            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold mt-1.5 flex items-center gap-1">
-                              <Clock size={10} />
-                              {new Date(req.updated_at || req.created_at).toLocaleString()}
-                            </p>
-                          </div>
+                  <div className="space-y-2.5">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Recent Request Submissions</p>
+                    {filteredRequests.slice(0, 3).map((req) => (
+                      <div
+                        key={req.id}
+                        className="flex items-center justify-between p-3 rounded-xl border border-slate-150 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 text-xs"
+                      >
+                        <div className="min-w-0 flex-1 pr-2">
+                          <p className="font-bold text-slate-800 dark:text-slate-200 truncate">{req.title}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{req.dateLabel}</p>
                         </div>
-                      ))}
-                      {requests.length === 0 && (
-                        <p className="text-xs text-slate-450 dark:text-slate-500 text-center py-6 font-bold">No activities registered yet.</p>
-                      )}
-                    </div>
+                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black border shrink-0 ${getStatusClass(req.status)}`}>
+                          {req.status}
+                        </span>
+                      </div>
+                    ))}
+
+                    {filteredRequests.length === 0 && (
+                      <div className="text-center py-6 text-xs text-slate-400 font-bold">
+                        No active document requests.
+                      </div>
+                    )}
                   </div>
 
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
+                    <button
+                      type="button"
+                      onClick={() => openModule("my_documents")}
+                      className="text-xs font-black text-[#14532D] dark:text-emerald-400 hover:underline"
+                    >
+                      View All Document Logs →
+                    </button>
+                  </div>
                 </div>
 
-                {/* Right Columns: Announcements & Upcoming events */}
-                <div className="space-y-6">
-                  
-                  {/* Barangay Announcements */}
-                  <div className="rounded-2xl border p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-xs">
-                    <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 mb-3 flex justify-between items-center">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                        <Megaphone size={15} className="text-[#14532D] dark:text-emerald-450" />
-                        Barangay Announcements
-                      </h4>
-                    </div>
-                    <div className="space-y-3.5">
-                      {filteredAnnouncements.slice(0, 3).map((ann) => {
-                        const isUnread = localStorage.getItem(`kaagapai_last_viewed_announcement_id_${resident?.id || ""}`) !== String(ann.id);
-                        return (
-                          <div
-                            key={ann.id}
-                            className="border border-slate-150 dark:border-slate-800/60 p-3.5 rounded-xl flex flex-col justify-between relative bg-slate-50/50 dark:bg-slate-950/20 hover:bg-slate-100/50 dark:hover:bg-slate-950/40 transition duration-200 animate-fadeIn"
-                          >
-                            {isUnread && (
-                              <span className="absolute top-3 right-3 flex h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
-                            )}
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black uppercase tracking-wider bg-[#14532D]/10 text-[#14532D] dark:bg-emerald-500/10 dark:text-emerald-400 px-2 py-0.5 rounded-md">
-                                  {ann.category || "General"}
-                                </span>
-                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold">
-                                  {new Date(ann.created_at || ann.published_at).toLocaleDateString()}
-                                </span>
-                              </div>
-                              <h5 className="text-sm font-black text-slate-855 dark:text-slate-200 mt-2 truncate">{ann.title}</h5>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-1 leading-relaxed font-semibold">{ann.body}</p>
+                {/* Right Column: Barangay Announcements */}
+                <div className="rounded-2xl border p-5 sm:p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-xs space-y-4">
+                  <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex justify-between items-center">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                      <Megaphone size={15} className="text-[#14532D] dark:text-emerald-450" />
+                      Barangay Announcements
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => openModule("announcements")}
+                      className="text-[10px] font-black text-[#14532D] dark:text-emerald-400 hover:underline"
+                    >
+                      View All →
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {filteredAnnouncements.slice(0, 3).map((ann) => {
+                      const isUnread = localStorage.getItem(`kaagapai_last_viewed_announcement_id_${resident?.id || ""}`) !== String(ann.id);
+                      return (
+                        <div
+                          key={ann.id}
+                          className="border border-slate-150 dark:border-slate-800/60 p-3.5 rounded-xl flex flex-col justify-between relative bg-slate-50/50 dark:bg-slate-950/20 hover:bg-slate-100/50 transition duration-200"
+                        >
+                          {isUnread && (
+                            <span className="absolute top-3 right-3 flex h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
+                          )}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black uppercase tracking-wider bg-[#14532D]/10 text-[#14532D] dark:bg-emerald-500/10 dark:text-emerald-400 px-2 py-0.5 rounded-md">
+                                {ann.category || "General"}
+                              </span>
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold">
+                                {new Date(ann.created_at || ann.published_at).toLocaleDateString()}
+                              </span>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                localStorage.setItem("kaagapai_last_viewed_announcement_id", String(ann.id));
-                                openModule("announcements");
-                              }}
-                              className="mt-3 text-right text-xs font-black text-[#14532D] dark:text-emerald-400 hover:underline flex items-center justify-end gap-0.5"
-                            >
-                              Read More →
-                            </button>
+                            <h5 className="text-sm font-black text-slate-800 dark:text-slate-200 mt-2 truncate">{ann.title}</h5>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-1 leading-relaxed font-semibold">{ann.body}</p>
                           </div>
-                        );
-                      })}
-                      
-                      {publishedAnnouncements.length > 3 && (
-                        <div className="pt-2 text-center">
                           <button
                             type="button"
-                            onClick={() => openModule("announcements")}
-                            className="text-xs font-black text-[#14532D] dark:text-emerald-400 hover:underline"
+                            onClick={() => {
+                              localStorage.setItem("kaagapai_last_viewed_announcement_id", String(ann.id));
+                              openModule("announcements");
+                            }}
+                            className="mt-2 text-right text-xs font-black text-[#14532D] dark:text-emerald-400 hover:underline flex items-center justify-end gap-0.5"
                           >
-                            View All Announcements →
+                            Read More →
                           </button>
                         </div>
-                      )}
-                      
-                      {publishedAnnouncements.length === 0 && (
-                        <p className="text-xs text-slate-450 dark:text-slate-500 text-center py-6 font-bold">No announcements yet.</p>
-                      )}
-                    </div>
-                  </div>
+                      );
+                    })}
 
-                  {/* Upcoming events list */}
-                  <div className="rounded-2xl border p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-xs">
-                    <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 mb-3 flex justify-between items-center">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                        <Calendar size={15} className="text-[#14532D] dark:text-emerald-450" />
-                        Upcoming Events
-                      </h4>
-                    </div>
-                    <div className="space-y-3">
-                      {opportunities.slice(0, 3).map((opp) => (
-                        <div
-                          key={opp.id}
-                          className="border border-slate-150 dark:border-slate-800/60 p-3.5 rounded-xl bg-slate-50/50 dark:bg-slate-950/20 hover:bg-slate-100/50 dark:hover:bg-slate-950/40 transition duration-200 animate-fadeIn"
-                        >
-                          <h5 className="text-sm font-black text-slate-855 dark:text-slate-200 truncate">{opp.title}</h5>
-                          <div className="mt-2 space-y-1.5 text-xs text-slate-500 dark:text-slate-400 font-semibold flex flex-col">
-                            <span className="flex items-center gap-1.5">
-                              <Calendar size={12} className="text-[#14532D] dark:text-emerald-400 shrink-0" />
-                              {new Date(opp.deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                              <MapPin size={12} className="text-[#14532D] dark:text-emerald-450 shrink-0" />
-                              {opp.location || "Community Hall"}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                      {opportunities.length === 0 && (
-                        <p className="text-xs text-slate-455 dark:text-slate-500 text-center py-6 font-bold">No scheduled activities.</p>
-                      )}
-                    </div>
+                    {publishedAnnouncements.length === 0 && (
+                      <p className="text-xs text-slate-400 text-center py-6 font-bold">No announcements published yet.</p>
+                    )}
                   </div>
+                </div>
+              </div>
 
+              {/* 4. UPCOMING EVENTS */}
+              <div className="rounded-2xl border p-5 sm:p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-xs space-y-4">
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex justify-between items-center">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <Calendar size={15} className="text-[#14532D] dark:text-emerald-450" />
+                    Upcoming Events & Livelihood Opportunities
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => openModule("livelihood")}
+                    className="text-[10px] font-black text-[#14532D] dark:text-emerald-400 hover:underline"
+                  >
+                    View All →
+                  </button>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {opportunities.slice(0, 3).map((opp) => (
+                    <div key={opp.id} className="border border-slate-150 dark:border-slate-800/60 p-4 rounded-xl flex flex-col justify-between bg-slate-50/50 dark:bg-slate-950/20 hover:bg-slate-100/50 transition">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-md">
+                          {opp.category || "General Event"}
+                        </span>
+                        <h5 className="text-sm font-black text-slate-800 dark:text-slate-100 mt-2 truncate">{opp.title}</h5>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-1 font-semibold">{opp.description}</p>
+                      </div>
+                      <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-[11px] font-bold text-slate-400">
+                        <span>📅 {opp.deadline ? new Date(opp.deadline).toLocaleDateString() : "Ongoing"}</span>
+                        <button
+                          type="button"
+                          onClick={() => openJobApplication(opp)}
+                          className="text-xs font-black text-[#14532D] dark:text-emerald-400 hover:underline"
+                        >
+                          Apply →
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {opportunities.length === 0 && (
+                    <p className="col-span-full text-xs text-slate-400 text-center py-6 font-bold">No scheduled upcoming events.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* 5. RECENT ACTIVITIES (SA PINAKA-BABA) */}
+              <div className="rounded-2xl border p-5 sm:p-6 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 shadow-xs space-y-4">
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex justify-between items-center">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <TrendingUp size={15} className="text-[#14532D] dark:text-emerald-450" />
+                    Recent Activity Log
+                  </h4>
+                  <span className="text-[10px] font-bold text-slate-400">Timeline tracker</span>
+                </div>
+
+                <div className="space-y-3.5 relative pl-3">
+                  {requests.slice(0, 4).length > 1 && (
+                    <div className="absolute left-[20px] top-3.5 bottom-3.5 w-0.5 border-l-2 border-dashed border-slate-200 dark:border-slate-800 pointer-events-none" />
+                  )}
+                  
+                  {requests.slice(0, 4).map((req) => (
+                    <div key={req.id} className="relative flex gap-4 items-start animate-fadeIn">
+                      <div className={`h-4 w-4 rounded-full flex items-center justify-center shrink-0 z-10 border-2 border-white dark:border-slate-900 ${
+                        req.status === "Approved" || req.status === "Released" ? "bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.16)]" :
+                        req.status === "Rejected" ? "bg-rose-500 shadow-[0_0_0_4px_rgba(244,63,94,0.16)]" :
+                        "bg-amber-500 shadow-[0_0_0_4px_rgba(245,158,11,0.16)]"
+                      }`} />
+                      
+                      <div className="min-w-0 flex-1 border border-slate-100 dark:border-slate-850 rounded-xl p-3.5 bg-slate-50/50 dark:bg-slate-950/20 hover:bg-slate-100/50 transition">
+                        <p className="text-xs font-black text-slate-700 dark:text-slate-300 leading-normal">
+                          Clearance request <span className="font-bold text-slate-900 dark:text-white">{req.document_type}</span> status updated to <span className={`inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-black border ${getStatusClass(req.status)}`}>{req.status}</span>
+                        </p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold mt-1 flex items-center gap-1">
+                          <Clock size={10} />
+                          {new Date(req.updated_at || req.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+
+                  {requests.length === 0 && (
+                    <p className="text-xs text-slate-400 text-center py-6 font-bold">No activities registered yet.</p>
+                  )}
+                </div>
               </div>
 
             </div>
@@ -3264,7 +3317,7 @@ const UserDashboard = () => {
                         type="text"
                         value={profileForm.address}
                         onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
-                        placeholder="Street name, landmark details..."
+                        placeholder="Sitio, street, landmark, or household notes"
                         className={`mt-2 w-full rounded-xl border px-3.5 py-2.5 text-xs font-semibold outline-none focus:border-[#0B5D3B] transition ${
                           isDarkMode ? "bg-slate-950 border-slate-800 text-white focus:bg-slate-900" : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 focus:bg-white dark:bg-slate-900"
                         }`}
@@ -3904,22 +3957,68 @@ const UserDashboard = () => {
         </div>
       </main>
 
-      {/* 5. Floating Circular AI Assistant (Slide-in Drawer Concierge Trigger) */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <motion.button
-          type="button"
-          onClick={() => setAssistantOpen(!assistantOpen)}
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#0B5D3B] via-[#0E6B46] to-[#157347] text-white shadow-[0_8px_30px_rgba(11,93,59,0.35)] hover:shadow-[0_8px_30px_rgba(11,93,59,0.55)] focus:outline-none transition relative"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          animate={assistantOpen ? {} : { y: [0, -4, 0] }}
-          transition={assistantOpen ? {} : { duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-        >
-          {!assistantOpen && (
-            <span className="absolute -inset-1 rounded-full bg-emerald-600/20 animate-ping" style={{ animationDuration: "3s" }} />
+      {/* 5. Meta AI Style Alternating Pill Chatbot FAB Button */}
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50">
+        <div className="relative">
+          {!assistantOpen && !chatFabExpanded && (
+            <span 
+              className="absolute -inset-1 rounded-full border border-[#C8A14A] bg-[#C8A14A]/20 animate-ping pointer-events-none" 
+              style={{ animationDuration: "2.8s" }} 
+            />
           )}
-          {assistantOpen ? <X size={20} /> : <Bot size={20} />}
-        </motion.button>
+
+          {/* Main Floating Button / Pill Container */}
+          <motion.button
+            type="button"
+            onClick={() => setAssistantOpen(!assistantOpen)}
+            layout
+            initial={{ borderRadius: 9999 }}
+            animate={{ borderRadius: 9999 }}
+            transition={{ layout: { duration: 0.45, ease: [0.16, 1, 0.3, 1] } }}
+            className="flex items-center gap-2 bg-gradient-to-br from-[#14532D] via-[#0E6B46] to-[#0a2916] text-white shadow-xl border-2 border-[#C8A14A] p-1 cursor-pointer overflow-hidden backdrop-blur-md hover:shadow-[0_8px_30px_rgba(200,161,74,0.45)] transition-all shrink-0"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            title="KaagapAI Virtual Assistant"
+          >
+            {assistantOpen ? (
+              <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-rose-700/90 text-white shrink-0 shadow-xs">
+                <X size={18} />
+              </div>
+            ) : (
+              <>
+                {/* Barangay Seal Logo Icon */}
+                <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-white p-0.5 flex items-center justify-center overflow-hidden shrink-0 shadow-inner ring-1 ring-emerald-900/20">
+                  <img
+                    src="/logo.png"
+                    alt="Barangay Seal"
+                    className="h-full w-full object-contain rounded-full shrink-0"
+                    onError={(e) => {
+                      e.target.src = "https://placehold.co/100x100/14532d/ffffff?text=Brgy";
+                    }}
+                  />
+                </div>
+
+                {/* 5-Second Alternating Meta AI "Ask KaagapAI" Pill Label */}
+                <AnimatePresence mode="wait">
+                  {chatFabExpanded && (
+                    <motion.div
+                      initial={{ width: 0, opacity: 0 }}
+                      animate={{ width: "auto", opacity: 1 }}
+                      exit={{ width: 0, opacity: 0 }}
+                      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                      className="overflow-hidden whitespace-nowrap pr-3 pl-0.5"
+                    >
+                      <span className="text-xs sm:text-sm font-black tracking-wide text-white flex items-center gap-1.5">
+                        Ask KaagapAI
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      </span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            )}
+          </motion.button>
+        </div>
       </div>
 
       {/* AI Slide-in Chat Panel Drawer (Microsoft / Apple Glassmorphic side panel) */}

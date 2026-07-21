@@ -207,7 +207,7 @@ const AIKnowledge = () => {
 
   return (
     <div className="min-h-screen bg-[#eef3f8]">
-      <Header title="Resident Knowledge Trainer" subtitle="Manage the data used by the resident assistant" />
+      <Header title="AI Knowledge Trainer" subtitle="Manage the data used by the resident assistant" />
       <main className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 lg:px-8">
         {message ? (
           <div
@@ -370,7 +370,7 @@ const AIKnowledge = () => {
             <div className="mb-5 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-[#17233c]">
-                  {editingItem ? "Edit Resident Knowledge" : "New Resident Knowledge"}
+                  {editingItem ? "Edit AI Knowledge" : "New AI Knowledge"}
                 </h2>
                 {editingItem?.source_type && editingItem.source_type !== "manual" ? (
                   <p className="mt-1 text-xs text-amber-700">

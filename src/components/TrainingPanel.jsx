@@ -47,7 +47,7 @@ const TrainingPanel = () => {
     <section className="blue-glass-surface overflow-hidden rounded-lg">
       <div className="flex items-center justify-between border-b border-slate-200/70 bg-white/45 px-5 py-4">
         <div>
-          <h2 className="text-base font-bold text-[#10213f]">Resident Knowledge Trainer</h2>
+          <h2 className="text-base font-bold text-[#10213f]">AI Knowledge Trainer</h2>
           <p className="mt-1 text-xs font-medium text-slate-500">{activeCount} active resident-facing item(s)</p>
         </div>
         <Link className="rounded-md px-2 py-1 text-xs font-semibold text-blue-700 transition hover:bg-blue-50 hover:text-blue-800" to="/ai-knowledge">

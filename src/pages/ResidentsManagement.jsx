@@ -511,17 +511,30 @@ const ResidentForm = memo(function ResidentForm({
           </div>
         )}
 
-        <label className="mt-4 block text-sm font-semibold text-slate-700">
-          Gmail Account <span className="text-slate-400 font-normal">(optional)</span>
-          <input
-            type="email"
-            name="email"
-            value={formData.email || ""}
-            onChange={handleInputChange}
-            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-            placeholder="example@gmail.com"
-          />
-        </label>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="block text-sm font-semibold text-slate-700">
+            Address Notes <span className="text-slate-400 font-normal">(optional)</span>
+            <input
+              type="text"
+              name="address"
+              value={formData.address || ""}
+              onChange={handleInputChange}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              placeholder="Sitio, street, landmark, or household notes"
+            />
+          </label>
+          <label className="block text-sm font-semibold text-slate-700">
+            Gmail Account <span className="text-slate-400 font-normal">(optional)</span>
+            <input
+              type="email"
+              name="email"
+              value={formData.email || ""}
+              onChange={handleInputChange}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              placeholder="example@gmail.com"
+            />
+          </label>
+        </div>
       </section>
 
       <section className="rounded-lg border border-slate-200 p-4">

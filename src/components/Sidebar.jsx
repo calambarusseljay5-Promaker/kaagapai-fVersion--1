@@ -31,7 +31,7 @@ const navigationGroups = [
       { name: "Document Management", icon: "FileText", path: "/documents" },
       { name: "Announcements", icon: "Megaphone", path: "/announcements" },
       { name: "Livelihood & Jobs", icon: "Briefcase", path: "/livelihood" },
-      { name: "Resident Knowledge", icon: "BrainCircuit", path: "/ai-knowledge" },
+      { name: "AI Knowledge", icon: "BrainCircuit", path: "/ai-knowledge" },
       { name: "Reports & Analytics", icon: "BarChart3", path: "/analytics" },
       { name: "Resident Registration", icon: "UserCheck", path: "/resident-activations" },
       { name: "Archive", icon: "Archive", path: "/archive" },
@@ -94,12 +94,9 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
       loadPendingCount();
     });
 
-    window.addEventListener("focus", loadPendingCount);
-
     return () => {
       isMounted = false;
       unsubscribe();
-      window.removeEventListener("focus", loadPendingCount);
     };
   }, []);
 

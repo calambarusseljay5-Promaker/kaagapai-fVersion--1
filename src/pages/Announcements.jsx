@@ -188,7 +188,6 @@ const buildAnnouncementSmsMessage = (announcement) =>
     announcement.title ? `Title: ${announcement.title}` : "",
     announcement.body || "",
     announcement.publish_date ? `Date: ${formatDate(announcement.publish_date)}` : "",
-    "Open: https://kaagapai-f-version-1.vercel.app",
   ]
     .filter(Boolean)
     .join("\n")

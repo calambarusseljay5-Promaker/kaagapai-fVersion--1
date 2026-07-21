@@ -144,14 +144,10 @@ const Header = ({ title, subtitle, middleContent = null, actions = null, classNa
     const unsubscribe = subscribeAdminNotificationChanges(() => {
       refresh({ silent: true });
     });
-    const refreshOnFocus = () => refresh({ silent: true });
-
-    window.addEventListener("focus", refreshOnFocus);
 
     return () => {
       isMounted = false;
       unsubscribe();
-      window.removeEventListener("focus", refreshOnFocus);
     };
   }, [loadNotifications]);
 
